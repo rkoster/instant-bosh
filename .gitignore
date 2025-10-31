@@ -1,0 +1,5 @@
+# Variables file (may contain credentials)
+vars.yml
+
+# Runtime data directories
+data/

@@ -1,0 +1,13 @@
+---
+# Add stemcells section to BOSH manifest
+- type: replace
+  path: /stemcells?
+  value:
+  - alias: default
+    os: ubuntu-jammy
+    version: latest
+
+# Add stemcell reference to bosh instance group
+- type: replace
+  path: /instance_groups/name=bosh/stemcell?
+  value: default
