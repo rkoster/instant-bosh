@@ -1,0 +1,13 @@
+apiVersion: vendir.k14s.io/v1alpha1
+kind: Config
+directories:
+- path: vendor
+  contents:
+  - path: bosh-deployment
+    git:
+      url: https://github.com/cloudfoundry/bosh-deployment/
+      ref: origin/master
+    includePaths:
+    - bosh.yml
+    - docker/cpi.yml
+    - docker/unix-sock.yml

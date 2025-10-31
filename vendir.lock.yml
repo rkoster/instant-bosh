@@ -1,0 +1,11 @@
+apiVersion: vendir.k14s.io/v1alpha1
+directories:
+- contents:
+  - git:
+      commitTitle: 'Merge pull request #488 from cloudfoundry/fix-pr-487...'
+      sha: 045ef139332c18d1152eaf475096970eb029a98b
+      tags:
+      - last-xenial-4048-g045ef139
+    path: bosh-deployment
+  path: vendor
+kind: LockConfig
