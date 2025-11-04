@@ -3,3 +3,4 @@ vars.yml
 
 # Runtime data directories
 data/
+stemcells/
