@@ -1,0 +1,7 @@
+---
+# Speed up NATS sync interval for faster VM agent authentication
+# Default is 10 seconds, setting to 1 second for quicker agent pongs
+
+- type: replace
+  path: /instance_groups/name=bosh/properties/nats-sync?/intervals?/poll_user_sync?
+  value: 1
