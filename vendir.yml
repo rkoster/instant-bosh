@@ -11,3 +11,4 @@ directories:
     - bosh.yml
     - docker/cpi.yml
     - docker/unix-sock.yml
+    - docker/cloud-config.yml

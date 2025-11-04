@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Merge pull request #488 from cloudfoundry/fix-pr-487...'
-      sha: 045ef139332c18d1152eaf475096970eb029a98b
+      commitTitle: Bumping CPI bosh-aws-cpi to version 107.0.0
+      sha: 54141a3ef2af0e4908b3e308a1d24c7794a3afb5
       tags:
-      - last-xenial-4048-g045ef139
+      - last-xenial-4164-g54141a3e
     path: bosh-deployment
   path: vendor
 kind: LockConfig

@@ -1,0 +1,11 @@
+---
+# Docker networking configuration for instant-bosh
+#
+# With internal_ip set to 10.245.0.10 (Docker network IP):
+# - All BOSH components use the Docker network IP by default
+# - Add 127.0.0.1 to director SSL cert so CLI can access via localhost from host
+
+# Add 127.0.0.1 to director TLS certificate SANs for CLI access from host
+- type: replace
+  path: /variables/name=director_ssl/options/alternative_names/-
+  value: 127.0.0.1
