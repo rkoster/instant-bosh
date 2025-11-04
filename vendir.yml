@@ -12,3 +12,4 @@ directories:
     - docker/cpi.yml
     - docker/unix-sock.yml
     - docker/cloud-config.yml
+    - jumpbox-user.yml

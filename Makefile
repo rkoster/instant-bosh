@@ -28,6 +28,8 @@ build:
 		--ops-file ops-docker-localhost.yml \
                 --ops-file ops-fast-nats-sync.yml \
 		--ops-file ops-disable-short-lived-nats-credentials.yml \
+		--ops-file vendor/bosh-deployment/jumpbox-user.yml \
+		--ops-file ops-start-sshd.yml \
 		--vars-file vars.yml \
 		--output instant-bosh:latest
 
@@ -41,6 +43,8 @@ dev-bob-build:
 		--ops-file ../instant-bosh/ops-docker-localhost.yml \
                 --ops-file ../instant-bosh/ops-fast-nats-sync.yml \
 		--ops-file ../instant-bosh/ops-disable-short-lived-nats-credentials.yml \
+		--ops-file ../instant-bosh/vendor/bosh-deployment/jumpbox-user.yml \
+		--ops-file ../instant-bosh/ops-start-sshd.yml \
 		--vars-file ../instant-bosh/vars.yml \
 		--output instant-bosh:latest
 
@@ -53,6 +57,7 @@ run:
 		--network instant-bosh \
 		--ip 10.245.0.10 \
 		-p 25555:25555 \
+		-p 2222:22 \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-v instant-bosh-store:/var/vcap/store \
 		-v instant-bosh-data:/var/vcap/data \
@@ -98,6 +103,26 @@ run:
 	BOSH_CA_CERT=$$DIRECTOR_CERT \
 	bosh update-cloud-config vendor/bosh-deployment/docker/cloud-config.yml -v network=instant-bosh -n
 	@echo "Cloud config updated successfully!"
+	@echo ""
+	@echo "Uploading os-conf-release for VM SSH support..."
+	@ADMIN_PASSWORD=$$(docker exec instant-bosh cat /var/vcap/store/vars-store.yml 2>/dev/null | bosh int - --path=/admin_password); \
+	DIRECTOR_CERT=$$(docker exec instant-bosh cat /var/vcap/store/vars-store.yml 2>/dev/null | bosh int - --path=/director_ssl/ca); \
+	BOSH_CLIENT=admin \
+	BOSH_CLIENT_SECRET=$$ADMIN_PASSWORD \
+	BOSH_ENVIRONMENT=https://127.0.0.1:25555 \
+	BOSH_CA_CERT=$$DIRECTOR_CERT \
+	bosh upload-release https://bosh.io/d/github.com/cloudfoundry/os-conf-release
+	@echo "os-conf-release uploaded successfully!"
+	@echo ""
+	@echo "Updating runtime config to enable SSH on VMs..."
+	@ADMIN_PASSWORD=$$(docker exec instant-bosh cat /var/vcap/store/vars-store.yml 2>/dev/null | bosh int - --path=/admin_password); \
+	DIRECTOR_CERT=$$(docker exec instant-bosh cat /var/vcap/store/vars-store.yml 2>/dev/null | bosh int - --path=/director_ssl/ca); \
+	BOSH_CLIENT=admin \
+	BOSH_CLIENT_SECRET=$$ADMIN_PASSWORD \
+	BOSH_ENVIRONMENT=https://127.0.0.1:25555 \
+	BOSH_CA_CERT=$$DIRECTOR_CERT \
+	bosh update-runtime-config runtime-config-enable-vm-ssh.yml -n
+	@echo "Runtime config updated successfully!"
 
 # Stop the running BOSH container
 stop:
@@ -135,7 +160,14 @@ print-env:
 	fi
 	@ADMIN_PASSWORD=$$(docker exec instant-bosh cat /var/vcap/store/vars-store.yml 2>/dev/null | bosh int - --path=/admin_password); \
 	DIRECTOR_CERT=$$(docker exec instant-bosh cat /var/vcap/store/vars-store.yml 2>/dev/null | bosh int - --path=/director_ssl/ca); \
+	JUMPBOX_KEY=$$(docker exec instant-bosh cat /var/vcap/store/vars-store.yml 2>/dev/null | bosh int - --path=/jumpbox_ssh/private_key); \
+	JUMPBOX_KEY_FILE=$$(mktemp /tmp/jumpbox-key.XXXXXX); \
+	echo "$$JUMPBOX_KEY" > $$JUMPBOX_KEY_FILE; \
+	chmod 600 $$JUMPBOX_KEY_FILE; \
 	echo "export BOSH_CLIENT=admin"; \
 	echo "export BOSH_CLIENT_SECRET=$$ADMIN_PASSWORD"; \
 	echo "export BOSH_ENVIRONMENT=https://127.0.0.1:25555"; \
-	echo "export BOSH_CA_CERT='$$DIRECTOR_CERT'"
+	echo "export BOSH_CA_CERT='$$DIRECTOR_CERT'"; \
+	echo "export BOSH_ALL_PROXY=ssh+socks5://jumpbox@localhost:2222?private-key=$$JUMPBOX_KEY_FILE"
+
+

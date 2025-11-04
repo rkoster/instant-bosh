@@ -1,1 +1,93 @@
 # instant-bosh
+
+A containerized BOSH director for local development and testing.
+
+## Features
+
+- BOSH director running in a Docker container
+- Docker CPI for deploying VMs as containers
+- Automatic cloud-config setup
+- SSH support for VMs (via runtime-config)
+- Jumpbox user for proxying SSH connections
+
+## Quick Start
+
+```bash
+# Build the BOSH director image
+make build
+
+# Run the director (includes cloud-config and runtime-config setup)
+make run
+
+# Set BOSH CLI environment variables
+eval "$(make print-env)"
+
+# Verify BOSH is running
+bosh env
+```
+
+## Usage
+
+### Available Makefile Targets
+
+- `make build` - Build BOSH OCI image using bob
+- `make run` - Run the director and configure it automatically
+- `make stop` - Stop the running director
+- `make logs` - Show director logs
+- `make print-env` - Print BOSH CLI environment variables
+- `make clean` - Stop container and remove image (keeps volumes)
+- `make reset` - Full reset (removes everything including volumes)
+
+### Deploying Workloads
+
+After running `make run` and setting the environment with `eval "$(make print-env)"`, you can deploy BOSH releases:
+
+```bash
+# Deploy a sample zookeeper cluster
+bosh deploy -d zookeeper test/manifest/zookeeper.yml
+
+# SSH into a VM
+bosh -d zookeeper ssh zookeeper/0
+
+# List instances
+bosh -d zookeeper instances
+```
+
+## Architecture
+
+### Components
+
+- **Director**: BOSH director running in a Docker container
+- **Docker CPI**: Cloud Provider Interface for creating VMs as Docker containers
+- **Jumpbox**: SSH gateway running on the director (port 2222)
+- **Runtime Config**: Automatically enables SSH on all VMs
+
+### VM SSH Support
+
+Since systemd services don't auto-start in Docker containers, SSH must be explicitly started on VMs. This is handled automatically via:
+
+1. **os-conf-release**: Provides the `pre-start-script` job
+2. **Runtime Config** (`runtime-config-enable-vm-ssh.yml`): Applies the SSH startup script to all VMs
+
+The `make run` target automatically:
+- Uploads the `os-conf-release`
+- Applies the runtime config
+- Configures cloud-config
+
+### BOSH CLI Proxy Setup
+
+The `BOSH_ALL_PROXY` environment variable enables the BOSH CLI to proxy both API calls and SSH connections through the director:
+
+```bash
+BOSH_ALL_PROXY=ssh+socks5://jumpbox@localhost:2222?private-key=/tmp/jumpbox-key.XXXXXX
+```
+
+This allows `bosh ssh` to work seamlessly with VMs running as Docker containers.
+
+## Files
+
+- `Makefile` - Build and run automation
+- `runtime-config-enable-vm-ssh.yml` - Runtime config to enable SSH on VMs
+- `ops-*.yml` - Ops files for customizing the BOSH director
+- `vendor/bosh-deployment/` - Vendored BOSH deployment manifests
+- `test/manifest/` - Example deployment manifests
