@@ -26,7 +26,8 @@ build:
 		--ops-file vendor/bosh-deployment/docker/unix-sock.yml \
 		--ops-file ops-stemcell.yml \
 		--ops-file ops-docker-localhost.yml \
-		--ops-file ops-fast-nats-sync.yml \
+                --ops-file ops-fast-nats-sync.yml \
+		--ops-file ops-disable-short-lived-nats-credentials.yml \
 		--vars-file vars.yml \
 		--output instant-bosh:latest
 
@@ -38,7 +39,8 @@ dev-bob-build:
 		--ops-file ../instant-bosh/vendor/bosh-deployment/docker/unix-sock.yml \
 		--ops-file ../instant-bosh/ops-stemcell.yml \
 		--ops-file ../instant-bosh/ops-docker-localhost.yml \
-		--ops-file ../instant-bosh/ops-fast-nats-sync.yml \
+                --ops-file ../instant-bosh/ops-fast-nats-sync.yml \
+		--ops-file ../instant-bosh/ops-disable-short-lived-nats-credentials.yml \
 		--vars-file ../instant-bosh/vars.yml \
 		--output instant-bosh:latest
 
