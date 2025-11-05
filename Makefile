@@ -24,12 +24,12 @@ build:
 		--manifest vendor/bosh-deployment/bosh.yml \
 		--ops-file vendor/bosh-deployment/docker/cpi.yml \
 		--ops-file vendor/bosh-deployment/docker/unix-sock.yml \
-		--ops-file ops-stemcell.yml \
-		--ops-file ops-docker-localhost.yml \
-                --ops-file ops-fast-nats-sync.yml \
-		--ops-file ops-disable-short-lived-nats-credentials.yml \
+		--ops-file ops/stemcell.yml \
+		--ops-file ops/docker-localhost.yml \
+                --ops-file ops/fast-nats-sync.yml \
+		--ops-file ops/disable-short-lived-nats-credentials.yml \
 		--ops-file vendor/bosh-deployment/jumpbox-user.yml \
-		--ops-file ops-start-sshd.yml \
+		--ops-file ops/start-sshd.yml \
 		--vars-file vars.yml \
 		--output instant-bosh:latest
 
@@ -39,12 +39,12 @@ dev-bob-build:
 		--manifest ../instant-bosh/vendor/bosh-deployment/bosh.yml \
 		--ops-file ../instant-bosh/vendor/bosh-deployment/docker/cpi.yml \
 		--ops-file ../instant-bosh/vendor/bosh-deployment/docker/unix-sock.yml \
-		--ops-file ../instant-bosh/ops-stemcell.yml \
-		--ops-file ../instant-bosh/ops-docker-localhost.yml \
-                --ops-file ../instant-bosh/ops-fast-nats-sync.yml \
-		--ops-file ../instant-bosh/ops-disable-short-lived-nats-credentials.yml \
+		--ops-file ../instant-bosh/ops/stemcell.yml \
+		--ops-file ../instant-bosh/ops/docker-localhost.yml \
+                --ops-file ../instant-bosh/ops/fast-nats-sync.yml \
+		--ops-file ../instant-bosh/ops/disable-short-lived-nats-credentials.yml \
 		--ops-file ../instant-bosh/vendor/bosh-deployment/jumpbox-user.yml \
-		--ops-file ../instant-bosh/ops-start-sshd.yml \
+		--ops-file ../instant-bosh/ops/start-sshd.yml \
 		--vars-file ../instant-bosh/vars.yml \
 		--output instant-bosh:latest
 
