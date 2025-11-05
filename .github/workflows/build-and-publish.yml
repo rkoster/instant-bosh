@@ -13,7 +13,7 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs_on: arc-runner-rkoster-instant-bosh
     timeout-minutes: 60
     permissions:
       contents: read
