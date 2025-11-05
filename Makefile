@@ -20,7 +20,7 @@ sync:
 
 # Build BOSH OCI image
 build:
-	DOCKER_HOST=unix://$(HOME)/.config/colima/default/docker.sock bob build \
+	bob build \
 		--manifest vendor/bosh-deployment/bosh.yml \
 		--ops-file vendor/bosh-deployment/docker/cpi.yml \
 		--ops-file vendor/bosh-deployment/docker/unix-sock.yml \
