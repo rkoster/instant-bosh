@@ -29,6 +29,27 @@ jobs:
           extra-conf: |
             extra-experimental-features = nix-command flakes
 
+      - name: Start Nix Daemon
+        run: |
+          # Create the daemon socket directory if it doesn't exist
+          sudo mkdir -p /nix/var/nix/daemon-socket
+          
+          # Start the Nix daemon in the background
+          sudo /nix/var/nix/profiles/default/bin/nix-daemon &
+          
+          # Wait for the daemon to be ready
+          for i in {1..10}; do
+            if [ -S /nix/var/nix/daemon-socket/socket ]; then
+              echo "Nix daemon started successfully"
+              break
+            fi
+            echo "Waiting for Nix daemon to start... ($i/10)"
+            sleep 1
+          done
+          
+          # Verify daemon is accessible
+          nix --version
+
       - name: Install Devbox
         uses: jetify-com/devbox-install-action@v0.11.0
         with:
