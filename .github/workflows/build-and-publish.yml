@@ -46,15 +46,26 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v14
-        with:
-          start-daemon: false
-          extra-conf: |
-            extra-experimental-features = nix-command flakes
+      - name: Install Nix manually (for GitHub Actions Controller compatibility)
+        run: |
+          # Install Nix with --init none to skip daemon setup
+          curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | \
+            sh -s -- install linux \
+            --extra-conf "extra-experimental-features = nix-command flakes" \
+            --init none \
+            --no-confirm
+          
+          # Source the nix profile
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          
+          echo "Nix installed, version:"
+          nix --version
 
       - name: Start Nix Daemon
         run: |
+          # Source nix profile
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          
           # Create the daemon socket directory if it doesn't exist
           sudo mkdir -p /nix/var/nix/daemon-socket
           
@@ -71,18 +82,27 @@ jobs:
             sleep 1
           done
           
-          # Verify daemon is accessible
-          nix --version
+          # Test that nix commands work
+          nix-store --version
 
       - name: Install Devbox
-        uses: jetify-com/devbox-install-action@v0.11.0
-        with:
-          skip-nix-installation: true
+        run: |
+          # Source nix profile
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          
+          # Install devbox
+          curl -fsSL https://get.jetify.com/devbox | bash -s -- -f
+          
+          # Verify installation
+          devbox version
 
       - name: Install bob (BOSH OCI Builder)
         env:
           GH_TOKEN: ${{ secrets.GIT_BOB_PULL_SECRET }}
         run: |
+          # Source nix profile
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          
           # Clone the bob repository using the token
           git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
           
@@ -94,7 +114,12 @@ jobs:
 
       - name: Build BOSH OCI image with bob
         timeout-minutes: 30
-        run: devbox run -- make build
+        run: |
+          # Source nix profile
+          . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+          
+          # Build the image
+          devbox run -- make build
 
       - name: Tag and push image
         run: |
