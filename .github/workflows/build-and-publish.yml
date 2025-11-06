@@ -6,6 +6,11 @@ on:
       - '**'
     tags:
       - 'v*'
+    paths:
+      - 'ops/**'
+      - 'vendor/**'
+      - 'Makefile'
+      - '.github/workflows/build-and-publish.yml'
 
 env:
   REGISTRY: ghcr.io
