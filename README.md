@@ -16,27 +16,41 @@ A containerized BOSH director for local development and testing.
 # Build the BOSH director image
 make build
 
-# Run the director (includes cloud-config and runtime-config setup)
-make run
+# Start the director using ibosh CLI
+ibosh start
 
 # Set BOSH CLI environment variables
 eval "$(make print-env)"
 
 # Verify BOSH is running
 bosh env
+
+# Check instant-bosh status
+ibosh status
+
+# Stop the director
+ibosh stop
+
+# Completely destroy instant-bosh and all resources
+ibosh destroy
 ```
 
 ## Usage
 
+### ibosh CLI Commands
+
+The `ibosh` CLI provides a streamlined interface for managing instant-bosh:
+
+- `ibosh start` - Start the instant-bosh director (creates volumes, network, and container)
+- `ibosh stop` - Stop the running director
+- `ibosh status` - Show status of instant-bosh and containers on the network
+- `ibosh destroy` - Remove all instant-bosh resources (container, volumes, network, and network containers)
+
 ### Available Makefile Targets
 
 - `make build` - Build BOSH OCI image using bob
-- `make run` - Run the director and configure it automatically
-- `make stop` - Stop the running director
 - `make logs` - Show director logs
 - `make print-env` - Print BOSH CLI environment variables
-- `make clean` - Stop container and remove image (keeps volumes)
-- `make reset` - Full reset (removes everything including volumes)
 
 ### Deploying Workloads
 

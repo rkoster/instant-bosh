@@ -1,13 +1,13 @@
-.PHONY: help build dev-bob-build run stop logs sync clean reset print-env
+.PHONY: help build build-ibosh dev-bob-build run stop logs sync clean reset print-env
 
-# Default target
 help:
 	@echo "Available targets:"
 	@echo "  sync           - Sync vendored dependencies using vendir"
 	@echo "  build          - Build BOSH OCI image using bob"
+	@echo "  build-ibosh    - Build the ibosh CLI"
 	@echo "  dev-bob-build  - Build BOSH OCI image using go run (development)"
-	@echo "  run            - Run the built BOSH image using docker run"
-	@echo "  stop           - Stop the running BOSH container"
+	@echo "  run            - Run the built BOSH image using docker run (deprecated: use ibosh start)"
+	@echo "  stop           - Stop the running BOSH container (deprecated: use ibosh stop)"
 	@echo "  logs           - Show logs from the running BOSH container"
 	@echo "  print-env      - Print environment variables for BOSH CLI (use: eval \"\$$(make print-env)\")"
 	@echo "  clean          - Stop container and remove image (keeps volumes)"
@@ -17,6 +17,9 @@ help:
 # Sync vendored dependencies
 sync:
 	devbox run vendir sync
+
+build-ibosh:
+	devbox run build-ibosh
 
 # Build BOSH OCI image
 build:
