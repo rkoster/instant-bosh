@@ -4,3 +4,15 @@ vars.yml
 # Runtime data directories
 data/
 stemcells/
+
+# Go build artifacts
+ibosh
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
