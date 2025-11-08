@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -16,6 +17,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 )
 
@@ -324,4 +326,38 @@ func (c *Client) PullImage(ctx context.Context) error {
 
 	c.logger.Info(c.logTag, "Image pulled successfully")
 	return nil
+}
+
+func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []string) (string, error) {
+	c.logger.Debug(c.logTag, "Executing command in container %s: %v", containerName, cmd)
+
+	execConfig := container.ExecOptions{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+
+	execID, err := c.cli.ContainerExecCreate(ctx, containerName, execConfig)
+	if err != nil {
+		return "", fmt.Errorf("creating exec: %w", err)
+	}
+
+	resp, err := c.cli.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
+	if err != nil {
+		return "", fmt.Errorf("attaching to exec: %w", err)
+	}
+	defer resp.Close()
+
+	// Docker multiplexes stdout and stderr, we need to demultiplex
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, resp.Reader); err != nil {
+		return "", fmt.Errorf("reading exec output: %w", err)
+	}
+
+	// Return stdout, log stderr if present
+	if stderr.Len() > 0 {
+		c.logger.Debug(c.logTag, "Exec stderr: %s", stderr.String())
+	}
+
+	return stdout.String(), nil
 }

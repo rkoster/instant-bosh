@@ -21,6 +21,7 @@ func main() {
 			commands.NewDestroyCommand(logger),
 			commands.NewStatusCommand(logger),
 			commands.NewPullCommand(logger),
+			commands.NewPrintEnvCommand(logger),
 		},
 	}
 
