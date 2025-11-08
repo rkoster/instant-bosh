@@ -2,9 +2,11 @@ package docker
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -94,6 +96,10 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"-v", "director_name=instant-bosh",
 			"-v", "network=" + NetworkName,
 		},
+		ExposedPorts: nat.PortSet{
+			"25555/tcp": struct{}{},
+			"22/tcp":    struct{}{},
+		},
 	}
 
 	hostConfig := &container.HostConfig{
@@ -166,9 +172,9 @@ func (c *Client) IsContainerRunning(ctx context.Context) (bool, error) {
 	return len(containers) > 0, nil
 }
 
-func (c *Client) RemoveContainer(ctx context.Context) error {
-	c.logger.Debug(c.logTag, "Removing container %s", ContainerName)
-	if err := c.cli.ContainerRemove(ctx, ContainerName, container.RemoveOptions{
+func (c *Client) RemoveContainer(ctx context.Context, containerName string) error {
+	c.logger.Debug(c.logTag, "Removing container %s", containerName)
+	if err := c.cli.ContainerRemove(ctx, containerName, container.RemoveOptions{
 		Force: true,
 	}); err != nil {
 		return fmt.Errorf("removing container: %w", err)
@@ -229,8 +235,19 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tai
 func (c *Client) WaitForBoshReady(ctx context.Context, maxWait time.Duration) error {
 	c.logger.Info(c.logTag, "Waiting for BOSH to be ready...")
 
+	// Create HTTP client that skips TLS verification (BOSH uses self-signed certs)
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	boshURL := fmt.Sprintf("https://localhost:%s/info", DirectorPort)
 	deadline := time.Now().Add(maxWait)
+
 	for time.Now().Before(deadline) {
+		// First check if container is still running
 		running, err := c.IsContainerRunning(ctx)
 		if err != nil {
 			return err
@@ -240,10 +257,22 @@ func (c *Client) WaitForBoshReady(ctx context.Context, maxWait time.Duration) er
 			return fmt.Errorf("container stopped unexpectedly. Last logs:\n%s", logs)
 		}
 
+		// Try to connect to BOSH /info endpoint
+		resp, err := httpClient.Get(boshURL)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				c.logger.Info(c.logTag, "BOSH director is ready")
+				return nil
+			}
+		}
+
 		time.Sleep(2 * time.Second)
 	}
 
-	return fmt.Errorf("timeout waiting for BOSH to start after %v", maxWait)
+	// Timeout - get logs for debugging
+	logs, _ := c.GetContainerLogs(ctx, ContainerName, "100")
+	return fmt.Errorf("timeout waiting for BOSH to start after %v. Last logs:\n%s", maxWait, logs)
 }
 
 func (c *Client) ImageExists(ctx context.Context) (bool, error) {

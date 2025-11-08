@@ -32,8 +32,8 @@ build:
                 --ops-file ops/fast-nats-sync.yml \
 		--ops-file ops/disable-short-lived-nats-credentials.yml \
 		--ops-file vendor/bosh-deployment/jumpbox-user.yml \
-		--ops-file ops/start-sshd.yml \
-		--output instant-bosh:latest
+		--ops-file ops/pre-start-setup.yml \
+		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Build BOSH OCI image using development version of bob
 dev-bob-build:
@@ -46,8 +46,8 @@ dev-bob-build:
                 --ops-file ../instant-bosh/ops/fast-nats-sync.yml \
 		--ops-file ../instant-bosh/ops/disable-short-lived-nats-credentials.yml \
 		--ops-file ../instant-bosh/vendor/bosh-deployment/jumpbox-user.yml \
-		--ops-file ../instant-bosh/ops/start-sshd.yml \
-		--output instant-bosh:latest
+		--ops-file ../instant-bosh/ops/pre-start-setup.yml \
+		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Run the built BOSH image
 run:
@@ -170,5 +170,3 @@ print-env:
 	echo "export BOSH_ENVIRONMENT=https://127.0.0.1:25555"; \
 	echo "export BOSH_CA_CERT='$$DIRECTOR_CERT'"; \
 	echo "export BOSH_ALL_PROXY=ssh+socks5://jumpbox@localhost:2222?private-key=$$JUMPBOX_KEY_FILE"
-
-

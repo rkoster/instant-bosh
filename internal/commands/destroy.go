@@ -58,7 +58,7 @@ func destroyAction(logger boshlog.Logger, force bool) error {
 				continue
 			}
 			logger.Info(logTag, "Removing container %s...", containerName)
-			if err := dockerClient.RemoveContainer(ctx); err != nil {
+			if err := dockerClient.RemoveContainer(ctx, containerName); err != nil {
 				logger.Warn(logTag, "Failed to remove container %s: %v", containerName, err)
 			}
 		}
@@ -70,7 +70,7 @@ func destroyAction(logger boshlog.Logger, force bool) error {
 	}
 	if exists {
 		logger.Info(logTag, "Removing instant-bosh container...")
-		if err := dockerClient.RemoveContainer(ctx); err != nil {
+		if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
 			logger.Warn(logTag, "Failed to remove container: %v", err)
 		}
 	}
