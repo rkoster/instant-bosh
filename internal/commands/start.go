@@ -36,6 +36,8 @@ func startAction(logger boshlog.Logger) error {
 	}
 	if running {
 		logger.Info(logTag, "instant-bosh is already running")
+		fmt.Println("\nTo configure your BOSH CLI environment, run:")
+		fmt.Println("  eval \"$(ibosh print-env)\"")
 		return nil
 	}
 
@@ -74,7 +76,7 @@ func startAction(logger boshlog.Logger) error {
 
 	logger.Info(logTag, "instant-bosh is ready!")
 	fmt.Println("\nTo configure your BOSH CLI environment, run:")
-	fmt.Println("  eval \"$(make print-env)\"")
+	fmt.Println("  eval \"$(ibosh print-env)\"")
 
 	return nil
 }
