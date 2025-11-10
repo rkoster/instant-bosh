@@ -11,6 +11,7 @@ import (
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/logparser"
+	"golang.org/x/term"
 )
 
 // LogWriter wraps an io.Writer and parses log lines before writing
@@ -61,7 +62,9 @@ func (lw *LogWriter) Write(p []byte) (n int, err error) {
 		logLine, parseErr := logparser.ParseLogLine(line)
 		if parseErr != nil {
 			// If parsing fails, write the original line
-			lw.writer.Write([]byte(line + "\n"))
+			if _, writeErr := lw.writer.Write([]byte(line + "\n")); writeErr != nil {
+				return len(p), writeErr
+			}
 			continue
 		}
 
@@ -75,7 +78,9 @@ func (lw *LogWriter) Write(p []byte) (n int, err error) {
 
 		// Format and write the parsed line
 		formatted := logLine.FormatLogLine(lw.colorize) + "\n"
-		lw.writer.Write([]byte(formatted))
+		if _, writeErr := lw.writer.Write([]byte(formatted)); writeErr != nil {
+			return len(p), writeErr
+		}
 	}
 
 	return len(p), nil
@@ -134,9 +139,7 @@ func LogsAction(ui boshui.UI, logger boshlog.Logger, listComponents bool, compon
 
 // isTerminal checks if the file descriptor is a terminal
 func isTerminal(fd uintptr) bool {
-	// Simple check - in a real implementation you might want to use
-	// a library like golang.org/x/term for cross-platform support
-	return os.Getenv("TERM") != ""
+	return term.IsTerminal(int(fd))
 }
 
 // MessageOnlyLogWriter writes only the message portion of parsed log lines
@@ -198,7 +201,9 @@ func (lw *MessageOnlyLogWriter) Write(p []byte) (n int, err error) {
 
 		// Write only the message
 		if logLine.Message != "" {
-			lw.writer.Write([]byte(logLine.Message + "\n"))
+			if _, writeErr := lw.writer.Write([]byte(logLine.Message + "\n")); writeErr != nil {
+				return len(p), writeErr
+			}
 		}
 	}
 

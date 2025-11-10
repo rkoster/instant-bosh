@@ -2,6 +2,7 @@ package logparser
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -137,14 +138,7 @@ func ExtractComponents(logContent string) []string {
 	}
 
 	// Sort for consistent output
-	// Using a simple bubble sort to avoid importing sort package
-	for i := 0; i < len(components); i++ {
-		for j := i + 1; j < len(components); j++ {
-			if components[i] > components[j] {
-				components[i], components[j] = components[j], components[i]
-			}
-		}
-	}
+	sort.Strings(components)
 
 	return components
 }
