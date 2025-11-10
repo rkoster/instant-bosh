@@ -60,9 +60,26 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 
+	// Create a cancellable context for log streaming
+	logCtx, cancelLogs := context.WithCancel(ctx)
+	defer cancelLogs()
+
+	// Start log streaming in a goroutine to show startup progress
+	go func() {
+		// We ignore errors here because cancellation will cause an expected error
+		StreamMainComponentLogs(logCtx, dockerClient, ui)
+	}()
+
+	// Wait for BOSH to be ready (this is the primary readiness check)
 	if err := dockerClient.WaitForBoshReady(ctx, 5*time.Minute); err != nil {
 		return fmt.Errorf("BOSH failed to become ready: %w", err)
 	}
+
+	// Cancel log streaming once BOSH is ready
+	cancelLogs()
+
+	// Give the goroutine a brief moment to finish writing any buffered output
+	time.Sleep(100 * time.Millisecond)
 
 	ui.PrintLinef("instant-bosh is ready!")
 	ui.PrintLinef("")

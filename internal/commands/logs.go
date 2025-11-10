@@ -138,3 +138,96 @@ func isTerminal(fd uintptr) bool {
 	// a library like golang.org/x/term for cross-platform support
 	return os.Getenv("TERM") != ""
 }
+
+// MessageOnlyLogWriter writes only the message portion of parsed log lines
+type MessageOnlyLogWriter struct {
+	writer          io.Writer
+	buffer          bytes.Buffer
+	componentFilter map[string]bool
+	hasFilter       bool
+}
+
+func NewMessageOnlyLogWriter(writer io.Writer, components []string) *MessageOnlyLogWriter {
+	lw := &MessageOnlyLogWriter{
+		writer: writer,
+	}
+
+	if len(components) > 0 {
+		lw.hasFilter = true
+		lw.componentFilter = make(map[string]bool)
+		for _, comp := range components {
+			lw.componentFilter[comp] = true
+		}
+	}
+
+	return lw
+}
+
+func (lw *MessageOnlyLogWriter) Write(p []byte) (n int, err error) {
+	// Add to buffer
+	lw.buffer.Write(p)
+
+	// Process complete lines
+	for {
+		line, err := lw.buffer.ReadString('\n')
+		if err != nil {
+			// No complete line yet, put it back
+			if line != "" {
+				lw.buffer.WriteString(line)
+			}
+			break
+		}
+
+		// Remove trailing newline for parsing
+		line = strings.TrimSuffix(line, "\n")
+
+		// Parse the log line
+		logLine, parseErr := logparser.ParseLogLine(line)
+		if parseErr != nil {
+			// If parsing fails, skip this line
+			continue
+		}
+
+		// Apply component filter if set
+		if lw.hasFilter && logLine.Component != "" {
+			if !lw.componentFilter[logLine.Component] {
+				// Skip this line - component not in filter
+				continue
+			}
+		}
+
+		// Write only the message
+		if logLine.Message != "" {
+			lw.writer.Write([]byte(logLine.Message + "\n"))
+		}
+	}
+
+	return len(p), nil
+}
+
+// StreamMainComponentLogs streams logs from the main component, showing only messages
+// This is used during startup to show progress without cluttering the output
+func StreamMainComponentLogs(ctx context.Context, dockerClient *docker.Client, ui boshui.UI) error {
+	// Use the UI to write messages directly - use same writer for both stdout and stderr
+	// since we want all logs from the main component
+	writer := NewMessageOnlyLogWriter(&uiWriter{ui: ui}, []string{"main"})
+
+	// Follow logs from the container starting from the beginning
+	// tail="all" gets all existing logs and then follows for new ones
+	// Use the same writer for both stdout and stderr streams
+	return dockerClient.FollowContainerLogs(ctx, docker.ContainerName, true, "all", writer, writer)
+}
+
+// uiWriter wraps boshui.UI to implement io.Writer
+type uiWriter struct {
+	ui boshui.UI
+}
+
+func (w *uiWriter) Write(p []byte) (n int, err error) {
+	// Remove trailing newline if present, since PrintLinef adds one
+	msg := strings.TrimSuffix(string(p), "\n")
+	if msg != "" {
+		w.ui.PrintLinef("%s", msg)
+	}
+	return len(p), nil
+}
