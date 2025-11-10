@@ -226,12 +226,15 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tai
 	}
 	defer logs.Close()
 
-	logBytes, err := io.ReadAll(logs)
-	if err != nil {
-		return "", fmt.Errorf("reading logs: %w", err)
+	// Docker multiplexes stdout and stderr, so we need to demultiplex them
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, logs); err != nil {
+		return "", fmt.Errorf("demultiplexing logs: %w", err)
 	}
 
-	return string(logBytes), nil
+	// Combine stdout and stderr
+	combined := stdout.String() + stderr.String()
+	return combined, nil
 }
 
 func (c *Client) WaitForBoshReady(ctx context.Context, maxWait time.Duration) error {
