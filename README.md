@@ -46,6 +46,7 @@ The `ibosh` CLI provides a streamlined interface for managing instant-bosh:
 - `ibosh status` - Show status of instant-bosh and containers on the network
 - `ibosh destroy` - Remove all instant-bosh resources (container, volumes, network, and network containers)
 - `ibosh pull` - Pull the latest instant-bosh image from the registry
+- `ibosh logs` - Show logs from the instant-bosh container (use `-f` to follow, `-n` to specify number of lines)
 
 ### Available Makefile Targets
 

@@ -361,3 +361,24 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 
 	return stdout.String(), nil
 }
+
+func (c *Client) FollowContainerLogs(ctx context.Context, containerName string, follow bool, tail string, stdout io.Writer, stderr io.Writer) error {
+	options := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     follow,
+		Tail:       tail,
+	}
+
+	logs, err := c.cli.ContainerLogs(ctx, containerName, options)
+	if err != nil {
+		return fmt.Errorf("getting container logs: %w", err)
+	}
+	defer logs.Close()
+
+	if _, err := stdcopy.StdCopy(stdout, stderr, logs); err != nil {
+		return fmt.Errorf("streaming logs: %w", err)
+	}
+
+	return nil
+}

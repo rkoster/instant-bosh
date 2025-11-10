@@ -86,6 +86,28 @@ func main() {
 					return commands.PrintEnvAction(ui, logger)
 				},
 			},
+			{
+				Name:  "logs",
+				Usage: "Show logs from the instant-bosh container",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "follow",
+						Aliases: []string{"f"},
+						Usage:   "Follow log output",
+						Value:   false,
+					},
+					&cli.StringFlag{
+						Name:    "tail",
+						Aliases: []string{"n"},
+						Usage:   "Number of lines to show from the end of the logs",
+						Value:   "all",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					_, logger := initUIAndLogger(c)
+					return commands.LogsAction(logger, c.Bool("follow"), c.String("tail"))
+				},
+			},
 		},
 	}
 
