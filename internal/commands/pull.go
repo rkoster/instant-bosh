@@ -4,23 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/urfave/cli/v2"
 )
 
-func NewPullCommand(logger boshlog.Logger) *cli.Command {
-	return &cli.Command{
-		Name:  "pull",
-		Usage: "Pull the latest instant-bosh image",
-		Action: func(c *cli.Context) error {
-			return pullAction(logger)
-		},
-	}
-}
-
-func pullAction(logger boshlog.Logger) error {
-	logTag := "pullCommand"
+func PullAction(ui boshui.UI, logger boshlog.Logger) error {
 	ctx := context.Background()
 
 	dockerClient, err := docker.NewClient(logger)
@@ -33,6 +22,6 @@ func pullAction(logger boshlog.Logger) error {
 		return fmt.Errorf("failed to pull image: %w", err)
 	}
 
-	logger.Info(logTag, "Successfully pulled latest instant-bosh image")
+	ui.PrintLinef("Successfully pulled latest instant-bosh image")
 	return nil
 }

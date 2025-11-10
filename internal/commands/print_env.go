@@ -6,23 +6,13 @@ import (
 	"os"
 	"path/filepath"
 
+	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v3"
 )
 
-func NewPrintEnvCommand(logger boshlog.Logger) *cli.Command {
-	return &cli.Command{
-		Name:  "print-env",
-		Usage: "Print environment variables for BOSH CLI (use: eval \"$(ibosh print-env)\")",
-		Action: func(c *cli.Context) error {
-			return printEnvAction(logger)
-		},
-	}
-}
-
-func printEnvAction(logger boshlog.Logger) error {
+func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
 	ctx := context.Background()
 
 	dockerClient, err := docker.NewClient(logger)
@@ -92,12 +82,12 @@ func printEnvAction(logger boshlog.Logger) error {
 		return fmt.Errorf("failed to write jumpbox key: %w", err)
 	}
 
-	// Print environment variables
-	fmt.Printf("export BOSH_CLIENT=admin\n")
-	fmt.Printf("export BOSH_CLIENT_SECRET=%s\n", adminPassword)
-	fmt.Printf("export BOSH_ENVIRONMENT=https://127.0.0.1:25555\n")
-	fmt.Printf("export BOSH_CA_CERT='%s'\n", directorCert)
-	fmt.Printf("export BOSH_ALL_PROXY=ssh+socks5://jumpbox@localhost:2222?private-key=%s\n", keyFile)
+	// Print environment variables to stdout (must use ui.PrintLinef which goes to outWriter/stdout)
+	ui.PrintLinef("export BOSH_CLIENT=admin")
+	ui.PrintLinef("export BOSH_CLIENT_SECRET=%s", adminPassword)
+	ui.PrintLinef("export BOSH_ENVIRONMENT=https://127.0.0.1:25555")
+	ui.PrintLinef("export BOSH_CA_CERT='%s'", directorCert)
+	ui.PrintLinef("export BOSH_ALL_PROXY=ssh+socks5://jumpbox@localhost:2222?private-key=%s", keyFile)
 
 	return nil
 }

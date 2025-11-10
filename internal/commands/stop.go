@@ -4,23 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/urfave/cli/v2"
 )
 
-func NewStopCommand(logger boshlog.Logger) *cli.Command {
-	return &cli.Command{
-		Name:  "stop",
-		Usage: "Stop instant-bosh director",
-		Action: func(c *cli.Context) error {
-			return stopAction(logger)
-		},
-	}
-}
-
-func stopAction(logger boshlog.Logger) error {
-	logTag := "stopCommand"
+func StopAction(ui boshui.UI, logger boshlog.Logger) error {
 	ctx := context.Background()
 
 	dockerClient, err := docker.NewClient(logger)
@@ -34,15 +23,15 @@ func stopAction(logger boshlog.Logger) error {
 		return err
 	}
 	if !running {
-		logger.Info(logTag, "instant-bosh is not running")
+		ui.PrintLinef("instant-bosh is not running")
 		return nil
 	}
 
-	logger.Info(logTag, "Stopping instant-bosh container...")
+	ui.PrintLinef("Stopping instant-bosh container...")
 	if err := dockerClient.StopContainer(ctx); err != nil {
 		return fmt.Errorf("failed to stop container: %w", err)
 	}
 
-	logger.Info(logTag, "instant-bosh stopped successfully")
+	ui.PrintLinef("instant-bosh stopped successfully")
 	return nil
 }

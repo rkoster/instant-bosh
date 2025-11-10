@@ -5,23 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/urfave/cli/v2"
 )
 
-func NewStartCommand(logger boshlog.Logger) *cli.Command {
-	return &cli.Command{
-		Name:  "start",
-		Usage: "Start instant-bosh director",
-		Action: func(c *cli.Context) error {
-			return startAction(logger)
-		},
-	}
-}
-
-func startAction(logger boshlog.Logger) error {
-	logTag := "startCommand"
+func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 	ctx := context.Background()
 
 	dockerClient, err := docker.NewClient(logger)
@@ -35,9 +24,10 @@ func startAction(logger boshlog.Logger) error {
 		return err
 	}
 	if running {
-		logger.Info(logTag, "instant-bosh is already running")
-		fmt.Println("\nTo configure your BOSH CLI environment, run:")
-		fmt.Println("  eval \"$(ibosh print-env)\"")
+		ui.PrintLinef("instant-bosh is already running")
+		ui.PrintLinef("")
+		ui.PrintLinef("To configure your BOSH CLI environment, run:")
+		ui.PrintLinef("  eval \"$(ibosh print-env)\"")
 		return nil
 	}
 
@@ -46,26 +36,26 @@ func startAction(logger boshlog.Logger) error {
 		return fmt.Errorf("failed to check if image exists: %w", err)
 	}
 	if !imageExists {
-		logger.Info(logTag, "Image not found locally, pulling...")
+		ui.PrintLinef("Image not found locally, pulling...")
 		if err := dockerClient.PullImage(ctx); err != nil {
 			return fmt.Errorf("failed to pull image: %w", err)
 		}
 	}
 
-	logger.Info(logTag, "Creating volumes...")
+	ui.PrintLinef("Creating volumes...")
 	if err := dockerClient.CreateVolume(ctx, docker.VolumeStore); err != nil {
-		logger.Debug(logTag, "Volume %s may already exist: %v", docker.VolumeStore, err)
+		logger.Debug("startCommand", "Volume %s may already exist: %v", docker.VolumeStore, err)
 	}
 	if err := dockerClient.CreateVolume(ctx, docker.VolumeData); err != nil {
-		logger.Debug(logTag, "Volume %s may already exist: %v", docker.VolumeData, err)
+		logger.Debug("startCommand", "Volume %s may already exist: %v", docker.VolumeData, err)
 	}
 
-	logger.Info(logTag, "Creating network...")
+	ui.PrintLinef("Creating network...")
 	if err := dockerClient.CreateNetwork(ctx); err != nil {
-		logger.Debug(logTag, "Network may already exist: %v", err)
+		logger.Debug("startCommand", "Network may already exist: %v", err)
 	}
 
-	logger.Info(logTag, "Starting instant-bosh container...")
+	ui.PrintLinef("Starting instant-bosh container...")
 	if err := dockerClient.StartContainer(ctx); err != nil {
 		return fmt.Errorf("failed to start container: %w", err)
 	}
@@ -74,9 +64,10 @@ func startAction(logger boshlog.Logger) error {
 		return fmt.Errorf("BOSH failed to become ready: %w", err)
 	}
 
-	logger.Info(logTag, "instant-bosh is ready!")
-	fmt.Println("\nTo configure your BOSH CLI environment, run:")
-	fmt.Println("  eval \"$(ibosh print-env)\"")
+	ui.PrintLinef("instant-bosh is ready!")
+	ui.PrintLinef("")
+	ui.PrintLinef("To configure your BOSH CLI environment, run:")
+	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
 
 	return nil
 }

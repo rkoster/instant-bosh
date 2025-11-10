@@ -1,32 +1,96 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
+	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/commands"
 	"github.com/urfave/cli/v2"
 )
 
-func main() {
-	logger := boshlog.NewWriterLogger(boshlog.LevelDebug, os.Stderr)
+func initUIAndLogger(c *cli.Context) (boshui.UI, boshlog.Logger) {
+	logLevel := boshlog.LevelError
+	if c.Bool("debug") {
+		logLevel = boshlog.LevelDebug
+	}
+	logger := boshlog.NewWriterLogger(logLevel, os.Stderr)
+	ui := boshui.NewWriterUI(os.Stdout, os.Stderr, logger)
+	return ui, logger
+}
 
+func main() {
 	app := &cli.App{
 		Name:  "ibosh",
 		Usage: "instant-bosh CLI",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "debug",
+				Aliases: []string{"d"},
+				Usage:   "Enable debug logging",
+			},
+		},
 		Commands: []*cli.Command{
-			commands.NewStartCommand(logger),
-			commands.NewStopCommand(logger),
-			commands.NewDestroyCommand(logger),
-			commands.NewStatusCommand(logger),
-			commands.NewPullCommand(logger),
-			commands.NewPrintEnvCommand(logger),
+			{
+				Name:  "start",
+				Usage: "Start instant-bosh director",
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.StartAction(ui, logger)
+				},
+			},
+			{
+				Name:  "stop",
+				Usage: "Stop instant-bosh director",
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.StopAction(ui, logger)
+				},
+			},
+			{
+				Name:  "destroy",
+				Usage: "Destroy instant-bosh director and all data",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "force",
+						Aliases: []string{"f"},
+						Usage:   "Skip confirmation prompt",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.DestroyAction(ui, logger, c.Bool("force"))
+				},
+			},
+			{
+				Name:  "status",
+				Usage: "Show status of instant-bosh and containers on the network",
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.StatusAction(ui, logger)
+				},
+			},
+			{
+				Name:  "pull",
+				Usage: "Pull latest instant-bosh image",
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.PullAction(ui, logger)
+				},
+			},
+			{
+				Name:  "print-env",
+				Usage: "Print environment variables for BOSH CLI",
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.PrintEnvAction(ui, logger)
+				},
+			},
 		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Stderr.WriteString("Error: " + err.Error() + "\n")
 		os.Exit(1)
 	}
 }

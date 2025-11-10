@@ -4,22 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/urfave/cli/v2"
 )
 
-func NewStatusCommand(logger boshlog.Logger) *cli.Command {
-	return &cli.Command{
-		Name:  "status",
-		Usage: "Show status of instant-bosh and containers on the network",
-		Action: func(c *cli.Context) error {
-			return statusAction(logger)
-		},
-	}
-}
-
-func statusAction(logger boshlog.Logger) error {
+func StatusAction(ui boshui.UI, logger boshlog.Logger) error {
 	ctx := context.Background()
 
 	dockerClient, err := docker.NewClient(logger)
@@ -33,30 +23,32 @@ func statusAction(logger boshlog.Logger) error {
 		return err
 	}
 
-	fmt.Println("instant-bosh status:")
+	ui.PrintLinef("instant-bosh status:")
 	if running {
-		fmt.Println("  State: Running")
-		fmt.Printf("  Container: %s\n", docker.ContainerName)
-		fmt.Printf("  Network: %s\n", docker.NetworkName)
-		fmt.Printf("  IP: %s\n", docker.ContainerIP)
-		fmt.Printf("  Director Port: %s\n", docker.DirectorPort)
-		fmt.Printf("  SSH Port: %s\n", docker.SSHPort)
+		ui.PrintLinef("  State: Running")
+		ui.PrintLinef("  Container: %s", docker.ContainerName)
+		ui.PrintLinef("  Network: %s", docker.NetworkName)
+		ui.PrintLinef("  IP: %s", docker.ContainerIP)
+		ui.PrintLinef("  Director Port: %s", docker.DirectorPort)
+		ui.PrintLinef("  SSH Port: %s", docker.SSHPort)
 	} else {
-		fmt.Println("  State: Stopped")
+		ui.PrintLinef("  State: Stopped")
 	}
 
 	containers, err := dockerClient.GetContainersOnNetwork(ctx)
 	if err != nil {
-		fmt.Printf("\nContainers on network: Unable to retrieve (network may not exist)\n")
+		ui.PrintLinef("")
+		ui.PrintLinef("Containers on network: Unable to retrieve (network may not exist)")
 		return nil
 	}
 
-	fmt.Printf("\nContainers on %s network:\n", docker.NetworkName)
+	ui.PrintLinef("")
+	ui.PrintLinef("Containers on %s network:", docker.NetworkName)
 	if len(containers) == 0 {
-		fmt.Println("  None")
+		ui.PrintLinef("  None")
 	} else {
 		for _, containerName := range containers {
-			fmt.Printf("  - %s\n", containerName)
+			ui.PrintLinef("  - %s", containerName)
 		}
 	}
 

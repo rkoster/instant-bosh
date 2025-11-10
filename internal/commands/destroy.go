@@ -4,40 +4,22 @@ import (
 	"context"
 	"fmt"
 
+	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/urfave/cli/v2"
 )
 
-func NewDestroyCommand(logger boshlog.Logger) *cli.Command {
-	return &cli.Command{
-		Name:  "destroy",
-		Usage: "Destroy instant-bosh and all associated resources",
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:    "force",
-				Aliases: []string{"f"},
-				Usage:   "Skip confirmation prompt",
-			},
-		},
-		Action: func(c *cli.Context) error {
-			return destroyAction(logger, c.Bool("force"))
-		},
-	}
-}
-
-func destroyAction(logger boshlog.Logger, force bool) error {
+func DestroyAction(ui boshui.UI, logger boshlog.Logger, force bool) error {
 	logTag := "destroyCommand"
 	ctx := context.Background()
 
 	if !force {
-		fmt.Println("This will remove the instant-bosh container, all containers on the instant-bosh network,")
-		fmt.Println("and all associated volumes and networks.")
-		fmt.Print("Are you sure? (yes/no): ")
-		var response string
-		fmt.Scanln(&response)
-		if response != "yes" {
-			logger.Info(logTag, "Destroy operation cancelled")
+		ui.PrintLinef("This will remove the instant-bosh container, all containers on the instant-bosh network,")
+		ui.PrintLinef("and all associated volumes and networks.")
+		ui.PrintLinef("")
+		err := ui.AskForConfirmation()
+		if err != nil {
+			ui.PrintLinef("Destroy operation cancelled")
 			return nil
 		}
 	}
@@ -48,7 +30,7 @@ func destroyAction(logger boshlog.Logger, force bool) error {
 	}
 	defer dockerClient.Close()
 
-	logger.Info(logTag, "Getting containers on instant-bosh network...")
+	ui.PrintLinef("Getting containers on instant-bosh network...")
 	containers, err := dockerClient.GetContainersOnNetwork(ctx)
 	if err != nil {
 		logger.Debug(logTag, "Failed to get containers on network (network may not exist): %v", err)
@@ -57,8 +39,9 @@ func destroyAction(logger boshlog.Logger, force bool) error {
 			if containerName == docker.ContainerName {
 				continue
 			}
-			logger.Info(logTag, "Removing container %s...", containerName)
+			ui.PrintLinef("Removing container %s...", containerName)
 			if err := dockerClient.RemoveContainer(ctx, containerName); err != nil {
+				ui.ErrorLinef("  Failed to remove container %s: %s", containerName, err)
 				logger.Warn(logTag, "Failed to remove container %s: %v", containerName, err)
 			}
 		}
@@ -69,25 +52,29 @@ func destroyAction(logger boshlog.Logger, force bool) error {
 		return err
 	}
 	if exists {
-		logger.Info(logTag, "Removing instant-bosh container...")
+		ui.PrintLinef("Removing instant-bosh container...")
 		if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
+			ui.ErrorLinef("  Failed to remove container: %s", err)
 			logger.Warn(logTag, "Failed to remove container: %v", err)
 		}
 	}
 
-	logger.Info(logTag, "Removing volumes...")
+	ui.PrintLinef("Removing volumes...")
 	if err := dockerClient.RemoveVolume(ctx, docker.VolumeStore); err != nil {
+		ui.ErrorLinef("  Failed to remove volume %s: %s", docker.VolumeStore, err)
 		logger.Warn(logTag, "Failed to remove volume %s: %v", docker.VolumeStore, err)
 	}
 	if err := dockerClient.RemoveVolume(ctx, docker.VolumeData); err != nil {
+		ui.ErrorLinef("  Failed to remove volume %s: %s", docker.VolumeData, err)
 		logger.Warn(logTag, "Failed to remove volume %s: %v", docker.VolumeData, err)
 	}
 
-	logger.Info(logTag, "Removing network...")
+	ui.PrintLinef("Removing network...")
 	if err := dockerClient.RemoveNetwork(ctx); err != nil {
+		ui.ErrorLinef("  Failed to remove network: %s", err)
 		logger.Warn(logTag, "Failed to remove network: %v", err)
 	}
 
-	logger.Info(logTag, "Destroy complete")
+	ui.PrintLinef("Destroy complete")
 	return nil
 }
