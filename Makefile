@@ -1,13 +1,13 @@
-.PHONY: help build dev-bob-build run stop logs sync clean reset print-env
+.PHONY: help build build-ibosh dev-bob-build run stop logs sync clean reset print-env
 
-# Default target
 help:
 	@echo "Available targets:"
 	@echo "  sync           - Sync vendored dependencies using vendir"
 	@echo "  build          - Build BOSH OCI image using bob"
+	@echo "  build-ibosh    - Build the ibosh CLI"
 	@echo "  dev-bob-build  - Build BOSH OCI image using go run (development)"
-	@echo "  run            - Run the built BOSH image using docker run"
-	@echo "  stop           - Stop the running BOSH container"
+	@echo "  run            - Run the built BOSH image using docker run (deprecated: use ibosh start)"
+	@echo "  stop           - Stop the running BOSH container (deprecated: use ibosh stop)"
 	@echo "  logs           - Show logs from the running BOSH container"
 	@echo "  print-env      - Print environment variables for BOSH CLI (use: eval \"\$$(make print-env)\")"
 	@echo "  clean          - Stop container and remove image (keeps volumes)"
@@ -17,6 +17,9 @@ help:
 # Sync vendored dependencies
 sync:
 	devbox run vendir sync
+
+build-ibosh:
+	devbox run build-ibosh
 
 # Build BOSH OCI image
 build:
@@ -29,8 +32,8 @@ build:
                 --ops-file ops/fast-nats-sync.yml \
 		--ops-file ops/disable-short-lived-nats-credentials.yml \
 		--ops-file vendor/bosh-deployment/jumpbox-user.yml \
-		--ops-file ops/start-sshd.yml \
-		--output instant-bosh:latest
+		--ops-file ops/pre-start-setup.yml \
+		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Build BOSH OCI image using development version of bob
 dev-bob-build:
@@ -43,8 +46,8 @@ dev-bob-build:
                 --ops-file ../instant-bosh/ops/fast-nats-sync.yml \
 		--ops-file ../instant-bosh/ops/disable-short-lived-nats-credentials.yml \
 		--ops-file ../instant-bosh/vendor/bosh-deployment/jumpbox-user.yml \
-		--ops-file ../instant-bosh/ops/start-sshd.yml \
-		--output instant-bosh:latest
+		--ops-file ../instant-bosh/ops/pre-start-setup.yml \
+		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Run the built BOSH image
 run:
@@ -167,5 +170,3 @@ print-env:
 	echo "export BOSH_ENVIRONMENT=https://127.0.0.1:25555"; \
 	echo "export BOSH_CA_CERT='$$DIRECTOR_CERT'"; \
 	echo "export BOSH_ALL_PROXY=ssh+socks5://jumpbox@localhost:2222?private-key=$$JUMPBOX_KEY_FILE"
-
-

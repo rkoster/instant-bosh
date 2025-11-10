@@ -84,8 +84,8 @@ jobs:
         run: |
           # Tag the image with all metadata tags
           echo "${{ steps.meta.outputs.tags }}" | while read tag; do
-            echo "Tagging instant-bosh:latest as $tag"
-            docker tag instant-bosh:latest "$tag"
+            echo "Tagging ghcr.io/rkoster/instant-bosh:latest as $tag"
+            docker tag ghcr.io/rkoster/instant-bosh:latest "$tag"
             echo "Pushing $tag"
             docker push "$tag"
           done
