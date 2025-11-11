@@ -24,13 +24,13 @@ var (
 // ParseLogLine parses a Docker log line from instant-bosh
 // Expected format: [component] timestamp level - message
 // Example: [director/access] 2025-11-10T14:35:24.468092247Z INFO - 127.0.0.1 - - [10/Nov/2025:14:35:24 +0000] "GET /info HTTP/1.1" 200 384 "-" "Ruby" 0.003 0.002 .
-func ParseLogLine(line string) (*LogLine, error) {
+func ParseLogLine(line string) *LogLine {
 	matches := logLineRegex.FindStringSubmatch(line)
 	if matches == nil {
 		// Return unparsed line if it doesn't match the expected format
 		return &LogLine{
 			Raw: line,
-		}, nil
+		}
 	}
 
 	component := matches[1]
@@ -47,7 +47,7 @@ func ParseLogLine(line string) (*LogLine, error) {
 			Level:     level,
 			Message:   message,
 			Raw:       line,
-		}, nil
+		}
 	}
 
 	return &LogLine{
@@ -56,7 +56,7 @@ func ParseLogLine(line string) (*LogLine, error) {
 		Level:     level,
 		Message:   message,
 		Raw:       line,
-	}, nil
+	}
 }
 
 // FormatLogLine formats a parsed log line with optional color coding
@@ -108,7 +108,12 @@ func (l *LogLine) FormatLogLine(colorize bool) string {
 			sb.WriteString(" ")
 		}
 
-		sb.WriteString(l.Level)
+		// Normalize level display
+		level := l.Level
+		if level == "WARNING" {
+			level = "WARN"
+		}
+		sb.WriteString(level)
 		sb.WriteString(" - ")
 		sb.WriteString(l.Message)
 	}
@@ -125,8 +130,8 @@ func ExtractComponents(logContent string) []string {
 		if line == "" {
 			continue
 		}
-		logLine, err := ParseLogLine(line)
-		if err == nil && logLine.Component != "" {
+		logLine := ParseLogLine(line)
+		if logLine.Component != "" {
 			componentSet[logLine.Component] = true
 		}
 	}

@@ -59,14 +59,7 @@ func (lw *LogWriter) Write(p []byte) (n int, err error) {
 		line = strings.TrimSuffix(line, "\n")
 
 		// Parse the log line
-		logLine, parseErr := logparser.ParseLogLine(line)
-		if parseErr != nil {
-			// If parsing fails, write the original line
-			if _, writeErr := lw.writer.Write([]byte(line + "\n")); writeErr != nil {
-				return len(p), writeErr
-			}
-			continue
-		}
+		logLine := logparser.ParseLogLine(line)
 
 		// Apply component filter if set
 		if lw.hasFilter && logLine.Component != "" {
@@ -185,11 +178,7 @@ func (lw *MessageOnlyLogWriter) Write(p []byte) (n int, err error) {
 		line = strings.TrimSuffix(line, "\n")
 
 		// Parse the log line
-		logLine, parseErr := logparser.ParseLogLine(line)
-		if parseErr != nil {
-			// If parsing fails, skip this line
-			continue
-		}
+		logLine := logparser.ParseLogLine(line)
 
 		// Apply component filter if set
 		if lw.hasFilter && logLine.Component != "" {

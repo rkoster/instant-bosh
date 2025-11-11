@@ -15,7 +15,6 @@ func TestParseLogLine(t *testing.T) {
 		wantComp  string
 		wantLevel string
 		wantMsg   string
-		wantErr   bool
 	}{
 		{
 			name:      "director access log",
@@ -23,7 +22,6 @@ func TestParseLogLine(t *testing.T) {
 			wantComp:  "director/access",
 			wantLevel: "INFO",
 			wantMsg:   `127.0.0.1 - - [10/Nov/2025:14:35:24 +0000] "GET /info HTTP/1.1" 200 384 "-" "Ruby" 0.003 0.002 .`,
-			wantErr:   false,
 		},
 		{
 			name:      "director stdout log",
@@ -31,7 +29,6 @@ func TestParseLogLine(t *testing.T) {
 			wantComp:  "director/director.stdout",
 			wantLevel: "INFO",
 			wantMsg:   `D, [2025-11-10T14:35:25.440811 #2175] [] DEBUG -- Director: (0.000759s) (conn: 4880) SELECT * FROM "deployments" ORDER BY "name" ASC`,
-			wantErr:   false,
 		},
 		{
 			name:      "director stderr log",
@@ -39,7 +36,6 @@ func TestParseLogLine(t *testing.T) {
 			wantComp:  "director/director.stderr",
 			wantLevel: "ERROR",
 			wantMsg:   `127.0.0.1 - - [10/Nov/2025:14:35:25 +0000] "GET /info HTTP/1.0" 200 384 0.0011`,
-			wantErr:   false,
 		},
 		{
 			name:      "nats sync log",
@@ -47,7 +43,6 @@ func TestParseLogLine(t *testing.T) {
 			wantComp:  "nats/bosh-nats-sync",
 			wantLevel: "INFO",
 			wantMsg:   `I, [2025-11-10T14:35:25.419547 #770]  INFO : Executing NATS Users Synchronization`,
-			wantErr:   false,
 		},
 		{
 			name:      "unparseable line",
@@ -55,20 +50,13 @@ func TestParseLogLine(t *testing.T) {
 			wantComp:  "",
 			wantLevel: "",
 			wantMsg:   "",
-			wantErr:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logLine, err := logparser.ParseLogLine(tt.input)
+			logLine := logparser.ParseLogLine(tt.input)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
 			assert.NotNil(t, logLine)
 			assert.Equal(t, tt.wantComp, logLine.Component)
 			assert.Equal(t, tt.wantLevel, logLine.Level)
@@ -85,9 +73,8 @@ func TestParseLogLine(t *testing.T) {
 
 func TestParseLogLine_Timestamp(t *testing.T) {
 	input := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test message`
-	logLine, err := logparser.ParseLogLine(input)
+	logLine := logparser.ParseLogLine(input)
 
-	assert.NoError(t, err)
 	assert.NotNil(t, logLine)
 
 	expectedTime, _ := time.Parse(time.RFC3339Nano, "2025-11-10T14:35:24.468092247Z")
@@ -110,12 +97,21 @@ func TestFormatLogLine_NoColor(t *testing.T) {
 			input:    `[director/stderr] 2025-11-10T14:35:24.468092247Z ERROR - error message`,
 			expected: `[director/stderr] 14:35:24.468 ERROR - error message`,
 		},
+		{
+			name:     "warning normalized to warn",
+			input:    `[director/stderr] 2025-11-10T14:35:24.468092247Z WARNING - warning message`,
+			expected: `[director/stderr] 14:35:24.468 WARN - warning message`,
+		},
+		{
+			name:     "warn level stays as warn",
+			input:    `[director/stderr] 2025-11-10T14:35:24.468092247Z WARN - warning message`,
+			expected: `[director/stderr] 14:35:24.468 WARN - warning message`,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logLine, err := logparser.ParseLogLine(tt.input)
-			assert.NoError(t, err)
+			logLine := logparser.ParseLogLine(tt.input)
 
 			formatted := logLine.FormatLogLine(false)
 			assert.Equal(t, tt.expected, formatted)
@@ -125,8 +121,7 @@ func TestFormatLogLine_NoColor(t *testing.T) {
 
 func TestFormatLogLine_WithColor(t *testing.T) {
 	input := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test message`
-	logLine, err := logparser.ParseLogLine(input)
-	assert.NoError(t, err)
+	logLine := logparser.ParseLogLine(input)
 
 	formatted := logLine.FormatLogLine(true)
 
@@ -141,8 +136,7 @@ func TestFormatLogLine_WithColor(t *testing.T) {
 
 func TestFormatLogLine_UnparsedLine(t *testing.T) {
 	input := `This is not a valid log line`
-	logLine, err := logparser.ParseLogLine(input)
-	assert.NoError(t, err)
+	logLine := logparser.ParseLogLine(input)
 
 	formatted := logLine.FormatLogLine(false)
 	assert.Equal(t, input, formatted)
