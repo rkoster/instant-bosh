@@ -33,6 +33,7 @@ func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}
+	defer config.Cleanup()
 
 	// Print environment variables to stdout (must use ui.PrintLinef which goes to outWriter/stdout)
 	ui.PrintLinef("export BOSH_CLIENT=%s", config.Client)

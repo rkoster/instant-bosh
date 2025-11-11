@@ -103,12 +103,14 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 	return nil
 }
 
-func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+// applyConfig is a helper function to apply either cloud-config or runtime-config
+func applyConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger, configType, configName string, configYAML []byte) error {
 	// Get director configuration
 	config, err := director.GetDirectorConfig(ctx, dockerClient)
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}
+	defer config.Cleanup()
 
 	// Create BOSH director client
 	directorClient, err := director.NewDirector(config, logger)
@@ -116,33 +118,29 @@ func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger b
 		return fmt.Errorf("failed to create director client: %w", err)
 	}
 
-	// Update cloud config with name "default"
-	if err := directorClient.UpdateCloudConfig("default", []byte(cloudConfigYAML)); err != nil {
-		return fmt.Errorf("failed to update cloud-config: %w", err)
+	// Update the appropriate config type
+	switch configType {
+	case "cloud":
+		if err := directorClient.UpdateCloudConfig(configName, configYAML); err != nil {
+			return fmt.Errorf("failed to update cloud-config: %w", err)
+		}
+		logger.Debug("startCommand", "Cloud-config applied successfully")
+	case "runtime":
+		if err := directorClient.UpdateRuntimeConfig(configName, configYAML); err != nil {
+			return fmt.Errorf("failed to update runtime-config: %w", err)
+		}
+		logger.Debug("startCommand", "Runtime-config applied successfully")
+	default:
+		return fmt.Errorf("unknown config type: %s", configType)
 	}
 
-	logger.Debug("startCommand", "Cloud-config applied successfully")
 	return nil
 }
 
+func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+	return applyConfig(ctx, dockerClient, logger, "cloud", "default", []byte(cloudConfigYAML))
+}
+
 func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
-	// Get director configuration
-	config, err := director.GetDirectorConfig(ctx, dockerClient)
-	if err != nil {
-		return fmt.Errorf("failed to get director config: %w", err)
-	}
-
-	// Create BOSH director client
-	directorClient, err := director.NewDirector(config, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create director client: %w", err)
-	}
-
-	// Update runtime config with name "enable-ssh"
-	if err := directorClient.UpdateRuntimeConfig("enable-ssh", []byte(runtimeConfigYAML)); err != nil {
-		return fmt.Errorf("failed to update runtime-config: %w", err)
-	}
-
-	logger.Debug("startCommand", "Runtime-config applied successfully")
-	return nil
+	return applyConfig(ctx, dockerClient, logger, "runtime", "enable-ssh", []byte(runtimeConfigYAML))
 }

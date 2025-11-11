@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
+	"sync"
 
 	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
 	boshuaa "github.com/cloudfoundry/bosh-cli/v7/uaa"
@@ -15,6 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// dialerMutex protects the global state manipulation in NewDirector
+// (os.Unsetenv and boshhttp.ResetDialerContext)
+var dialerMutex sync.Mutex
+
 // Config holds the BOSH director connection configuration
 type Config struct {
 	Environment    string
@@ -23,6 +27,16 @@ type Config struct {
 	CACert         string
 	AllProxy       string
 	JumpboxKeyPath string
+}
+
+// Cleanup removes the temporary jumpbox key file
+func (c *Config) Cleanup() error {
+	if c.JumpboxKeyPath != "" {
+		if err := os.Remove(c.JumpboxKeyPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to remove jumpbox key file: %w", err)
+		}
+	}
+	return nil
 }
 
 // GetDirectorConfig retrieves the BOSH director configuration from the running container
@@ -74,11 +88,27 @@ func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Confi
 	}
 
 	// Create temporary file for jumpbox key
-	tmpDir := os.TempDir()
-	keyFile := filepath.Join(tmpDir, fmt.Sprintf("jumpbox-key-%d", os.Getpid()))
+	keyFileHandle, err := os.CreateTemp("", "jumpbox-key-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file for jumpbox key: %w", err)
+	}
+	keyFile := keyFileHandle.Name()
 
-	if err := os.WriteFile(keyFile, []byte(fmt.Sprint(jumpboxKey)), 0600); err != nil {
+	if _, err := keyFileHandle.Write([]byte(fmt.Sprint(jumpboxKey))); err != nil {
+		keyFileHandle.Close()
+		os.Remove(keyFile)
 		return nil, fmt.Errorf("failed to write jumpbox key: %w", err)
+	}
+
+	if err := keyFileHandle.Close(); err != nil {
+		os.Remove(keyFile)
+		return nil, fmt.Errorf("failed to close jumpbox key file: %w", err)
+	}
+
+	// Set restrictive permissions
+	if err := os.Chmod(keyFile, 0600); err != nil {
+		os.Remove(keyFile)
+		return nil, fmt.Errorf("failed to set permissions on jumpbox key: %w", err)
 	}
 
 	return &Config{
@@ -93,6 +123,9 @@ func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Confi
 
 // NewDirector creates a BOSH director client using the provided configuration
 func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error) {
+	// Protect global state manipulation with a mutex for thread safety
+	dialerMutex.Lock()
+
 	// Unset BOSH_ALL_PROXY to ensure direct connection to localhost.
 	// This variable is meant for external BOSH CLI usage through the jumpbox,
 	// not for our internal API calls to localhost:25555.
@@ -102,6 +135,8 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 	// The bosh-utils library caches the dialer with proxy settings at package init time,
 	// so we must explicitly reset it after unsetting BOSH_ALL_PROXY.
 	boshhttp.ResetDialerContext()
+
+	dialerMutex.Unlock()
 
 	// Create director config
 	directorConfig, err := boshdir.NewConfigFromURL(config.Environment)
