@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/rkoster/instant-bosh/internal/commands"
+	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLogWriter_NoFilter(t *testing.T) {
 	var buf bytes.Buffer
-	writer := commands.NewLogWriter(&buf, false, nil)
+	writer := logwriter.New(&buf, logwriter.Config{Colorize: false})
 
 	input := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test message 1
 [nats/bosh-nats-sync] 2025-11-10T14:35:25.661709087Z INFO - test message 2
@@ -30,7 +30,10 @@ func TestLogWriter_NoFilter(t *testing.T) {
 
 func TestLogWriter_WithFilter_SingleComponent(t *testing.T) {
 	var buf bytes.Buffer
-	writer := commands.NewLogWriter(&buf, false, []string{"director/access"})
+	writer := logwriter.New(&buf, logwriter.Config{
+		Colorize:   false,
+		Components: []string{"director/access"},
+	})
 
 	input := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test message 1
 [nats/bosh-nats-sync] 2025-11-10T14:35:25.661709087Z INFO - test message 2
@@ -51,7 +54,10 @@ func TestLogWriter_WithFilter_SingleComponent(t *testing.T) {
 
 func TestLogWriter_WithFilter_MultipleComponents(t *testing.T) {
 	var buf bytes.Buffer
-	writer := commands.NewLogWriter(&buf, false, []string{"director/access", "director/director.stdout"})
+	writer := logwriter.New(&buf, logwriter.Config{
+		Colorize:   false,
+		Components: []string{"director/access", "director/director.stdout"},
+	})
 
 	input := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test message 1
 [nats/bosh-nats-sync] 2025-11-10T14:35:25.661709087Z INFO - test message 2
@@ -73,7 +79,7 @@ func TestLogWriter_WithFilter_MultipleComponents(t *testing.T) {
 
 func TestLogWriter_WithColor(t *testing.T) {
 	var buf bytes.Buffer
-	writer := commands.NewLogWriter(&buf, true, nil)
+	writer := logwriter.New(&buf, logwriter.Config{Colorize: true})
 
 	input := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test message
 `
@@ -90,7 +96,7 @@ func TestLogWriter_WithColor(t *testing.T) {
 
 func TestLogWriter_PartialLines(t *testing.T) {
 	var buf bytes.Buffer
-	writer := commands.NewLogWriter(&buf, false, nil)
+	writer := logwriter.New(&buf, logwriter.Config{Colorize: false})
 
 	// Write partial line
 	input1 := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test `
@@ -115,7 +121,7 @@ func TestLogWriter_PartialLines(t *testing.T) {
 
 func TestLogWriter_UnparsedLines(t *testing.T) {
 	var buf bytes.Buffer
-	writer := commands.NewLogWriter(&buf, false, nil)
+	writer := logwriter.New(&buf, logwriter.Config{Colorize: false})
 
 	input := `This is not a valid log line
 [director/access] 2025-11-10T14:35:24.468092247Z INFO - test message
@@ -131,4 +137,52 @@ Another invalid line
 	assert.Contains(t, output, "This is not a valid log line")
 	assert.Contains(t, output, "Another invalid line")
 	assert.Contains(t, output, "test message")
+}
+
+func TestLogWriter_MessageOnly(t *testing.T) {
+	var buf bytes.Buffer
+	writer := logwriter.New(&buf, logwriter.Config{
+		MessageOnly: true,
+	})
+
+	input := `[director/access] 2025-11-10T14:35:24.468092247Z INFO - test message 1
+[nats/bosh-nats-sync] 2025-11-10T14:35:25.661709087Z INFO - test message 2
+`
+
+	n, err := writer.Write([]byte(input))
+	assert.NoError(t, err)
+	assert.Equal(t, len(input), n)
+
+	output := buf.String()
+	// Should contain only messages, not components or timestamps
+	assert.Contains(t, output, "test message 1")
+	assert.Contains(t, output, "test message 2")
+	assert.NotContains(t, output, "director/access")
+	assert.NotContains(t, output, "nats/bosh-nats-sync")
+	assert.NotContains(t, output, "INFO")
+}
+
+func TestLogWriter_MessageOnlyWithFilter(t *testing.T) {
+	var buf bytes.Buffer
+	writer := logwriter.New(&buf, logwriter.Config{
+		MessageOnly: true,
+		Components:  []string{"main"},
+	})
+
+	input := `[main] 2025-11-10T14:35:24.468092247Z INFO - Starting BOSH Director
+[nats/bosh-nats-sync] 2025-11-10T14:35:25.661709087Z INFO - NATS sync running
+[main] 2025-11-10T14:35:26.468092247Z INFO - Director ready
+`
+
+	n, err := writer.Write([]byte(input))
+	assert.NoError(t, err)
+	assert.Equal(t, len(input), n)
+
+	output := buf.String()
+	// Should contain only messages from "main" component
+	assert.Contains(t, output, "Starting BOSH Director")
+	assert.Contains(t, output, "Director ready")
+	assert.NotContains(t, output, "NATS sync running")
+	assert.NotContains(t, output, "main")
+	assert.NotContains(t, output, "INFO")
 }

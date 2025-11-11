@@ -1,9 +1,7 @@
 package commands
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"os"
 	"strings"
 
@@ -11,73 +9,9 @@ import (
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/logparser"
+	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"golang.org/x/term"
 )
-
-// LogWriter wraps an io.Writer and parses log lines before writing
-type LogWriter struct {
-	writer          io.Writer
-	colorize        bool
-	buffer          bytes.Buffer
-	componentFilter map[string]bool
-	hasFilter       bool
-}
-
-func NewLogWriter(writer io.Writer, colorize bool, components []string) *LogWriter {
-	lw := &LogWriter{
-		writer:   writer,
-		colorize: colorize,
-	}
-
-	if len(components) > 0 {
-		lw.hasFilter = true
-		lw.componentFilter = make(map[string]bool)
-		for _, comp := range components {
-			lw.componentFilter[comp] = true
-		}
-	}
-
-	return lw
-}
-
-func (lw *LogWriter) Write(p []byte) (n int, err error) {
-	// Add to buffer
-	lw.buffer.Write(p)
-
-	// Process complete lines
-	for {
-		line, err := lw.buffer.ReadString('\n')
-		if err != nil {
-			// No complete line yet, put it back
-			if line != "" {
-				lw.buffer.WriteString(line)
-			}
-			break
-		}
-
-		// Remove trailing newline for parsing
-		line = strings.TrimSuffix(line, "\n")
-
-		// Parse the log line
-		logLine := logparser.ParseLogLine(line)
-
-		// Apply component filter if set
-		if lw.hasFilter && logLine.Component != "" {
-			if !lw.componentFilter[logLine.Component] {
-				// Skip this line - component not in filter
-				continue
-			}
-		}
-
-		// Format and write the parsed line
-		formatted := logLine.FormatLogLine(lw.colorize) + "\n"
-		if _, writeErr := lw.writer.Write([]byte(formatted)); writeErr != nil {
-			return len(p), writeErr
-		}
-	}
-
-	return len(p), nil
-}
 
 func LogsAction(ui boshui.UI, logger boshlog.Logger, listComponents bool, components []string, follow bool, tail string) error {
 	ctx := context.Background()
@@ -124,8 +58,13 @@ func LogsAction(ui boshui.UI, logger boshlog.Logger, listComponents bool, compon
 	// Check if stdout is a terminal for colorization
 	colorize := isTerminal(os.Stdout.Fd())
 
-	stdoutWriter := NewLogWriter(os.Stdout, colorize, components)
-	stderrWriter := NewLogWriter(os.Stderr, colorize, components)
+	config := logwriter.Config{
+		Colorize:   colorize,
+		Components: components,
+	}
+
+	stdoutWriter := logwriter.New(os.Stdout, config)
+	stderrWriter := logwriter.New(os.Stderr, config)
 
 	return dockerClient.FollowContainerLogs(ctx, docker.ContainerName, follow, tail, stdoutWriter, stderrWriter)
 }
@@ -135,76 +74,16 @@ func isTerminal(fd uintptr) bool {
 	return term.IsTerminal(int(fd))
 }
 
-// MessageOnlyLogWriter writes only the message portion of parsed log lines
-type MessageOnlyLogWriter struct {
-	writer          io.Writer
-	buffer          bytes.Buffer
-	componentFilter map[string]bool
-	hasFilter       bool
-}
-
-func NewMessageOnlyLogWriter(writer io.Writer, components []string) *MessageOnlyLogWriter {
-	lw := &MessageOnlyLogWriter{
-		writer: writer,
-	}
-
-	if len(components) > 0 {
-		lw.hasFilter = true
-		lw.componentFilter = make(map[string]bool)
-		for _, comp := range components {
-			lw.componentFilter[comp] = true
-		}
-	}
-
-	return lw
-}
-
-func (lw *MessageOnlyLogWriter) Write(p []byte) (n int, err error) {
-	// Add to buffer
-	lw.buffer.Write(p)
-
-	// Process complete lines
-	for {
-		line, err := lw.buffer.ReadString('\n')
-		if err != nil {
-			// No complete line yet, put it back
-			if line != "" {
-				lw.buffer.WriteString(line)
-			}
-			break
-		}
-
-		// Remove trailing newline for parsing
-		line = strings.TrimSuffix(line, "\n")
-
-		// Parse the log line
-		logLine := logparser.ParseLogLine(line)
-
-		// Apply component filter if set
-		if lw.hasFilter && logLine.Component != "" {
-			if !lw.componentFilter[logLine.Component] {
-				// Skip this line - component not in filter
-				continue
-			}
-		}
-
-		// Write only the message
-		if logLine.Message != "" {
-			if _, writeErr := lw.writer.Write([]byte(logLine.Message + "\n")); writeErr != nil {
-				return len(p), writeErr
-			}
-		}
-	}
-
-	return len(p), nil
-}
-
 // StreamMainComponentLogs streams logs from the main component, showing only messages
 // This is used during startup to show progress without cluttering the output
 func StreamMainComponentLogs(ctx context.Context, dockerClient *docker.Client, ui boshui.UI) error {
 	// Use the UI to write messages directly - use same writer for both stdout and stderr
 	// since we want all logs from the main component
-	writer := NewMessageOnlyLogWriter(&uiWriter{ui: ui}, []string{"main"})
+	config := logwriter.Config{
+		MessageOnly: true,
+		Components:  []string{"main"},
+	}
+	writer := logwriter.New(&uiWriter{ui: ui}, config)
 
 	// Follow logs from the container starting from the beginning
 	// tail="all" gets all existing logs and then follows for new ones
