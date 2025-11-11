@@ -7,6 +7,7 @@ import (
 
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
+	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
 )
 
@@ -82,9 +83,66 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 	time.Sleep(100 * time.Millisecond)
 
 	ui.PrintLinef("instant-bosh is ready!")
+
+	// Apply cloud-config
+	ui.PrintLinef("Applying cloud-config...")
+	if err := applyCloudConfig(ctx, dockerClient, logger); err != nil {
+		return fmt.Errorf("failed to apply cloud-config: %w", err)
+	}
+
+	// Apply runtime-config
+	ui.PrintLinef("Applying runtime-config...")
+	if err := applyRuntimeConfig(ctx, dockerClient, logger); err != nil {
+		return fmt.Errorf("failed to apply runtime-config: %w", err)
+	}
+
 	ui.PrintLinef("")
 	ui.PrintLinef("To configure your BOSH CLI environment, run:")
 	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
 
+	return nil
+}
+
+func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+	// Get director configuration
+	config, err := director.GetDirectorConfig(ctx, dockerClient)
+	if err != nil {
+		return fmt.Errorf("failed to get director config: %w", err)
+	}
+
+	// Create BOSH director client
+	directorClient, err := director.NewDirector(config, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create director client: %w", err)
+	}
+
+	// Update cloud config with name "default"
+	if err := directorClient.UpdateCloudConfig("default", []byte(cloudConfigYAML)); err != nil {
+		return fmt.Errorf("failed to update cloud-config: %w", err)
+	}
+
+	logger.Debug("startCommand", "Cloud-config applied successfully")
+	return nil
+}
+
+func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+	// Get director configuration
+	config, err := director.GetDirectorConfig(ctx, dockerClient)
+	if err != nil {
+		return fmt.Errorf("failed to get director config: %w", err)
+	}
+
+	// Create BOSH director client
+	directorClient, err := director.NewDirector(config, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create director client: %w", err)
+	}
+
+	// Update runtime config with name "enable-ssh"
+	if err := directorClient.UpdateRuntimeConfig("enable-ssh", []byte(runtimeConfigYAML)); err != nil {
+		return fmt.Errorf("failed to update runtime-config: %w", err)
+	}
+
+	logger.Debug("startCommand", "Runtime-config applied successfully")
 	return nil
 }
