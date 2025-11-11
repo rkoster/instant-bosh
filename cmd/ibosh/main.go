@@ -86,6 +86,44 @@ func main() {
 					return commands.PrintEnvAction(ui, logger)
 				},
 			},
+			{
+				Name:  "logs",
+				Usage: "Show logs from the instant-bosh container",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "list-components",
+						Usage: "List all available log components",
+					},
+					&cli.StringSliceFlag{
+						Name:    "component",
+						Aliases: []string{"c"},
+						Usage:   "Filter logs by component (can be specified multiple times)",
+					},
+					&cli.BoolFlag{
+						Name:    "follow",
+						Aliases: []string{"f"},
+						Usage:   "Follow log output",
+						Value:   false,
+					},
+					&cli.StringFlag{
+						Name:    "tail",
+						Aliases: []string{"n"},
+						Usage:   "Number of lines to show from the end of the logs",
+						Value:   "all",
+					},
+				},
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.LogsAction(
+						ui,
+						logger,
+						c.Bool("list-components"),
+						c.StringSlice("component"),
+						c.Bool("follow"),
+						c.String("tail"),
+					)
+				},
+			},
 		},
 	}
 

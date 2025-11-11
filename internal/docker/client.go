@@ -226,12 +226,14 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tai
 	}
 	defer logs.Close()
 
-	logBytes, err := io.ReadAll(logs)
-	if err != nil {
-		return "", fmt.Errorf("reading logs: %w", err)
+	// Docker multiplexes stdout and stderr, so we need to demultiplex them
+	// Write both streams to the same buffer to preserve chronological order
+	var combined bytes.Buffer
+	if _, err := stdcopy.StdCopy(&combined, &combined, logs); err != nil {
+		return "", fmt.Errorf("demultiplexing logs: %w", err)
 	}
 
-	return string(logBytes), nil
+	return combined.String(), nil
 }
 
 func (c *Client) WaitForBoshReady(ctx context.Context, maxWait time.Duration) error {
@@ -360,4 +362,25 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 	}
 
 	return stdout.String(), nil
+}
+
+func (c *Client) FollowContainerLogs(ctx context.Context, containerName string, follow bool, tail string, stdout io.Writer, stderr io.Writer) error {
+	options := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     follow,
+		Tail:       tail,
+	}
+
+	logs, err := c.cli.ContainerLogs(ctx, containerName, options)
+	if err != nil {
+		return fmt.Errorf("getting container logs: %w", err)
+	}
+	defer logs.Close()
+
+	if _, err := stdcopy.StdCopy(stdout, stderr, logs); err != nil {
+		return fmt.Errorf("streaming logs: %w", err)
+	}
+
+	return nil
 }
