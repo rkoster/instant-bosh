@@ -25,7 +25,7 @@ networks:
     gateway: 10.245.0.1
     static: [10.245.0.34]
     cloud_properties:
-      name: ((network))
+      name: instant-bosh
 
 vm_extensions:
 - name: all_ports
@@ -48,6 +48,8 @@ compilation:
 releases:
 - name: os-conf
   version: 23.0.0
+  url: https://bosh.io/d/github.com/cloudfoundry/os-conf-release?v=23.0.0
+  sha1: sha256:0e99c6f15987927c37df8b7a796822036e719cc06a5caaabcdbdd3b774c78ac1
 
 addons:
 - name: enable-ssh
