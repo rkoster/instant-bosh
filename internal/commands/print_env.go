@@ -40,7 +40,8 @@ func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
 	ui.PrintLinef("export BOSH_CLIENT_SECRET=%s", config.ClientSecret)
 	ui.PrintLinef("export BOSH_ENVIRONMENT=%s", config.Environment)
 	ui.PrintLinef("export BOSH_CA_CERT='%s'", config.CACert)
-	ui.PrintLinef("export BOSH_ALL_PROXY=%s", config.AllProxy)
+	// Note: BOSH_ALL_PROXY is not set for direct localhost access
+	// The jumpbox is only needed for accessing VMs deployed by BOSH, not the director itself
 
 	return nil
 }

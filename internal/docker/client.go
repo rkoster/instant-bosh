@@ -122,7 +122,9 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	networkConfig := &network.NetworkingConfig{
 		EndpointsConfig: map[string]*network.EndpointSettings{
 			NetworkName: {
-				IPAddress: ContainerIP,
+				IPAMConfig: &network.EndpointIPAMConfig{
+					IPv4Address: ContainerIP,
+				},
 			},
 		},
 	}
