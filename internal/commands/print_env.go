@@ -33,15 +33,15 @@ func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}
-	defer config.Cleanup()
+	// NOTE: We do NOT call config.Cleanup() here because the jumpbox key file
+	// needs to persist for the user's shell session to use with BOSH_ALL_PROXY
 
 	// Print environment variables to stdout (must use ui.PrintLinef which goes to outWriter/stdout)
 	ui.PrintLinef("export BOSH_CLIENT=%s", config.Client)
 	ui.PrintLinef("export BOSH_CLIENT_SECRET=%s", config.ClientSecret)
 	ui.PrintLinef("export BOSH_ENVIRONMENT=%s", config.Environment)
 	ui.PrintLinef("export BOSH_CA_CERT='%s'", config.CACert)
-	// Note: BOSH_ALL_PROXY is not set for direct localhost access
-	// The jumpbox is only needed for accessing VMs deployed by BOSH, not the director itself
+	ui.PrintLinef("export BOSH_ALL_PROXY=%s", config.AllProxy)
 
 	return nil
 }
