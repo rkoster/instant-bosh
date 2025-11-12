@@ -33,7 +33,8 @@ func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}
-	defer config.Cleanup()
+	// NOTE: We do NOT call config.Cleanup() here because the jumpbox key file
+	// needs to persist for the user's shell session to use with BOSH_ALL_PROXY
 
 	// Print environment variables to stdout (must use ui.PrintLinef which goes to outWriter/stdout)
 	ui.PrintLinef("export BOSH_CLIENT=%s", config.Client)
