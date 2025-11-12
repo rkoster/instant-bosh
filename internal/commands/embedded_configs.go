@@ -1,6 +1,7 @@
 package commands
 
-const cloudConfigYAML = `azs:
+const (
+	cloudConfigYAML = `azs:
 - name: z1
 - name: z2
 - name: z3
@@ -40,7 +41,7 @@ compilation:
   network: default
 `
 
-const runtimeConfigYAML = `---
+	runtimeConfigYAML = `---
 # Runtime config to enable SSH on Docker-based VMs
 # This ensures systemd starts SSH service on all VMs since it doesn't auto-start in containers
 
@@ -63,3 +64,9 @@ addons:
         # Start SSH service for bosh ssh to work in Docker containers
         systemctl start ssh || true
 `
+)
+
+var (
+	cloudConfigYAMLBytes   = []byte(cloudConfigYAML)
+	runtimeConfigYAMLBytes = []byte(runtimeConfigYAML)
+)

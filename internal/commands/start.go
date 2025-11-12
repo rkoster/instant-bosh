@@ -138,9 +138,9 @@ func applyConfig(ctx context.Context, dockerClient *docker.Client, logger boshlo
 }
 
 func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
-	return applyConfig(ctx, dockerClient, logger, "cloud", "default", []byte(cloudConfigYAML))
+	return applyConfig(ctx, dockerClient, logger, "cloud", "default", cloudConfigYAMLBytes)
 }
 
 func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
-	return applyConfig(ctx, dockerClient, logger, "runtime", "enable-ssh", []byte(runtimeConfigYAML))
+	return applyConfig(ctx, dockerClient, logger, "runtime", "enable-ssh", runtimeConfigYAMLBytes)
 }

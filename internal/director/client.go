@@ -58,6 +58,10 @@ func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Confi
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract admin_password: %w", err)
 	}
+	adminPasswordStr, ok := adminPassword.(string)
+	if !ok {
+		return nil, fmt.Errorf("admin_password is not a string")
+	}
 
 	// Extract director SSL CA certificate
 	directorSSL, err := extractYAMLValue(data, "director_ssl")
@@ -71,6 +75,10 @@ func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Confi
 	directorCert, err := extractYAMLValue(directorSSLMap, "ca")
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract director_ssl.ca: %w", err)
+	}
+	directorCertStr, ok := directorCert.(string)
+	if !ok {
+		return nil, fmt.Errorf("director_ssl.ca is not a string")
 	}
 
 	// Extract jumpbox SSH key
@@ -86,6 +94,10 @@ func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Confi
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract jumpbox_ssh.private_key: %w", err)
 	}
+	jumpboxKeyStr, ok := jumpboxKey.(string)
+	if !ok {
+		return nil, fmt.Errorf("jumpbox_ssh.private_key is not a string")
+	}
 
 	// Create temporary file for jumpbox key
 	keyFileHandle, err := os.CreateTemp("", "jumpbox-key-*")
@@ -94,8 +106,11 @@ func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Confi
 	}
 	keyFile := keyFileHandle.Name()
 
-	if _, err := keyFileHandle.Write([]byte(fmt.Sprint(jumpboxKey))); err != nil {
-		keyFileHandle.Close()
+	if _, err := keyFileHandle.Write([]byte(jumpboxKeyStr)); err != nil {
+		if closeErr := keyFileHandle.Close(); closeErr != nil {
+			os.Remove(keyFile)
+			return nil, fmt.Errorf("failed to close jumpbox key file after write error: %w", closeErr)
+		}
 		os.Remove(keyFile)
 		return nil, fmt.Errorf("failed to write jumpbox key: %w", err)
 	}
@@ -114,8 +129,8 @@ func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Confi
 	return &Config{
 		Environment:    "https://127.0.0.1:25555",
 		Client:         "admin",
-		ClientSecret:   fmt.Sprint(adminPassword),
-		CACert:         fmt.Sprint(directorCert),
+		ClientSecret:   adminPasswordStr,
+		CACert:         directorCertStr,
 		AllProxy:       fmt.Sprintf("ssh+socks5://jumpbox@localhost:2222?private-key=%s", keyFile),
 		JumpboxKeyPath: keyFile,
 	}, nil
@@ -182,7 +197,7 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 func extractYAMLValue(data map[string]interface{}, key string) (interface{}, error) {
 	value, ok := data[key]
 	if !ok {
-		return nil, fmt.Errorf("key %s not found", key)
+		return nil, fmt.Errorf("key '%s' not found", key)
 	}
 	return value, nil
 }
