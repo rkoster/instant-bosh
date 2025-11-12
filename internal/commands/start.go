@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"gopkg.in/yaml.v3"
 )
 
 func StartAction(ui boshui.UI, logger boshlog.Logger) error {
@@ -142,5 +144,61 @@ func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger b
 }
 
 func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
-	return applyConfig(ctx, dockerClient, logger, "runtime", "enable-ssh", runtimeConfigYAMLBytes)
+	// Get director configuration
+	config, err := director.GetDirectorConfig(ctx, dockerClient)
+	if err != nil {
+		return fmt.Errorf("failed to get director config: %w", err)
+	}
+	defer config.Cleanup()
+
+	// Create BOSH director client
+	directorClient, err := director.NewDirector(config, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create director client: %w", err)
+	}
+
+	// Parse runtime config to extract releases
+	var runtimeConfig struct {
+		Releases []struct {
+			Name    string `yaml:"name"`
+			Version string `yaml:"version"`
+			URL     string `yaml:"url"`
+			SHA1    string `yaml:"sha1"`
+		} `yaml:"releases"`
+	}
+
+	if err := yaml.Unmarshal(runtimeConfigYAMLBytes, &runtimeConfig); err != nil {
+		return fmt.Errorf("failed to parse runtime config: %w", err)
+	}
+
+	// Upload releases before applying runtime config
+	for _, release := range runtimeConfig.Releases {
+		if release.URL != "" {
+			logger.Debug("startCommand", "Uploading release %s/%s from %s", release.Name, release.Version, release.URL)
+
+			// Check if release already exists
+			hasRelease, err := directorClient.HasRelease(release.Name, release.Version, boshdir.OSVersionSlug{})
+			if err != nil {
+				return fmt.Errorf("failed to check if release exists: %w", err)
+			}
+
+			if !hasRelease {
+				// Upload the release using the URL
+				if err := directorClient.UploadReleaseURL(release.URL, release.SHA1, false, false); err != nil {
+					return fmt.Errorf("failed to upload release %s/%s: %w", release.Name, release.Version, err)
+				}
+				logger.Debug("startCommand", "Successfully uploaded release %s/%s", release.Name, release.Version)
+			} else {
+				logger.Debug("startCommand", "Release %s/%s already exists, skipping upload", release.Name, release.Version)
+			}
+		}
+	}
+
+	// Now apply the runtime config
+	if err := directorClient.UpdateRuntimeConfig("enable-ssh", runtimeConfigYAMLBytes); err != nil {
+		return fmt.Errorf("failed to update runtime-config: %w", err)
+	}
+	logger.Debug("startCommand", "Runtime-config applied successfully")
+
+	return nil
 }

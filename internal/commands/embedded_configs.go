@@ -49,7 +49,7 @@ releases:
 - name: os-conf
   version: 23.0.0
   url: https://bosh.io/d/github.com/cloudfoundry/os-conf-release?v=23.0.0
-  sha1: sha256:0e99c6f15987927c37df8b7a796822036e719cc06a5caaabcdbdd3b774c78ac1
+  sha1: sha256:efcf30754ce4c5f308aedab3329d8d679f5967b2a4c3c453204c7cb10c7c5ed9
 
 addons:
 - name: enable-ssh
