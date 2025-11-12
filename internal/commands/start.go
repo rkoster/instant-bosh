@@ -7,6 +7,7 @@ import (
 
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
+	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
 )
 
@@ -82,9 +83,64 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 	time.Sleep(100 * time.Millisecond)
 
 	ui.PrintLinef("instant-bosh is ready!")
+
+	// Apply cloud-config
+	ui.PrintLinef("Applying cloud-config...")
+	if err := applyCloudConfig(ctx, dockerClient, logger); err != nil {
+		return fmt.Errorf("failed to apply cloud-config: %w", err)
+	}
+
+	// Apply runtime-config
+	ui.PrintLinef("Applying runtime-config...")
+	if err := applyRuntimeConfig(ctx, dockerClient, logger); err != nil {
+		return fmt.Errorf("failed to apply runtime-config: %w", err)
+	}
+
 	ui.PrintLinef("")
 	ui.PrintLinef("To configure your BOSH CLI environment, run:")
 	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
 
 	return nil
+}
+
+// applyConfig is a helper function to apply either cloud-config or runtime-config
+func applyConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger, configType, configName string, configYAML []byte) error {
+	// Get director configuration
+	config, err := director.GetDirectorConfig(ctx, dockerClient)
+	if err != nil {
+		return fmt.Errorf("failed to get director config: %w", err)
+	}
+	defer config.Cleanup()
+
+	// Create BOSH director client
+	directorClient, err := director.NewDirector(config, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create director client: %w", err)
+	}
+
+	// Update the appropriate config type
+	switch configType {
+	case "cloud":
+		if err := directorClient.UpdateCloudConfig(configName, configYAML); err != nil {
+			return fmt.Errorf("failed to update cloud-config: %w", err)
+		}
+		logger.Debug("startCommand", "Cloud-config applied successfully")
+	case "runtime":
+		if err := directorClient.UpdateRuntimeConfig(configName, configYAML); err != nil {
+			return fmt.Errorf("failed to update runtime-config: %w", err)
+		}
+		logger.Debug("startCommand", "Runtime-config applied successfully")
+	default:
+		return fmt.Errorf("unknown config type: %s", configType)
+	}
+
+	return nil
+}
+
+func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+	return applyConfig(ctx, dockerClient, logger, "cloud", "default", cloudConfigYAMLBytes)
+}
+
+func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+	return applyConfig(ctx, dockerClient, logger, "runtime", "enable-ssh", runtimeConfigYAMLBytes)
 }
