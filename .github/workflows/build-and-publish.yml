@@ -10,6 +10,7 @@ on:
       - 'ops/**'
       - 'vendor/**'
       - 'Makefile'
+      - 'LICENSE'
       - '.github/workflows/build-and-publish.yml'
 
 env:
