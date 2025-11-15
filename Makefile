@@ -34,6 +34,7 @@ build:
 		--ops-file vendor/bosh-deployment/jumpbox-user.yml \
 		--ops-file ops/pre-start-setup.yml \
 		--ops-file ops/embed-license.yml \
+		--var license_text="$$(cat LICENSE)" \
 		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Build BOSH OCI image using development version of bob
@@ -49,6 +50,7 @@ dev-bob-build:
 		--ops-file ../instant-bosh/vendor/bosh-deployment/jumpbox-user.yml \
 		--ops-file ../instant-bosh/ops/pre-start-setup.yml \
 		--ops-file ../instant-bosh/ops/embed-license.yml \
+		--var license_text="$$(cat ../instant-bosh/LICENSE)" \
 		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Run the built BOSH image
