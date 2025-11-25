@@ -21,6 +21,8 @@ jobs:
   build-and-push:
     runs-on: arc-runner-rkoster-instant-bosh
     timeout-minutes: 60
+    container:
+      image: ubuntu:22.04
     permissions:
       contents: read
       packages: write
