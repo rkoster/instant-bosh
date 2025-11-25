@@ -19,7 +19,7 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: arc-runner-rkoster-instant-bosh
+    runs-on: instant-bosh-dind
     timeout-minutes: 60
     permissions:
       contents: read
