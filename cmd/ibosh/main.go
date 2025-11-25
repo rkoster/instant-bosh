@@ -34,9 +34,16 @@ func main() {
 			{
 				Name:  "start",
 				Usage: "Start instant-bosh director",
+				Flags: []cli.Flag{
+					&cli.StringSliceFlag{
+						Name:    "vars-file",
+						Aliases: []string{"l"},
+						Usage:   "Load variables from a YAML file (can be specified multiple times)",
+					},
+				},
 				Action: func(c *cli.Context) error {
 					ui, logger := initUIAndLogger(c)
-					return commands.StartAction(ui, logger)
+					return commands.StartAction(ui, logger, c.StringSlice("vars-file"))
 				},
 			},
 			{

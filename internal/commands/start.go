@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
+	"regexp"
 	"time"
 
 	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
@@ -13,7 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func StartAction(ui boshui.UI, logger boshlog.Logger) error {
+func StartAction(ui boshui.UI, logger boshlog.Logger, varsFiles []string) error {
 	ctx := context.Background()
 
 	dockerClient, err := docker.NewClient(logger)
@@ -86,15 +88,26 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 
 	ui.PrintLinef("instant-bosh is ready!")
 
+	// Load variables from vars files if provided
+	vars := make(map[string]interface{})
+	if len(varsFiles) > 0 {
+		ui.PrintLinef("Loading variables from files...")
+		loadedVars, err := loadVarsFiles(varsFiles)
+		if err != nil {
+			return fmt.Errorf("failed to load vars files: %w", err)
+		}
+		vars = loadedVars
+	}
+
 	// Apply cloud-config
 	ui.PrintLinef("Applying cloud-config...")
-	if err := applyCloudConfig(ctx, dockerClient, logger); err != nil {
+	if err := applyCloudConfig(ctx, dockerClient, logger, vars); err != nil {
 		return fmt.Errorf("failed to apply cloud-config: %w", err)
 	}
 
 	// Apply runtime-config
 	ui.PrintLinef("Applying runtime-config...")
-	if err := applyRuntimeConfig(ctx, dockerClient, logger); err != nil {
+	if err := applyRuntimeConfig(ctx, dockerClient, logger, vars); err != nil {
 		return fmt.Errorf("failed to apply runtime-config: %w", err)
 	}
 
@@ -103,6 +116,60 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
 
 	return nil
+}
+
+func loadVarsFiles(varsFiles []string) (map[string]interface{}, error) {
+	vars := make(map[string]interface{})
+	
+	for _, varsFile := range varsFiles {
+		data, err := os.ReadFile(varsFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read vars file %s: %w", varsFile, err)
+		}
+		
+		var fileVars map[string]interface{}
+		if err := yaml.Unmarshal(data, &fileVars); err != nil {
+			return nil, fmt.Errorf("failed to parse vars file %s: %w", varsFile, err)
+		}
+		
+		for k, v := range fileVars {
+			vars[k] = v
+		}
+	}
+	
+	return vars, nil
+}
+
+func interpolateVars(content []byte, vars map[string]interface{}) ([]byte, error) {
+	result := string(content)
+	
+	re := regexp.MustCompile(`\(\(([a-zA-Z0-9_-]+)\)\)`)
+	matches := re.FindAllStringSubmatch(result, -1)
+	
+	for _, match := range matches {
+		placeholder := match[0]
+		varName := match[1]
+		
+		if value, ok := vars[varName]; ok {
+			var replacement string
+			switch v := value.(type) {
+			case string:
+				replacement = v
+			case int, int64, float64, bool:
+				replacement = fmt.Sprintf("%v", v)
+			default:
+				data, err := yaml.Marshal(v)
+				if err != nil {
+					return nil, fmt.Errorf("failed to marshal variable %s: %w", varName, err)
+				}
+				replacement = string(data)
+			}
+			
+			result = regexp.MustCompile(regexp.QuoteMeta(placeholder)).ReplaceAllString(result, replacement)
+		}
+	}
+	
+	return []byte(result), nil
 }
 
 // applyConfig is a helper function to apply either cloud-config or runtime-config
@@ -139,11 +206,30 @@ func applyConfig(ctx context.Context, dockerClient *docker.Client, logger boshlo
 	return nil
 }
 
-func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
-	return applyConfig(ctx, dockerClient, logger, "cloud", "default", cloudConfigYAMLBytes)
+func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger, vars map[string]interface{}) error {
+	configYAML := cloudConfigYAMLBytes
+	
+	if len(vars) > 0 {
+		interpolated, err := interpolateVars(configYAML, vars)
+		if err != nil {
+			return fmt.Errorf("failed to interpolate cloud-config variables: %w", err)
+		}
+		configYAML = interpolated
+	}
+	
+	return applyConfig(ctx, dockerClient, logger, "cloud", "default", configYAML)
 }
 
-func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger, vars map[string]interface{}) error {
+	configYAML := runtimeConfigYAMLBytes
+	
+	if len(vars) > 0 {
+		interpolated, err := interpolateVars(configYAML, vars)
+		if err != nil {
+			return fmt.Errorf("failed to interpolate runtime-config variables: %w", err)
+		}
+		configYAML = interpolated
+	}
 	// Get director configuration
 	config, err := director.GetDirectorConfig(ctx, dockerClient)
 	if err != nil {
@@ -167,7 +253,7 @@ func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger
 		} `yaml:"releases"`
 	}
 
-	if err := yaml.Unmarshal(runtimeConfigYAMLBytes, &runtimeConfig); err != nil {
+	if err := yaml.Unmarshal(configYAML, &runtimeConfig); err != nil {
 		return fmt.Errorf("failed to parse runtime config: %w", err)
 	}
 
@@ -195,7 +281,7 @@ func applyRuntimeConfig(ctx context.Context, dockerClient *docker.Client, logger
 	}
 
 	// Now apply the runtime config
-	if err := directorClient.UpdateRuntimeConfig("enable-ssh", runtimeConfigYAMLBytes); err != nil {
+	if err := directorClient.UpdateRuntimeConfig("enable-ssh", configYAML); err != nil {
 		return fmt.Errorf("failed to update runtime-config: %w", err)
 	}
 	logger.Debug("startCommand", "Runtime-config applied successfully")

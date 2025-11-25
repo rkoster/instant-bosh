@@ -37,11 +37,33 @@ ibosh destroy
 
 ## Usage
 
+### Variable Interpolation
+
+instant-bosh supports variable interpolation in cloud-config and runtime-config using BOSH-style placeholders. This allows you to customize configurations without modifying the code.
+
+**Example vars file** (`custom-vars.yml`):
+```yaml
+network_name: my-network
+worker_count: 10
+```
+
+**Usage:**
+```bash
+ibosh start --vars-file custom-vars.yml
+```
+
+Variables are interpolated using the `((variable_name))` syntax in the embedded cloud-config and runtime-config. You can specify multiple vars files, and variables from later files will override earlier ones:
+
+```bash
+ibosh start -l base-vars.yml -l override-vars.yml
+```
+
 ### ibosh CLI Commands
 
 The `ibosh` CLI provides a streamlined interface for managing instant-bosh:
 
 - `ibosh start` - Start the instant-bosh director (creates volumes, network, and container; auto-pulls image if not available)
+  - `--vars-file` or `-l` - Load variables from a YAML file for interpolation in configs (can be specified multiple times)
 - `ibosh stop` - Stop the running director
 - `ibosh status` - Show status of instant-bosh and containers on the network
 - `ibosh destroy` - Remove all instant-bosh resources (container, volumes, network, and network containers)
