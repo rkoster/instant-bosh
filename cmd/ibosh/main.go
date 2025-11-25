@@ -31,14 +31,14 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
-		{
-			Name:  "start",
-			Usage: "Start instant-bosh director",
-			Action: func(c *cli.Context) error {
-				ui, logger := initUIAndLogger(c)
-				return commands.StartAction(ui, logger)
+			{
+				Name:  "start",
+				Usage: "Start instant-bosh director",
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.StartAction(ui, logger)
+				},
 			},
-		},
 			{
 				Name:  "stop",
 				Usage: "Stop instant-bosh director",
