@@ -23,8 +23,6 @@ build-ibosh:
 
 # Build BOSH OCI image
 build:
-	@echo "license_text: |" > /tmp/license-vars.yml
-	@sed 's/^/  /' LICENSE >> /tmp/license-vars.yml
 	bob build \
 		--manifest vendor/bosh-deployment/bosh.yml \
 		--ops-file vendor/bosh-deployment/docker/cpi.yml \
@@ -35,14 +33,11 @@ build:
 		--ops-file ops/disable-short-lived-nats-credentials.yml \
 		--ops-file vendor/bosh-deployment/jumpbox-user.yml \
 		--ops-file ops/pre-start-setup.yml \
-		--ops-file ops/embed-license.yml \
-		--vars-file /tmp/license-vars.yml \
+		--license LICENSE \
 		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Build BOSH OCI image using development version of bob
 dev-bob-build:
-	@echo "license_text: |" > /tmp/license-vars.yml
-	@sed 's/^/  /' ../instant-bosh/LICENSE >> /tmp/license-vars.yml
 	cd ../bosh-oci-builder && DOCKER_HOST=unix://$(HOME)/.config/colima/default/docker.sock go run ./cmd/bob build \
 		--manifest ../instant-bosh/vendor/bosh-deployment/bosh.yml \
 		--ops-file ../instant-bosh/vendor/bosh-deployment/docker/cpi.yml \
@@ -53,8 +48,7 @@ dev-bob-build:
 		--ops-file ../instant-bosh/ops/disable-short-lived-nats-credentials.yml \
 		--ops-file ../instant-bosh/vendor/bosh-deployment/jumpbox-user.yml \
 		--ops-file ../instant-bosh/ops/pre-start-setup.yml \
-		--ops-file ../instant-bosh/ops/embed-license.yml \
-		--vars-file /tmp/license-vars.yml \
+		--license ../instant-bosh/LICENSE \
 		--output ghcr.io/rkoster/instant-bosh:latest
 
 # Run the built BOSH image
