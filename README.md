@@ -10,17 +10,35 @@ A containerized BOSH director for local development and testing.
 - SSH support for VMs (via runtime-config)
 - Jumpbox user for proxying SSH connections
 
+## Installation
+
+### Using Nix Flakes
+
+The easiest way to install instant-bosh is using Nix flakes:
+
+```bash
+# Install directly from GitHub
+nix profile install github:rkoster/instant-bosh
+
+# Or run without installing
+nix run github:rkoster/instant-bosh -- help
+
+# Or add to your flake.nix inputs
+inputs.instant-bosh.url = "github:rkoster/instant-bosh";
+```
+
+### Building from Source
+
+If you want to build from source, see [CONTRIBUTING.md](CONTRIBUTING.md) for development setup instructions.
+
 ## Quick Start
 
 ```bash
-# Build the BOSH director image
-make build
-
 # Start the director using ibosh CLI
 ibosh start
 
 # Set BOSH CLI environment variables
-eval "$(make print-env)"
+eval "$(ibosh print-env)"
 
 # Verify BOSH is running
 bosh env
@@ -39,24 +57,31 @@ ibosh destroy
 
 ### ibosh CLI Commands
 
-The `ibosh` CLI provides a streamlined interface for managing instant-bosh:
+```
+NAME:
+   ibosh - instant-bosh CLI
 
-- `ibosh start` - Start the instant-bosh director (creates volumes, network, and container; auto-pulls image if not available)
-- `ibosh stop` - Stop the running director
-- `ibosh status` - Show status of instant-bosh and containers on the network
-- `ibosh destroy` - Remove all instant-bosh resources (container, volumes, network, and network containers)
-- `ibosh pull` - Pull the latest instant-bosh image from the registry
-- `ibosh logs` - Show logs from the instant-bosh container (use `-f` to follow, `-n` to specify number of lines)
+USAGE:
+   ibosh [global options] command [command options]
 
-### Available Makefile Targets
+COMMANDS:
+   start      Start instant-bosh director
+   stop       Stop instant-bosh director
+   destroy    Destroy instant-bosh director and all data
+   status     Show status of instant-bosh and containers on the network
+   pull       Pull latest instant-bosh image
+   print-env  Print environment variables for BOSH CLI
+   logs       Show logs from the instant-bosh container
+   help, h    Shows a list of commands or help for one command
 
-- `make build` - Build BOSH OCI image using bob
-- `make logs` - Show director logs
-- `make print-env` - Print BOSH CLI environment variables
+GLOBAL OPTIONS:
+   --debug, -d  Enable debug logging (default: false)
+   --help, -h   show help
+```
 
 ### Deploying Workloads
 
-After running `make run` and setting the environment with `eval "$(make print-env)"`, you can deploy BOSH releases:
+After starting instant-bosh with `ibosh start` and setting the environment with `eval "$(ibosh print-env)"`, you can deploy BOSH releases:
 
 ```bash
 # Deploy a sample zookeeper cluster
@@ -85,7 +110,7 @@ Since systemd services don't auto-start in Docker containers, SSH must be explic
 1. **os-conf-release**: Provides the `pre-start-script` job
 2. **Runtime Config** (`runtime-config-enable-vm-ssh.yml`): Applies the SSH startup script to all VMs
 
-The `make run` target automatically:
+The `ibosh start` command automatically:
 - Uploads the `os-conf-release`
 - Applies the runtime config
 - Configures cloud-config
@@ -102,22 +127,8 @@ This allows `bosh ssh` to work seamlessly with VMs running as Docker containers.
 
 ## Development
 
-### Running Tests
+For information on contributing to instant-bosh, building from source, running tests, and understanding the project structure, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-This project uses [Ginkgo](https://onsi.github.io/ginkgo/) for testing:
+## License
 
-```bash
-# Run all tests
-go run github.com/onsi/ginkgo/v2/ginkgo -r
-
-# Run tests with verbose output
-go run github.com/onsi/ginkgo/v2/ginkgo -r -v
-```
-
-## Files
-
-- `Makefile` - Build and run automation
-- `runtime-config-enable-vm-ssh.yml` - Runtime config to enable SSH on VMs
-- `ops-*.yml` - Ops files for customizing the BOSH director
-- `vendor/bosh-deployment/` - Vendored BOSH deployment manifests
-- `test/manifest/` - Example deployment manifests
+This project is licensed under the Business Source License 1.1 - see the [LICENSE](LICENSE) file for details.
