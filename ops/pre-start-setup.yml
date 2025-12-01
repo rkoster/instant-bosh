@@ -34,6 +34,19 @@
         #!/bin/bash
         set -e
         
+        # Fix Docker socket permissions so vcap user can access it
+        echo "Fixing Docker socket permissions..."
+        if [ -S /var/run/docker.sock ]; then
+          # Change Docker socket group to vcap (GID 1000) so vcap user can access it
+          # This avoids needing to add vcap to host groups and restart processes
+          chgrp 1000 /var/run/docker.sock
+          chmod g+rw /var/run/docker.sock
+          echo "Changed Docker socket group to vcap (GID: 1000)"
+          ls -la /var/run/docker.sock
+        else
+          echo "WARNING: Docker socket not found at /var/run/docker.sock"
+        fi
+        
         # Start sshd
         echo "Setting up SSH daemon..."
         mkdir -p /run/sshd
