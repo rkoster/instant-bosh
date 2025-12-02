@@ -14,6 +14,12 @@ import (
 )
 
 func StartAction(ui boshui.UI, logger boshlog.Logger) error {
+	// Display the instant-bosh logo
+	if err := PrintLogo(); err != nil {
+		logger.Debug("startCommand", "Failed to print logo: %v", err)
+		// Continue even if logo fails to print
+	}
+
 	ctx := context.Background()
 
 	dockerClient, err := docker.NewClient(logger)
