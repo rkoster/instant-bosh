@@ -21,7 +21,7 @@
             
             src = ./.;
             
-            vendorHash = null;
+            vendorHash = "sha256-joiuLlTgl156ZhLWICjfJhSYK3LRuWhOaTDn+1kMTck=";
             
             subPackages = [ "cmd/ibosh" ];
             
