@@ -3,9 +3,9 @@ directories:
 - contents:
   - git:
       commitTitle: Bumping bosh to version 282.1.2
-      sha: a22d3db586cf0f6f099c88f3716228bcb1fa22e1
+      sha: 1b021c3d3a26ab01547b0941e6ed3b752e1ea37c
       tags:
-      - last-xenial-4192-ga22d3db5
+      - last-xenial-4258-g1b021c3d
     path: bosh-deployment
-  path: vendor
+  path: manifests
 kind: LockConfig

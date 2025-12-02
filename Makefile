@@ -24,14 +24,14 @@ build-ibosh:
 # Build BOSH OCI image
 build:
 	bob build \
-		--manifest vendor/bosh-deployment/bosh.yml \
-		--ops-file vendor/bosh-deployment/docker/cpi.yml \
-		--ops-file vendor/bosh-deployment/docker/unix-sock.yml \
+		--manifest manifests/bosh-deployment/bosh.yml \
+		--ops-file manifests/bosh-deployment/docker/cpi.yml \
+		--ops-file manifests/bosh-deployment/docker/unix-sock.yml \
 		--ops-file ops/stemcell.yml \
 		--ops-file ops/docker-localhost.yml \
                 --ops-file ops/fast-nats-sync.yml \
 		--ops-file ops/disable-short-lived-nats-credentials.yml \
-		--ops-file vendor/bosh-deployment/jumpbox-user.yml \
+		--ops-file manifests/bosh-deployment/jumpbox-user.yml \
 		--ops-file ops/pre-start-setup.yml \
 		--license LICENSE \
 		--output ghcr.io/rkoster/instant-bosh:latest
@@ -39,14 +39,14 @@ build:
 # Build BOSH OCI image using development version of bob
 dev-bob-build:
 	cd ../bosh-oci-builder && DOCKER_HOST=unix://$(HOME)/.config/colima/default/docker.sock go run ./cmd/bob build \
-		--manifest ../instant-bosh/vendor/bosh-deployment/bosh.yml \
-		--ops-file ../instant-bosh/vendor/bosh-deployment/docker/cpi.yml \
-		--ops-file ../instant-bosh/vendor/bosh-deployment/docker/unix-sock.yml \
+		--manifest ../instant-bosh/manifests/bosh-deployment/bosh.yml \
+		--ops-file ../instant-bosh/manifests/bosh-deployment/docker/cpi.yml \
+		--ops-file ../instant-bosh/manifests/bosh-deployment/docker/unix-sock.yml \
 		--ops-file ../instant-bosh/ops/stemcell.yml \
 		--ops-file ../instant-bosh/ops/docker-localhost.yml \
                 --ops-file ../instant-bosh/ops/fast-nats-sync.yml \
 		--ops-file ../instant-bosh/ops/disable-short-lived-nats-credentials.yml \
-		--ops-file ../instant-bosh/vendor/bosh-deployment/jumpbox-user.yml \
+		--ops-file ../instant-bosh/manifests/bosh-deployment/jumpbox-user.yml \
 		--ops-file ../instant-bosh/ops/pre-start-setup.yml \
 		--license ../instant-bosh/LICENSE \
 		--output ghcr.io/rkoster/instant-bosh:latest
@@ -104,7 +104,7 @@ run:
 	BOSH_CLIENT_SECRET=$$ADMIN_PASSWORD \
 	BOSH_ENVIRONMENT=https://127.0.0.1:25555 \
 	BOSH_CA_CERT=$$DIRECTOR_CERT \
-	bosh update-cloud-config vendor/bosh-deployment/docker/cloud-config.yml -v network=instant-bosh -n
+	bosh update-cloud-config manifests/bosh-deployment/docker/cloud-config.yml -v network=instant-bosh -n
 	@echo "Cloud config updated successfully!"
 	@echo ""
 	@echo "Uploading os-conf-release for VM SSH support..."

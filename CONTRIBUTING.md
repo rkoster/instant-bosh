@@ -77,7 +77,7 @@ make dev-bob-build
 
 ### Maintenance Targets
 
-- `make sync` - Sync vendored dependencies using vendir
+- `make sync` - Sync manifest dependencies using vendir
 - `make clean` - Stop container and remove image (keeps volumes)
 - `make reset` - Full reset: stop container, remove volumes and image
 - `make help` - Show available targets
@@ -98,7 +98,7 @@ go run github.com/onsi/ginkgo/v2/ginkgo -r -v
 
 ### 1. Sync Dependencies
 
-When updating vendored BOSH deployment manifests:
+When updating BOSH deployment manifests:
 
 ```bash
 make sync
@@ -154,7 +154,7 @@ ibosh destroy
 │   └── logwriter/      # Log writing utilities
 ├── ops/                # Ops files for BOSH director customization
 ├── test/               # Test fixtures and manifests
-├── vendor/             # Vendored BOSH deployment manifests
+├── manifests/          # BOSH deployment manifests (synced via vendir)
 ├── Makefile           # Build automation
 ├── vendir.yml         # Dependency configuration
 ├── devbox.json        # Devbox configuration
