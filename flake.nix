@@ -19,14 +19,9 @@
             pname = "ibosh";
             version = "0.1.0";
             
-            src = pkgs.lib.cleanSourceWith {
-              src = ./.;
-              filter = path: type:
-                let baseName = baseNameOf path;
-                in baseName != "vendor" && baseName != ".git";
-            };
+            src = ./.;
             
-            vendorHash = "sha256-3GPvp9OFpIzTm/BtuWy+sUnuhFc/2QOZ4WO7eh24nqY=";
+            vendorHash = null;
             
             subPackages = [ "cmd/ibosh" ];
             
