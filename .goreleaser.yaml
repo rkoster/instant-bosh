@@ -5,7 +5,7 @@ version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules
+    # Download Go module dependencies
     - go mod download
 
 builds:
@@ -87,15 +87,27 @@ release:
     
     Download the appropriate binary for your platform from the assets below and add it to your PATH.
     
-    **Linux:**
+    **Linux (x86_64):**
     ```bash
     curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Linux_x86_64.tar.gz | tar xz
     sudo mv ibosh /usr/local/bin/
     ```
     
-    **macOS:**
+    **Linux (ARM64):**
+    ```bash
+    curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Linux_arm64.tar.gz | tar xz
+    sudo mv ibosh /usr/local/bin/
+    ```
+    
+    **macOS (Intel):**
     ```bash
     curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Darwin_x86_64.tar.gz | tar xz
+    sudo mv ibosh /usr/local/bin/
+    ```
+    
+    **macOS (Apple Silicon):**
+    ```bash
+    curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Darwin_arm64.tar.gz | tar xz
     sudo mv ibosh /usr/local/bin/
     ```
     

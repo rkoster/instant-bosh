@@ -9,6 +9,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
 func initUIAndLogger(c *cli.Context) (boshui.UI, boshlog.Logger) {
 	logLevel := boshlog.LevelError
 	if c.Bool("debug") {
