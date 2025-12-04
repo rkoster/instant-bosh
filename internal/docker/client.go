@@ -173,6 +173,10 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"22/tcp":    []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: SSHPort}},
 		},
 		Binds: []string{
+			// NOTE: c.socketPath is dynamically detected from the host's Docker context,
+			// but the destination path :/var/run/docker.sock should remain unchanged.
+			// Docker typically runs in a VM, and the socket inside the VM is always at
+			// /var/run/docker.sock regardless of the host socket location.
 			c.socketPath + ":/var/run/docker.sock",
 			VolumeStore + ":/var/vcap/store",
 			VolumeData + ":/var/vcap/data",
