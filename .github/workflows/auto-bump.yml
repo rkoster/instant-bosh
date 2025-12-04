@@ -1,0 +1,73 @@
+name: Auto Bump Dependencies
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v20
+        with:
+          extra-conf: |
+            extra-experimental-features = nix-command flakes
+
+      - name: Install Devbox
+        run: |
+          curl -fsSL https://get.jetify.com/devbox | bash -s -- -f
+          devbox version
+
+      - name: Run vendir sync
+        run: |
+          devbox shell -- vendir sync
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected"
+          fi
+
+      - name: Stage changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git add manifests/ vendir.lock.yml
+
+      - name: Generate commit message
+        if: steps.check_changes.outputs.has_changes == 'true'
+        id: commit_message
+        run: |
+          chmod +x .github/scripts/detect-version-bumps.sh
+          COMMIT_MESSAGE=$(.github/scripts/detect-version-bumps.sh)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Configure git
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.has_changes == 'true'
+        run: |
+          git commit -m "${{ steps.commit_message.outputs.message }}"
+          git push origin main
