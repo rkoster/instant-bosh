@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
+	"strings"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -41,16 +43,58 @@ type Client struct {
 	socketPath string
 }
 
-func NewClient(logger boshlog.Logger) (*Client, error) {
-	// client.FromEnv automatically reads DOCKER_HOST, DOCKER_API_VERSION, etc.
-	// When users switch Docker contexts (e.g., "docker context use colima"),
-	// Docker automatically sets DOCKER_HOST to the context's socket path.
-	cli, err := client.NewClientWithOpts(
-		client.FromEnv,
-		client.WithAPIVersionNegotiation(),
-	)
+// getDockerHost attempts to get the Docker host from the current context
+// by inspecting the Docker CLI context (if available). Falls back to empty string
+// if the Docker CLI is not available or the context inspection fails.
+func getDockerHost() string {
+	// Check if docker CLI is available
+	dockerPath, err := exec.LookPath("docker")
 	if err != nil {
-		return nil, fmt.Errorf("creating docker client: %w", err)
+		// Docker CLI not available, caller will use client.FromEnv
+		return ""
+	}
+
+	// Try to get the current context's Docker host
+	cmd := exec.Command(dockerPath, "context", "inspect", "-f", "{{.Endpoints.docker.Host}}")
+	output, err := cmd.Output()
+	if err != nil {
+		// Context inspection failed, caller will use client.FromEnv
+		return ""
+	}
+
+	host := strings.TrimSpace(string(output))
+	if host == "" {
+		return ""
+	}
+
+	return host
+}
+
+func NewClient(logger boshlog.Logger) (*Client, error) {
+	// Try to get Docker host from current context if Docker CLI is available
+	dockerHost := getDockerHost()
+
+	var cli *client.Client
+	var err error
+
+	if dockerHost != "" {
+		// Use the host from the Docker context
+		cli, err = client.NewClientWithOpts(
+			client.WithHost(dockerHost),
+			client.WithAPIVersionNegotiation(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating docker client with host %s: %w", dockerHost, err)
+		}
+	} else {
+		// Fall back to client.FromEnv which reads DOCKER_HOST environment variable
+		cli, err = client.NewClientWithOpts(
+			client.FromEnv,
+			client.WithAPIVersionNegotiation(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating docker client: %w", err)
+		}
 	}
 
 	// Extract socket path from Docker daemon host for mounting into containers.
