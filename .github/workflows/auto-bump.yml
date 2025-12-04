@@ -32,7 +32,7 @@ jobs:
 
       - name: Run vendir sync
         run: |
-          devbox shell -- vendir sync
+          devbox run -- vendir sync
 
       - name: Check for changes
         id: check_changes
