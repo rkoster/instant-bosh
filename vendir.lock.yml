@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh to version 282.1.2
-      sha: 1b021c3d3a26ab01547b0941e6ed3b752e1ea37c
+      commitTitle: 'Merge pull request #495 from cloudfoundry/add-bpm-src-opsfile...'
+      sha: 1c9a72b7fc88bf3b3d0da4f67bf1384664403993
       tags:
-      - last-xenial-4258-g1b021c3d
+      - last-xenial-4266-g1c9a72b7
     path: bosh-deployment
   path: manifests
 kind: LockConfig
