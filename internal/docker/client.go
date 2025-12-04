@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os/exec"
-	"strings"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -43,48 +41,20 @@ type Client struct {
 	socketPath string
 }
 
-// getDockerHost retrieves the Docker host from the current context
-func getDockerHost() (string, error) {
-	// Try to get the current context's Docker endpoint
-	cmd := exec.Command("docker", "context", "inspect", "-f", "{{.Endpoints.docker.Host}}")
-	output, err := cmd.Output()
-	if err != nil {
-		// Fall back to default if context inspection fails
-		return "", nil
-	}
-
-	host := strings.TrimSpace(string(output))
-	if host != "" {
-		return host, nil
-	}
-
-	return "", nil
-}
-
 func NewClient(logger boshlog.Logger) (*Client, error) {
-	// Get the Docker host from the current context
-	dockerHost, err := getDockerHost()
-	if err != nil {
-		return nil, fmt.Errorf("getting docker host from context: %w", err)
-	}
-
-	// Build client options
-	opts := []client.Opt{
+	// client.FromEnv automatically reads DOCKER_HOST, DOCKER_API_VERSION, etc.
+	// When users switch Docker contexts (e.g., "docker context use colima"),
+	// Docker automatically sets DOCKER_HOST to the context's socket path.
+	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
-	}
-
-	// If we got a host from the context, use it explicitly
-	if dockerHost != "" {
-		opts = append(opts, client.WithHost(dockerHost))
-	}
-
-	cli, err := client.NewClientWithOpts(opts...)
+	)
 	if err != nil {
 		return nil, fmt.Errorf("creating docker client: %w", err)
 	}
 
-	// Extract socket path from Docker daemon host
+	// Extract socket path from Docker daemon host for mounting into containers.
+	// DaemonHost() returns the host the client is connected to (e.g., "unix:///path/to/docker.sock").
 	socketPath := "/var/run/docker.sock" // default fallback
 	daemonHost := cli.DaemonHost()
 	if len(daemonHost) > 7 && daemonHost[:7] == "unix://" {
