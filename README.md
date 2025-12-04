@@ -12,9 +12,40 @@ A containerized BOSH director for local development and testing.
 
 ## Installation
 
+### Pre-built Binaries (Recommended)
+
+Download the latest pre-built binary for your platform from the [releases page](https://github.com/rkoster/instant-bosh/releases/latest):
+
+**Linux (x86_64):**
+```bash
+curl -sL https://github.com/rkoster/instant-bosh/releases/latest/download/instant-bosh_Linux_x86_64.tar.gz | tar xz
+sudo mv ibosh /usr/local/bin/
+```
+
+**Linux (ARM64):**
+```bash
+curl -sL https://github.com/rkoster/instant-bosh/releases/latest/download/instant-bosh_Linux_arm64.tar.gz | tar xz
+sudo mv ibosh /usr/local/bin/
+```
+
+**macOS (Intel):**
+```bash
+curl -sL https://github.com/rkoster/instant-bosh/releases/latest/download/instant-bosh_Darwin_x86_64.tar.gz | tar xz
+sudo mv ibosh /usr/local/bin/
+```
+
+**macOS (Apple Silicon):**
+```bash
+curl -sL https://github.com/rkoster/instant-bosh/releases/latest/download/instant-bosh_Darwin_arm64.tar.gz | tar xz
+sudo mv ibosh /usr/local/bin/
+```
+
+**Windows:**
+Download the zip file from the [releases page](https://github.com/rkoster/instant-bosh/releases/latest), extract it, and add `ibosh.exe` to your PATH.
+
 ### Using Nix Flakes
 
-The easiest way to install instant-bosh is using Nix flakes:
+You can also install instant-bosh using Nix flakes:
 
 ```bash
 # Install directly from GitHub

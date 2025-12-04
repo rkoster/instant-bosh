@@ -1,0 +1,120 @@
+# GoReleaser configuration for instant-bosh CLI
+# See https://goreleaser.com/customization/build/
+
+version: 2
+
+before:
+  hooks:
+    # Download Go module dependencies
+    - go mod download
+
+builds:
+  - id: ibosh
+    main: ./cmd/ibosh
+    binary: ibosh
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Exclude Windows arm64: support is limited and not commonly used, reduces build time and artifact count
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - id: ibosh
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: rkoster
+    name: instant-bosh
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## instant-bosh CLI Release {{ .Tag }}
+    
+    This release includes pre-built binaries for the `ibosh` command-line interface.
+    
+    ### Installation
+    
+    Download the appropriate binary for your platform from the assets below and add it to your PATH.
+    
+    **Linux (x86_64):**
+    ```bash
+    curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Linux_x86_64.tar.gz | tar xz
+    sudo mv ibosh /usr/local/bin/
+    ```
+    
+    **Linux (ARM64):**
+    ```bash
+    curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Linux_arm64.tar.gz | tar xz
+    sudo mv ibosh /usr/local/bin/
+    ```
+    
+    **macOS (Intel):**
+    ```bash
+    curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Darwin_x86_64.tar.gz | tar xz
+    sudo mv ibosh /usr/local/bin/
+    ```
+    
+    **macOS (Apple Silicon):**
+    ```bash
+    curl -sL https://github.com/rkoster/instant-bosh/releases/download/{{ .Tag }}/instant-bosh_Darwin_arm64.tar.gz | tar xz
+    sudo mv ibosh /usr/local/bin/
+    ```
+    
+    **Windows:**
+    Download the zip file, extract it, and add the `ibosh.exe` to your PATH.
+
+  footer: |
+    ## What's Changed
+    
+    See the full changelog below for details.
