@@ -35,9 +35,10 @@ const (
 )
 
 type Client struct {
-	cli    *client.Client
-	logger boshlog.Logger
-	logTag string
+	cli        *client.Client
+	logger     boshlog.Logger
+	logTag     string
+	socketPath string
 }
 
 func NewClient(logger boshlog.Logger) (*Client, error) {
@@ -46,10 +47,18 @@ func NewClient(logger boshlog.Logger) (*Client, error) {
 		return nil, fmt.Errorf("creating docker client: %w", err)
 	}
 
+	// Extract socket path from Docker daemon host
+	socketPath := "/var/run/docker.sock" // default fallback
+	daemonHost := cli.DaemonHost()
+	if len(daemonHost) > 7 && daemonHost[:7] == "unix://" {
+		socketPath = daemonHost[7:] // strip "unix://" prefix
+	}
+
 	return &Client{
-		cli:    cli,
-		logger: logger,
-		logTag: "dockerClient",
+		cli:        cli,
+		logger:     logger,
+		logTag:     "dockerClient",
+		socketPath: socketPath,
 	}, nil
 }
 
@@ -113,7 +122,7 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"22/tcp":    []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: SSHPort}},
 		},
 		Binds: []string{
-			"/var/run/docker.sock:/var/run/docker.sock",
+			c.socketPath + ":/var/run/docker.sock",
 			VolumeStore + ":/var/vcap/store",
 			VolumeData + ":/var/vcap/data",
 		},

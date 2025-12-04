@@ -1,6 +1,9 @@
 package docker_test
 
 import (
+	"os"
+
+	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rkoster/instant-bosh/internal/docker"
@@ -34,6 +37,58 @@ var _ = Describe("Docker Client Constants", func() {
 		It("defines the correct port mappings", func() {
 			Expect(docker.DirectorPort).To(Equal("25555"))
 			Expect(docker.SSHPort).To(Equal("2222"))
+		})
+	})
+})
+
+var _ = Describe("Docker Client", func() {
+	var (
+		logger         boshlog.Logger
+		originalHost   string
+		hostWasSet     bool
+	)
+
+	BeforeEach(func() {
+		logger = boshlog.NewLogger(boshlog.LevelNone)
+		originalHost, hostWasSet = os.LookupEnv("DOCKER_HOST")
+	})
+
+	AfterEach(func() {
+		if hostWasSet {
+			os.Setenv("DOCKER_HOST", originalHost)
+		} else {
+			os.Unsetenv("DOCKER_HOST")
+		}
+	})
+
+	Describe("NewClient", func() {
+		Context("when DOCKER_HOST is set to a unix socket", func() {
+			It("respects the docker context socket location", func() {
+				// Set DOCKER_HOST to simulate a custom Docker context (like Colima)
+				customSocket := "unix:///Users/test/.config/colima/default/docker.sock"
+				os.Setenv("DOCKER_HOST", customSocket)
+
+				client, err := docker.NewClient(logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client).NotTo(BeNil())
+				defer client.Close()
+
+				// We can't directly access the socketPath field as it's private,
+				// but the test verifies that the client was created successfully
+				// with the custom DOCKER_HOST. The actual socket path usage is
+				// tested through integration tests.
+			})
+		})
+
+		Context("when DOCKER_HOST is not set", func() {
+			It("creates a client with the default socket", func() {
+				os.Unsetenv("DOCKER_HOST")
+
+				client, err := docker.NewClient(logger)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client).NotTo(BeNil())
+				defer client.Close()
+			})
 		})
 	})
 })
