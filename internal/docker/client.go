@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
+	"strings"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -35,21 +37,79 @@ const (
 )
 
 type Client struct {
-	cli    *client.Client
-	logger boshlog.Logger
-	logTag string
+	cli        *client.Client
+	logger     boshlog.Logger
+	logTag     string
+	socketPath string
+}
+
+// getDockerHost attempts to get the Docker host from the current context
+// by inspecting the Docker CLI context (if available). Falls back to empty string
+// if the Docker CLI is not available or the context inspection fails.
+func getDockerHost() string {
+	// Check if docker CLI is available
+	dockerPath, err := exec.LookPath("docker")
+	if err != nil {
+		// Docker CLI not available, caller will use client.FromEnv
+		return ""
+	}
+
+	// Try to get the current context's Docker host
+	cmd := exec.Command(dockerPath, "context", "inspect", "-f", "{{.Endpoints.docker.Host}}")
+	output, err := cmd.Output()
+	if err != nil {
+		// Context inspection failed, caller will use client.FromEnv
+		return ""
+	}
+
+	host := strings.TrimSpace(string(output))
+	if host == "" {
+		return ""
+	}
+
+	return host
 }
 
 func NewClient(logger boshlog.Logger) (*Client, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		return nil, fmt.Errorf("creating docker client: %w", err)
+	// Try to get Docker host from current context if Docker CLI is available
+	dockerHost := getDockerHost()
+
+	var cli *client.Client
+	var err error
+
+	if dockerHost != "" {
+		// Use the host from the Docker context
+		cli, err = client.NewClientWithOpts(
+			client.WithHost(dockerHost),
+			client.WithAPIVersionNegotiation(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating docker client with host %s: %w", dockerHost, err)
+		}
+	} else {
+		// Fall back to client.FromEnv which reads DOCKER_HOST environment variable
+		cli, err = client.NewClientWithOpts(
+			client.FromEnv,
+			client.WithAPIVersionNegotiation(),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("creating docker client: %w", err)
+		}
+	}
+
+	// Extract socket path from Docker daemon host for mounting into containers.
+	// DaemonHost() returns the host the client is connected to (e.g., "unix:///path/to/docker.sock").
+	socketPath := "/var/run/docker.sock" // default fallback
+	daemonHost := cli.DaemonHost()
+	if len(daemonHost) > 7 && daemonHost[:7] == "unix://" {
+		socketPath = daemonHost[7:] // strip "unix://" prefix
 	}
 
 	return &Client{
-		cli:    cli,
-		logger: logger,
-		logTag: "dockerClient",
+		cli:        cli,
+		logger:     logger,
+		logTag:     "dockerClient",
+		socketPath: socketPath,
 	}, nil
 }
 
@@ -113,6 +173,10 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"22/tcp":    []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: SSHPort}},
 		},
 		Binds: []string{
+			// NOTE: The socket bind mount should always be /var/run/docker.sock:/var/run/docker.sock
+			// because Docker runs in a VM and the socket INSIDE the VM is always at /var/run/docker.sock.
+			// The host socket path (c.socketPath) is used by the Docker client to connect to the daemon
+			// from the host, but inside the VM, the socket is at the standard location.
 			"/var/run/docker.sock:/var/run/docker.sock",
 			VolumeStore + ":/var/vcap/store",
 			VolumeData + ":/var/vcap/data",

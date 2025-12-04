@@ -1,6 +1,54 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "ginkgo@latest": {
+      "last_modified": "2025-11-23T21:50:36Z",
+      "resolved": "github:NixOS/nixpkgs/ee09932cedcef15aaf476f9343d1dea2cb77e261#ginkgo",
+      "source": "devbox-search",
+      "version": "2.27.2",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/l4lgnhd93gi83n3apjhcrfs7d41z0j7r-ginkgo-2.27.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/l4lgnhd93gi83n3apjhcrfs7d41z0j7r-ginkgo-2.27.2"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/18pfnmrfn96bawbrvnv819ghgbsk9mj7-ginkgo-2.27.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/18pfnmrfn96bawbrvnv819ghgbsk9mj7-ginkgo-2.27.2"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/3482595n7jrzgh17pjw15bd81jmr385w-ginkgo-2.27.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/3482595n7jrzgh17pjw15bd81jmr385w-ginkgo-2.27.2"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/1v7i68slr609lddwh3fbjgmm58znjx9g-ginkgo-2.27.2",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/1v7i68slr609lddwh3fbjgmm58znjx9g-ginkgo-2.27.2"
+        }
+      }
+    },
     "github:NixOS/nixpkgs/nixpkgs-unstable": {
       "last_modified": "2025-10-20T04:25:18Z",
       "resolved": "github:NixOS/nixpkgs/87848bf0cc4f87717fc813a4575f07330c3e743c?lastModified=1760934318&narHash=sha256-%2FoUYsC0lUCBory65VK%2BUHqCCsCspbL1Vgfcf1KUYqVw%3D"
