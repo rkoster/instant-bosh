@@ -21,7 +21,7 @@ builds:
     goarch:
       - amd64
       - arm64
-    # Ignore specific combinations that might not be needed
+    # Exclude Windows arm64: support is limited and not commonly used, reduces build time and artifact count
     ignore:
       - goos: windows
         goarch: arm64
