@@ -27,8 +27,9 @@ func initUIAndLogger(c *cli.Context) (boshui.UI, boshlog.Logger) {
 
 func main() {
 	app := &cli.App{
-		Name:  "ibosh",
-		Usage: "instant-bosh CLI",
+		Name:    "ibosh",
+		Usage:   "instant-bosh CLI",
+		Version: version,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "debug",
