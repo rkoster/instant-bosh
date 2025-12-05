@@ -73,14 +73,21 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 		}
 	}
 	
+	// Scenario 1: Image does not exist locally
 	if !imageExists {
 		ui.PrintLinef("Image not found locally, pulling...")
 		if err := dockerClient.PullImage(ctx); err != nil {
 			return fmt.Errorf("failed to pull image: %w", err)
 		}
-	} else if skipUpdate {
+	}
+
+	// Scenario 2: Image exists, but skipUpdate flag is set
+	if imageExists && skipUpdate {
 		ui.PrintLinef("Skipping update check (--skip-update flag set)")
-	} else if !updateAvailable {
+	}
+
+	// Scenario 3: Image exists, update check performed, and image is up to date
+	if imageExists && !skipUpdate && !updateAvailable {
 		ui.PrintLinef("Image is up to date")
 	}
 

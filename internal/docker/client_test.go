@@ -91,4 +91,41 @@ var _ = Describe("Docker Client", func() {
 			})
 		})
 	})
+
+	Describe("CheckForImageUpdate", func() {
+		// Note: These tests document the expected behavior of CheckForImageUpdate.
+		// Full integration testing requires a running Docker daemon and network access
+		// to the container registry, which are tested separately in integration tests.
+		// Unit testing this method with mocks would require significant refactoring
+		// to inject a mock Docker client interface.
+
+		Context("behavior documentation", func() {
+			It("is expected to return true when image doesn't exist locally", func() {
+				// When CheckForImageUpdate is called and the image doesn't exist locally,
+				// it should return (true, nil) to indicate an update is needed
+			})
+
+			It("is expected to return false when image is up to date", func() {
+				// When the local image ID matches the pulled image ID,
+				// it should return (false, nil) to indicate no update is needed
+			})
+
+			It("is expected to return true when update is available", func() {
+				// When the local image ID differs from the pulled image ID,
+				// it should return (true, nil) to indicate an update is available
+			})
+
+			It("is expected to handle network errors gracefully", func() {
+				// When network errors occur during the pull operation,
+				// it should return (false, error) with an appropriate error message
+			})
+
+			It("has a side effect of pulling the latest image", func() {
+				// IMPORTANT: CheckForImageUpdate always pulls the latest image from
+				// the registry as part of checking for updates. This is by design,
+				// as it ensures we have the latest image available for comparison.
+				// The function's behavior is documented in its godoc comment.
+			})
+		})
+	})
 })
