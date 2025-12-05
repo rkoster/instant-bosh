@@ -45,6 +45,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 	
 	// Check for updates if skip-update flag is not set and image exists
 	var updateAvailable bool
+	var updateCheckSucceeded bool
 	if !skipUpdate && imageExists {
 		ui.PrintLinef("Checking for image updates...")
 		updateAvailable, err = dockerClient.CheckForImageUpdate(ctx)
@@ -52,6 +53,9 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 			logger.Debug("startCommand", "Failed to check for updates: %v", err)
 			ui.PrintLinef("Warning: Failed to check for updates, continuing with existing image")
 			updateAvailable = false
+			updateCheckSucceeded = false
+		} else {
+			updateCheckSucceeded = true
 		}
 		
 		if updateAvailable {
@@ -91,8 +95,9 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 		ui.PrintLinef("Skipping update check (--skip-update flag set)")
 	}
 
-	// Scenario 3: Image exists, update check performed, and image is up to date
-	if imageExists && !skipUpdate && !updateAvailable {
+	// Scenario 3: Image exists, update check performed successfully, and image is up to date
+	// Don't print this message if the update check failed (updateCheckSucceeded is false)
+	if imageExists && !skipUpdate && updateCheckSucceeded && !updateAvailable {
 		ui.PrintLinef("Image is up to date")
 	}
 
