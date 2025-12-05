@@ -396,8 +396,18 @@ func (c *Client) PullImage(ctx context.Context) error {
 	return nil
 }
 
-// CheckForImageUpdate checks if a newer version of the image is available
-// Returns true if an update is available, false otherwise
+// CheckForImageUpdate checks if a newer version of the image is available and pulls it.
+// 
+// IMPORTANT: This method has a side effect - it always pulls the latest image from the 
+// registry, even when checking if an update is available. This ensures we have the latest 
+// image for comparison but means network activity occurs on every call.
+//
+// Returns true if the pulled image is different from the local image (update available),
+// false if they are identical (image is up to date).
+//
+// Note: Docker's ImagePull operation is relatively efficient when the image is already 
+// up-to-date, as it only downloads new or changed layers. However, this still requires 
+// network communication with the registry to check and compare layers.
 func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
 	c.logger.Debug(c.logTag, "Checking for image updates for %s", ImageName)
 
@@ -411,8 +421,8 @@ func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("inspecting local image: %w", err)
 	}
 
-	// Pull the latest image metadata (without downloading layers)
-	// This is done by using the registry API through Docker
+	// Pull the latest image from the registry
+	// Note: This downloads the image, which is a side effect of checking for updates
 	out, err := c.cli.ImagePull(ctx, ImageName, image.PullOptions{})
 	if err != nil {
 		return false, fmt.Errorf("checking remote image: %w", err)
