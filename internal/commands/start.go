@@ -57,6 +57,11 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 		if updateAvailable {
 			ui.PrintLinef("New image version available! Updating...")
 			
+			// Pull the new image
+			if err := dockerClient.PullImage(ctx); err != nil {
+				return fmt.Errorf("failed to pull updated image: %w", err)
+			}
+			
 			// Check if container exists (but not running, since we checked that earlier)
 			containerExists, err := dockerClient.ContainerExists(ctx)
 			if err != nil {
