@@ -398,9 +398,10 @@ func (c *Client) PullImage(ctx context.Context) error {
 
 // CheckForImageUpdate checks if a newer version of the image is available in the registry.
 //
-// This method queries the Docker Registry API v2 to compare the remote manifest digest
-// with the local image digest WITHOUT downloading the image layers. This makes the check
-// fast and bandwidth-efficient.
+// This method uses Docker's Distribution API to inspect the remote image manifest and compare
+// it with the local image digest WITHOUT downloading the image layers. This makes the check
+// fast and bandwidth-efficient while properly handling registry authentication through the
+// Docker daemon.
 //
 // Returns true if a newer version is available in the registry, false if the local image
 // is up to date.
@@ -435,16 +436,18 @@ func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	// Query the Docker Registry API to get the latest manifest digest
-	// We use ImagePull with platform filtering to just get the manifest without downloading layers
-	// The RegistryAuth is empty for public registries
-	remoteDigest, err := c.getRemoteImageDigest(ctx, ImageName)
+	// Use Docker's native DistributionInspect API to get the remote manifest
+	// This properly handles authentication and avoids direct HTTP calls to the registry
+	remoteInspect, err := c.cli.DistributionInspect(ctx, ImageName, "")
 	if err != nil {
-		// If we can't check the remote, we'll treat it as no update available
-		// The actual pull will fail later if there's a real connectivity issue
-		c.logger.Debug(c.logTag, "Failed to check remote image digest: %v", err)
-		return false, fmt.Errorf("checking remote image: %w", err)
+		// If we can't check the remote, return the error
+		// The caller can decide whether to treat this as no update or show a warning
+		c.logger.Debug(c.logTag, "Failed to inspect remote image: %v", err)
+		return false, fmt.Errorf("inspecting remote image: %w", err)
 	}
+
+	// Get the remote digest from the Descriptor
+	remoteDigest := remoteInspect.Descriptor.Digest.String()
 
 	// Compare digests
 	updateAvailable := localDigest != remoteDigest
@@ -456,72 +459,6 @@ func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
 	}
 
 	return updateAvailable, nil
-}
-
-// getRemoteImageDigest queries the Docker registry to get the digest of the remote image
-// without pulling the actual image layers.
-func (c *Client) getRemoteImageDigest(ctx context.Context, imageName string) (string, error) {
-	// Parse the image name to extract registry, repository, and tag
-	// Format: [registry/]repository[:tag]
-	registry := "ghcr.io"
-	repository := strings.TrimPrefix(imageName, registry+"/")
-	tag := "latest"
-	
-	if strings.Contains(repository, ":") {
-		parts := strings.Split(repository, ":")
-		repository = parts[0]
-		tag = parts[1]
-	}
-
-	// Build the registry API URL
-	url := fmt.Sprintf("https://%s/v2/%s/manifests/%s", registry, repository, tag)
-	
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("creating request: %w", err)
-	}
-
-	// Set the Accept header to request the manifest
-	// We use application/vnd.docker.distribution.manifest.v2+json for the Docker v2 manifest format
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
-	req.Header.Set("Accept", "application/vnd.oci.image.manifest.v1+json")
-
-	// Create HTTP client with TLS config
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				MinVersion: tls.VersionTLS12,
-			},
-		},
-		Timeout: 30 * time.Second,
-	}
-
-	// Make the request
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("requesting manifest: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Check for authentication requirement
-	if resp.StatusCode == http.StatusUnauthorized {
-		// For public registries, we might need to get a token first
-		// This is a simplified version - for now we'll fall back to assuming update needed
-		return "", fmt.Errorf("registry requires authentication")
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	// Get the digest from the response header
-	digest := resp.Header.Get("Docker-Content-Digest")
-	if digest == "" {
-		return "", fmt.Errorf("no digest in response header")
-	}
-
-	return digest, nil
 }
 
 func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []string) (string, error) {
