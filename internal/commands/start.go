@@ -11,7 +11,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/docker"
 )
 
-func StartAction(ui boshui.UI, logger boshlog.Logger) error {
+func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 	// Display the instant-bosh logo
 	if err := PrintLogo(); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
@@ -42,11 +42,46 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to check if image exists: %w", err)
 	}
+	
+	// Check for updates if skip-update flag is not set and image exists
+	var updateAvailable bool
+	if !skipUpdate && imageExists {
+		ui.PrintLinef("Checking for image updates...")
+		updateAvailable, err = dockerClient.CheckForImageUpdate(ctx)
+		if err != nil {
+			logger.Debug("startCommand", "Failed to check for updates: %v", err)
+			ui.PrintLinef("Warning: Failed to check for updates, continuing with existing image")
+			updateAvailable = false
+		}
+		
+		if updateAvailable {
+			ui.PrintLinef("New image version available! Updating...")
+			
+			// Check if container exists (but not running, since we checked that earlier)
+			containerExists, err := dockerClient.ContainerExists(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to check if container exists: %w", err)
+			}
+			
+			// Remove the old container if it exists
+			if containerExists {
+				ui.PrintLinef("Removing old container...")
+				if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
+					return fmt.Errorf("failed to remove old container: %w", err)
+				}
+			}
+		}
+	}
+	
 	if !imageExists {
 		ui.PrintLinef("Image not found locally, pulling...")
 		if err := dockerClient.PullImage(ctx); err != nil {
 			return fmt.Errorf("failed to pull image: %w", err)
 		}
+	} else if skipUpdate {
+		ui.PrintLinef("Skipping update check (--skip-update flag set)")
+	} else if !updateAvailable {
+		ui.PrintLinef("Image is up to date")
 	}
 
 	ui.PrintLinef("Creating volumes...")
