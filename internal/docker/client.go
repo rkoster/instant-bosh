@@ -396,6 +396,59 @@ func (c *Client) PullImage(ctx context.Context) error {
 	return nil
 }
 
+// CheckForImageUpdate checks if a newer version of the image is available
+// Returns true if an update is available, false otherwise
+func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
+	c.logger.Debug(c.logTag, "Checking for image updates for %s", ImageName)
+
+	// Get the current local image digest
+	localImage, _, err := c.cli.ImageInspectWithRaw(ctx, ImageName)
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			// Image doesn't exist locally, so an update is needed
+			return true, nil
+		}
+		return false, fmt.Errorf("inspecting local image: %w", err)
+	}
+
+	// Pull the latest image metadata (without downloading layers)
+	// This is done by using the registry API through Docker
+	out, err := c.cli.ImagePull(ctx, ImageName, image.PullOptions{})
+	if err != nil {
+		return false, fmt.Errorf("checking remote image: %w", err)
+	}
+	defer out.Close()
+
+	// Consume the pull output
+	decoder := json.NewDecoder(out)
+	for {
+		var progress pullProgress
+		if err := decoder.Decode(&progress); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return false, fmt.Errorf("reading pull progress: %w", err)
+		}
+	}
+
+	// Get the new image digest
+	newImage, _, err := c.cli.ImageInspectWithRaw(ctx, ImageName)
+	if err != nil {
+		return false, fmt.Errorf("inspecting pulled image: %w", err)
+	}
+
+	// Compare digests - if they're different, an update was pulled
+	updateAvailable := localImage.ID != newImage.ID
+	if updateAvailable {
+		c.logger.Info(c.logTag, "New image version available (local: %s, remote: %s)", 
+			localImage.ID[:12], newImage.ID[:12])
+	} else {
+		c.logger.Debug(c.logTag, "Image is up to date")
+	}
+
+	return updateAvailable, nil
+}
+
 func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []string) (string, error) {
 	c.logger.Debug(c.logTag, "Executing command in container %s: %v", containerName, cmd)
 
