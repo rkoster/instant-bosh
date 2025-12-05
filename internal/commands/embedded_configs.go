@@ -41,34 +41,9 @@ compilation:
   network: default
 `
 
-	runtimeConfigYAML = `---
-# Runtime config to enable SSH on Docker-based VMs
-# This ensures systemd starts SSH service on all VMs since it doesn't auto-start in containers
 
-releases:
-- name: os-conf
-  version: 23.0.0
-  url: https://bosh.io/d/github.com/cloudfoundry/os-conf-release?v=23.0.0
-  sha1: sha256:efcf30754ce4c5f308aedab3329d8d679f5967b2a4c3c453204c7cb10c7c5ed9
-
-addons:
-- name: enable-ssh
-  include:
-    stemcell:
-    - os: ubuntu-noble
-  jobs:
-  - name: pre-start-script
-    release: os-conf
-    properties:
-      script: |-
-        #!/bin/bash
-        set -e
-        # Start SSH service for bosh ssh to work in Docker containers
-        systemctl start ssh || true
-`
 )
 
 var (
-	cloudConfigYAMLBytes   = []byte(cloudConfigYAML)
-	runtimeConfigYAMLBytes = []byte(runtimeConfigYAML)
+	cloudConfigYAMLBytes = []byte(cloudConfigYAML)
 )
