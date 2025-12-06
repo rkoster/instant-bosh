@@ -63,9 +63,33 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		if updateAvailable {
 			ui.PrintLinef("New image version available! Updating...")
 			
+			// Get the current image ID before pulling the new one
+			currentImageID, err := dockerClient.GetCurrentImageID(ctx)
+			if err != nil {
+				logger.Debug("startCommand", "Failed to get current image ID: %v", err)
+			}
+			
 			// Pull the new image
 			if err := dockerClient.PullImage(ctx); err != nil {
 				return fmt.Errorf("failed to pull updated image: %w", err)
+			}
+			
+			// Show manifest diff if we have the old image ID
+			if currentImageID != "" {
+				ui.PrintLinef("Comparing BOSH manifests between versions...")
+				diff, err := dockerClient.ShowManifestDiff(ctx, currentImageID, dockerClient.GetImageName())
+				if err != nil {
+					logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
+					ui.PrintLinef("Warning: Could not compare manifests: %v", err)
+				} else if diff != "" {
+					ui.PrintLinef("")
+					ui.PrintLinef("=== BOSH Manifest Changes ===")
+					ui.PrintLinef(diff)
+					ui.PrintLinef("=============================")
+					ui.PrintLinef("")
+				} else {
+					ui.PrintLinef("No differences in BOSH manifest")
+				}
 			}
 			
 			// Check if container exists (but not running, since we checked that earlier)

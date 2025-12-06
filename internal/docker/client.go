@@ -523,3 +523,20 @@ func (c *Client) FollowContainerLogs(ctx context.Context, containerName string, 
 
 	return nil
 }
+
+// GetCurrentImageID returns the ID of the currently local image
+func (c *Client) GetCurrentImageID(ctx context.Context) (string, error) {
+	c.logger.Debug(c.logTag, "Getting current image ID for %s", c.imageName)
+	
+	localImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
+	if err != nil {
+		return "", fmt.Errorf("inspecting local image: %w", err)
+	}
+	
+	return localImage.ID, nil
+}
+
+// GetImageName returns the image name being used by this client
+func (c *Client) GetImageName() string {
+	return c.imageName
+}
