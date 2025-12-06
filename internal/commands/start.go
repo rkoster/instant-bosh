@@ -38,10 +38,20 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		return nil
 	}
 
+	// Check if a stopped container exists
+	containerExists, err := dockerClient.ContainerExists(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check if container exists: %w", err)
+	}
+
 	imageExists, err := dockerClient.ImageExists(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check if image exists: %w", err)
 	}
+	
+	// Track whether we need to recreate the container
+	var needsRecreation bool
+	var recreationReason string
 	
 	// Check for updates if skip-update flag is not set, image exists, and no custom image is specified
 	var updateAvailable bool
@@ -92,19 +102,34 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 				}
 			}
 			
-			// Check if container exists (but not running, since we checked that earlier)
-			containerExists, err := dockerClient.ContainerExists(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to check if container exists: %w", err)
+			needsRecreation = true
+			recreationReason = "new image version available"
+		}
+	}
+	
+	// Check if container exists but uses a different image than what we want
+	// This handles:
+	// - Custom image specified that differs from existing container
+	// - New image already available locally that differs from existing container
+	if containerExists && imageExists && !needsRecreation {
+		imageDifferent, err := dockerClient.IsContainerImageDifferent(ctx, docker.ContainerName)
+		if err != nil {
+			logger.Debug("startCommand", "Failed to check if container image is different: %v", err)
+		} else if imageDifferent {
+			needsRecreation = true
+			if usingCustomImage {
+				recreationReason = fmt.Sprintf("using custom image: %s", customImage)
+			} else {
+				recreationReason = "container using different image than desired"
 			}
-			
-			// Remove the old container if it exists
-			if containerExists {
-				ui.PrintLinef("Removing old container...")
-				if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
-					return fmt.Errorf("failed to remove old container: %w", err)
-				}
-			}
+		}
+	}
+	
+	// Remove the old container if it needs recreation
+	if containerExists && needsRecreation {
+		ui.PrintLinef("Removing old container (%s)...", recreationReason)
+		if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
+			return fmt.Errorf("failed to remove old container: %w", err)
 		}
 	}
 	

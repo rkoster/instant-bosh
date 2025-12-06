@@ -110,35 +110,135 @@ var _ = Describe("Docker Client", func() {
 		// Note: These tests document the expected behavior of CheckForImageUpdate.
 		// Full integration testing requires a running Docker daemon and network access
 		// to the container registry, which are tested separately in integration tests.
-		// Unit testing this method with mocks would require significant refactoring
-		// to inject a mock Docker client interface.
+		//
+		// TODO: Use counterfeiter to generate mocks and implement proper unit tests:
+		//   go generate ./...
+		// This will require adding counterfeiter directives above the Docker Client struct.
 
 		Context("behavior documentation", func() {
-			It("is expected to return true when image doesn't exist locally", func() {
+			It("returns true when image doesn't exist locally", func() {
 				// When CheckForImageUpdate is called and the image doesn't exist locally,
-				// it should return (true, nil) to indicate an update is needed
+				// it should return (true, nil) to indicate an update is needed.
+				//
+				// Expected behavior:
+				// 1. ImageInspectWithRaw returns client.IsErrNotFound
+				// 2. Returns (true, nil)
 			})
 
-			It("is expected to return false when image is up to date", func() {
-				// When the local image ID matches the pulled image ID,
-				// it should return (false, nil) to indicate no update is needed
+			It("returns false when image is up to date", func() {
+				// When the local image digest matches the remote registry digest,
+				// it should return (false, nil) to indicate no update is needed.
+				//
+				// Expected behavior:
+				// 1. ImageInspectWithRaw returns local image with RepoDigests
+				// 2. DistributionInspect returns remote descriptor with same digest
+				// 3. Returns (false, nil)
 			})
 
-			It("is expected to return true when update is available", func() {
-				// When the local image ID differs from the pulled image ID,
-				// it should return (true, nil) to indicate an update is available
+			It("returns true when update is available", func() {
+				// When the local image digest differs from the remote registry digest,
+				// it should return (true, nil) to indicate an update is available.
+				//
+				// Expected behavior:
+				// 1. ImageInspectWithRaw returns local image with RepoDigests[0] = "repo@sha256:abc123"
+				// 2. DistributionInspect returns remote descriptor with digest = "sha256:def456"
+				// 3. Returns (true, nil) because "sha256:abc123" != "sha256:def456"
 			})
 
-			It("is expected to handle network errors gracefully", func() {
-				// When network errors occur during the pull operation,
-				// it should return (false, error) with an appropriate error message
+			It("returns true when image has no repo digest", func() {
+				// When the local image has no RepoDigests (e.g., built locally or loaded from tarball),
+				// it should return (true, nil) to indicate an update check is needed via pull.
+				//
+				// Expected behavior:
+				// 1. ImageInspectWithRaw returns local image with empty RepoDigests
+				// 2. Returns (true, nil) to trigger a pull for comparison
 			})
 
-			It("has a side effect of pulling the latest image", func() {
-				// IMPORTANT: CheckForImageUpdate always pulls the latest image from
-				// the registry as part of checking for updates. This is by design,
-				// as it ensures we have the latest image available for comparison.
-				// The function's behavior is documented in its godoc comment.
+			It("returns error when remote inspection fails", func() {
+				// When network errors or authentication errors occur during remote inspection,
+				// it should return (false, error) with an appropriate error message.
+				//
+				// Expected behavior:
+				// 1. ImageInspectWithRaw succeeds
+				// 2. DistributionInspect returns error (network/auth error)
+				// 3. Returns (false, fmt.Errorf("inspecting remote image: %w", err))
+			})
+		})
+	})
+
+	Describe("IsContainerImageDifferent", func() {
+		// Note: These tests document the expected behavior of IsContainerImageDifferent.
+		// Full integration testing requires a running Docker daemon with containers.
+		//
+		// TODO: Use counterfeiter to generate mocks and implement proper unit tests.
+
+		Context("behavior documentation", func() {
+			It("returns true when container uses different image", func() {
+				// When a stopped container exists but uses a different image than desired,
+				// it should return (true, nil) to indicate container recreation is needed.
+				//
+				// Expected behavior:
+				// 1. ContainerInspect returns container with Image = "sha256:abc123"
+				// 2. ImageInspectWithRaw(c.imageName) returns image with ID = "sha256:def456"
+				// 3. Returns (true, nil) because IDs differ
+				//
+				// Scenario examples:
+				// - Custom image specified: --image ghcr.io/rkoster/instant-bosh:main-abc123
+				//   Container uses: ghcr.io/rkoster/instant-bosh:main-def456
+				// - New image pulled locally that differs from container's image
+			})
+
+			It("returns false when container uses same image", func() {
+				// When the container uses the same image as desired,
+				// it should return (false, nil) to indicate no recreation needed.
+				//
+				// Expected behavior:
+				// 1. ContainerInspect returns container with Image = "sha256:abc123"
+				// 2. ImageInspectWithRaw(c.imageName) returns image with ID = "sha256:abc123"
+				// 3. Returns (false, nil) because IDs match
+			})
+
+			It("returns false when desired image doesn't exist locally", func() {
+				// When the desired image doesn't exist locally yet,
+				// it should return (false, nil) because we'll pull it later anyway.
+				//
+				// Expected behavior:
+				// 1. ContainerInspect succeeds
+				// 2. ImageInspectWithRaw returns client.IsErrNotFound
+				// 3. Returns (false, nil)
+			})
+
+			It("returns error when container inspection fails", func() {
+				// When container inspection fails (e.g., container doesn't exist),
+				// it should return (false, error).
+				//
+				// Expected behavior:
+				// 1. ContainerInspect returns error
+				// 2. Returns (false, fmt.Errorf("inspecting container: %w", err))
+			})
+		})
+	})
+
+	Describe("GetContainerImageID", func() {
+		// Note: These tests document the expected behavior of GetContainerImageID.
+		//
+		// TODO: Use counterfeiter to generate mocks and implement proper unit tests.
+
+		Context("behavior documentation", func() {
+			It("returns container's image ID on success", func() {
+				// When container exists, returns its image ID.
+				//
+				// Expected behavior:
+				// 1. ContainerInspect returns container with Image = "sha256:abc123..."
+				// 2. Returns ("sha256:abc123...", nil)
+			})
+
+			It("returns error when container doesn't exist", func() {
+				// When container doesn't exist, returns error.
+				//
+				// Expected behavior:
+				// 1. ContainerInspect returns error
+				// 2. Returns ("", fmt.Errorf("inspecting container: %w", err))
 			})
 		})
 	})
