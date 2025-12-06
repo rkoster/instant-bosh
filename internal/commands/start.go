@@ -11,7 +11,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/docker"
 )
 
-func StartAction(ui boshui.UI, logger boshlog.Logger) error {
+func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customImage string) error {
 	// Display the instant-bosh logo
 	if err := PrintLogo(); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
@@ -20,7 +20,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 
 	ctx := context.Background()
 
-	dockerClient, err := docker.NewClient(logger)
+	dockerClient, err := docker.NewClient(logger, customImage)
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
@@ -38,15 +38,123 @@ func StartAction(ui boshui.UI, logger boshlog.Logger) error {
 		return nil
 	}
 
+	// Check if a stopped container exists
+	containerExists, err := dockerClient.ContainerExists(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check if container exists: %w", err)
+	}
+
 	imageExists, err := dockerClient.ImageExists(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check if image exists: %w", err)
 	}
+	
+	// Track whether we need to recreate the container
+	var needsRecreation bool
+	var recreationReason string
+	
+	// Check for updates if skip-update flag is not set, image exists, and no custom image is specified
+	var updateAvailable bool
+	var updateCheckSucceeded bool
+	usingCustomImage := customImage != ""
+	
+	if !skipUpdate && imageExists && !usingCustomImage {
+		ui.PrintLinef("Checking for image updates...")
+		updateAvailable, err = dockerClient.CheckForImageUpdate(ctx)
+		if err != nil {
+			logger.Debug("startCommand", "Failed to check for updates: %v", err)
+			ui.PrintLinef("Warning: Failed to check for updates, continuing with existing image")
+			updateAvailable = false
+			updateCheckSucceeded = false
+		} else {
+			updateCheckSucceeded = true
+		}
+		
+		if updateAvailable {
+			ui.PrintLinef("New image version available! Updating...")
+			
+			// Get the current image ID before pulling the new one
+			currentImageID, err := dockerClient.GetCurrentImageID(ctx)
+			if err != nil {
+				logger.Debug("startCommand", "Failed to get current image ID: %v", err)
+			}
+			
+			// Pull the new image
+			if err := dockerClient.PullImage(ctx); err != nil {
+				return fmt.Errorf("failed to pull updated image: %w", err)
+			}
+			
+			// Show manifest diff if we have the old image ID
+			if currentImageID != "" {
+				ui.PrintLinef("Comparing BOSH manifests between versions...")
+				diff, err := dockerClient.ShowManifestDiff(ctx, currentImageID, dockerClient.GetImageName())
+				if err != nil {
+					logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
+					ui.PrintLinef("Warning: Could not compare manifests: %v", err)
+				} else if diff != "" {
+					ui.PrintLinef("")
+					ui.PrintLinef("=== BOSH Manifest Changes ===")
+					ui.PrintLinef(diff)
+					ui.PrintLinef("=============================")
+					ui.PrintLinef("")
+				} else {
+					ui.PrintLinef("No differences in BOSH manifest")
+				}
+			}
+			
+			needsRecreation = true
+			recreationReason = "new image version available"
+		}
+	}
+	
+	// Check if container exists but uses a different image than what we want
+	// This handles:
+	// - Custom image specified that differs from existing container
+	// - New image already available locally that differs from existing container
+	if containerExists && imageExists && !needsRecreation {
+		imageDifferent, err := dockerClient.IsContainerImageDifferent(ctx, docker.ContainerName)
+		if err != nil {
+			logger.Debug("startCommand", "Failed to check if container image is different: %v", err)
+		} else if imageDifferent {
+			needsRecreation = true
+			if usingCustomImage {
+				recreationReason = fmt.Sprintf("using custom image: %s", customImage)
+			} else {
+				recreationReason = "container using different image than desired"
+			}
+		}
+	}
+	
+	// Remove the old container if it needs recreation
+	if containerExists && needsRecreation {
+		ui.PrintLinef("Removing old container (%s)...", recreationReason)
+		if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
+			return fmt.Errorf("failed to remove old container: %w", err)
+		}
+	}
+	
+	// Scenario 1: Image does not exist locally
 	if !imageExists {
 		ui.PrintLinef("Image not found locally, pulling...")
 		if err := dockerClient.PullImage(ctx); err != nil {
 			return fmt.Errorf("failed to pull image: %w", err)
 		}
+	}
+
+	// Scenario 2: Using custom image
+	if imageExists && usingCustomImage {
+		ui.PrintLinef("Using custom image: %s", customImage)
+	}
+
+	// Scenario 3: Image exists, but skipUpdate flag is set
+	if imageExists && skipUpdate && !usingCustomImage {
+		ui.PrintLinef("Skipping update check (--skip-update flag set)")
+	}
+
+	// Scenario 4: Image exists, update check performed successfully, and image is up to date
+	// Don't print this message if the update check failed (updateCheckSucceeded is false)
+	if imageExists && !skipUpdate && updateCheckSucceeded && !updateAvailable && !usingCustomImage {
+		ui.PrintLinef("Image is up to date")
 	}
 
 	ui.PrintLinef("Creating volumes...")
