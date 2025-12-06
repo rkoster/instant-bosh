@@ -11,7 +11,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/docker"
 )
 
-func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
+func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customImage string) error {
 	// Display the instant-bosh logo
 	if err := PrintLogo(); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
@@ -20,7 +20,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 
 	ctx := context.Background()
 
-	dockerClient, err := docker.NewClient(logger)
+	dockerClient, err := docker.NewClient(logger, customImage)
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
@@ -43,10 +43,12 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 		return fmt.Errorf("failed to check if image exists: %w", err)
 	}
 	
-	// Check for updates if skip-update flag is not set and image exists
+	// Check for updates if skip-update flag is not set, image exists, and no custom image is specified
 	var updateAvailable bool
 	var updateCheckSucceeded bool
-	if !skipUpdate && imageExists {
+	usingCustomImage := customImage != ""
+	
+	if !skipUpdate && imageExists && !usingCustomImage {
 		ui.PrintLinef("Checking for image updates...")
 		updateAvailable, err = dockerClient.CheckForImageUpdate(ctx)
 		if err != nil {
@@ -90,14 +92,19 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool) error {
 		}
 	}
 
-	// Scenario 2: Image exists, but skipUpdate flag is set
-	if imageExists && skipUpdate {
+	// Scenario 2: Using custom image
+	if imageExists && usingCustomImage {
+		ui.PrintLinef("Using custom image: %s", customImage)
+	}
+
+	// Scenario 3: Image exists, but skipUpdate flag is set
+	if imageExists && skipUpdate && !usingCustomImage {
 		ui.PrintLinef("Skipping update check (--skip-update flag set)")
 	}
 
-	// Scenario 3: Image exists, update check performed successfully, and image is up to date
+	// Scenario 4: Image exists, update check performed successfully, and image is up to date
 	// Don't print this message if the update check failed (updateCheckSucceeded is false)
-	if imageExists && !skipUpdate && updateCheckSucceeded && !updateAvailable {
+	if imageExists && !skipUpdate && updateCheckSucceeded && !updateAvailable && !usingCustomImage {
 		ui.PrintLinef("Image is up to date")
 	}
 

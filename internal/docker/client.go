@@ -41,6 +41,7 @@ type Client struct {
 	logger     boshlog.Logger
 	logTag     string
 	socketPath string
+	imageName  string
 }
 
 // getDockerHost attempts to get the Docker host from the current context
@@ -70,7 +71,7 @@ func getDockerHost() string {
 	return host
 }
 
-func NewClient(logger boshlog.Logger) (*Client, error) {
+func NewClient(logger boshlog.Logger, customImage string) (*Client, error) {
 	// Try to get Docker host from current context if Docker CLI is available
 	dockerHost := getDockerHost()
 
@@ -105,11 +106,18 @@ func NewClient(logger boshlog.Logger) (*Client, error) {
 		socketPath = daemonHost[7:] // strip "unix://" prefix
 	}
 
+	// Use custom image if provided, otherwise use default
+	imageName := ImageName
+	if customImage != "" {
+		imageName = customImage
+	}
+
 	return &Client{
 		cli:        cli,
 		logger:     logger,
 		logTag:     "dockerClient",
 		socketPath: socketPath,
+		imageName:  imageName,
 	}, nil
 }
 
@@ -150,7 +158,7 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Creating container %s", ContainerName)
 
 	config := &container.Config{
-		Image: ImageName,
+		Image: c.imageName,
 		Cmd: []string{
 			"-v", "internal_ip=" + ContainerIP,
 			"-v", "internal_cidr=" + NetworkSubnet,
@@ -346,7 +354,7 @@ func (c *Client) WaitForBoshReady(ctx context.Context, maxWait time.Duration) er
 }
 
 func (c *Client) ImageExists(ctx context.Context) (bool, error) {
-	_, _, err := c.cli.ImageInspectWithRaw(ctx, ImageName)
+	_, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
 	if err != nil {
 		if client.IsErrNotFound(err) {
 			return false, nil
@@ -367,9 +375,9 @@ type pullProgress struct {
 }
 
 func (c *Client) PullImage(ctx context.Context) error {
-	c.logger.Info(c.logTag, "Pulling image %s...", ImageName)
+	c.logger.Info(c.logTag, "Pulling image %s...", c.imageName)
 
-	out, err := c.cli.ImagePull(ctx, ImageName, image.PullOptions{})
+	out, err := c.cli.ImagePull(ctx, c.imageName, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("pulling image: %w", err)
 	}
@@ -406,10 +414,10 @@ func (c *Client) PullImage(ctx context.Context) error {
 // Returns true if a newer version is available in the registry, false if the local image
 // is up to date.
 func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
-	c.logger.Debug(c.logTag, "Checking for image updates for %s", ImageName)
+	c.logger.Debug(c.logTag, "Checking for image updates for %s", c.imageName)
 
 	// Get the current local image
-	localImage, _, err := c.cli.ImageInspectWithRaw(ctx, ImageName)
+	localImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
 	if err != nil {
 		if client.IsErrNotFound(err) {
 			// Image doesn't exist locally, so an update is needed
@@ -438,7 +446,7 @@ func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
 
 	// Use Docker's native DistributionInspect API to get the remote manifest
 	// This properly handles authentication and avoids direct HTTP calls to the registry
-	remoteInspect, err := c.cli.DistributionInspect(ctx, ImageName, "")
+	remoteInspect, err := c.cli.DistributionInspect(ctx, c.imageName, "")
 	if err != nil {
 		// If we can't check the remote, return the error
 		// The caller can decide whether to treat this as no update or show a warning

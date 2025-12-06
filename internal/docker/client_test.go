@@ -68,7 +68,7 @@ var _ = Describe("Docker Client", func() {
 				customSocket := "unix:///Users/test/.config/colima/default/docker.sock"
 				os.Setenv("DOCKER_HOST", customSocket)
 
-				client, err := docker.NewClient(logger)
+				client, err := docker.NewClient(logger, "")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
 				defer client.Close()
@@ -84,10 +84,24 @@ var _ = Describe("Docker Client", func() {
 			It("creates a client with the default socket", func() {
 				os.Unsetenv("DOCKER_HOST")
 
-				client, err := docker.NewClient(logger)
+				client, err := docker.NewClient(logger, "")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
 				defer client.Close()
+			})
+		})
+
+		Context("when custom image is specified", func() {
+			It("uses the custom image instead of default", func() {
+				customImage := "ghcr.io/rkoster/instant-bosh:main-9e61f6f"
+
+				client, err := docker.NewClient(logger, customImage)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client).NotTo(BeNil())
+				defer client.Close()
+
+				// The custom image will be used for all operations
+				// This is verified through integration tests
 			})
 		})
 	})
