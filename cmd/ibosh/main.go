@@ -38,21 +38,26 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
-			{
-				Name:  "start",
-				Usage: "Start instant-bosh director",
-				Flags: []cli.Flag{
-					&cli.BoolFlag{
-						Name:  "skip-update",
-						Usage: "Skip checking for image updates",
-						Value: false,
-					},
+		{
+			Name:  "start",
+			Usage: "Start instant-bosh director",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "skip-update",
+					Usage: "Skip checking for image updates",
+					Value: false,
 				},
-				Action: func(c *cli.Context) error {
-					ui, logger := initUIAndLogger(c)
-					return commands.StartAction(ui, logger, c.Bool("skip-update"))
+				&cli.StringFlag{
+					Name:  "image",
+					Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
+					Value: "",
 				},
 			},
+			Action: func(c *cli.Context) error {
+				ui, logger := initUIAndLogger(c)
+				return commands.StartAction(ui, logger, c.Bool("skip-update"), c.String("image"))
+			},
+		},
 			{
 				Name:  "stop",
 				Usage: "Stop instant-bosh director",

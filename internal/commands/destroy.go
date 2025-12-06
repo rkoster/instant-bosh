@@ -24,7 +24,7 @@ func DestroyAction(ui boshui.UI, logger boshlog.Logger, force bool) error {
 		}
 	}
 
-	dockerClient, err := docker.NewClient(logger)
+	dockerClient, err := docker.NewClient(logger, "")
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}

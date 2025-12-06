@@ -15,7 +15,7 @@ import (
 
 func LogsAction(ui boshui.UI, logger boshlog.Logger, listComponents bool, components []string, follow bool, tail string) error {
 	ctx := context.Background()
-	dockerClient, err := docker.NewClient(logger)
+	dockerClient, err := docker.NewClient(logger, "")
 	if err != nil {
 		return err
 	}
