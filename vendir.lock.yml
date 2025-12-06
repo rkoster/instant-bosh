@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Merge pull request #495 from cloudfoundry/add-bpm-src-opsfile...'
-      sha: 1c9a72b7fc88bf3b3d0da4f67bf1384664403993
+      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.999
+      sha: 40b4d7d09b99f2dbccd58dc72735eed378ad603b
       tags:
-      - last-xenial-4266-g1c9a72b7
+      - last-xenial-4278-g40b4d7d0
     path: bosh-deployment
   path: manifests
 kind: LockConfig
