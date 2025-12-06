@@ -540,3 +540,52 @@ func (c *Client) GetCurrentImageID(ctx context.Context) (string, error) {
 func (c *Client) GetImageName() string {
 	return c.imageName
 }
+
+// GetContainerImageID returns the image ID that the specified container is running
+func (c *Client) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
+	c.logger.Debug(c.logTag, "Getting image ID for container %s", containerName)
+	
+	inspect, err := c.cli.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return "", fmt.Errorf("inspecting container: %w", err)
+	}
+	
+	return inspect.Image, nil
+}
+
+// IsContainerImageDifferent checks if the running container uses a different image than what we want to use.
+// This handles scenarios like:
+// - Custom image specified that differs from running container
+// - New image available locally that differs from running container  
+// Returns true if the container needs to be recreated with a different image.
+func (c *Client) IsContainerImageDifferent(ctx context.Context, containerName string) (bool, error) {
+	c.logger.Debug(c.logTag, "Checking if container %s uses different image than %s", containerName, c.imageName)
+	
+	// Get the image ID the container is currently running
+	containerImageID, err := c.GetContainerImageID(ctx, containerName)
+	if err != nil {
+		return false, err
+	}
+	
+	// Get the image ID of the image we want to use
+	desiredImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			// Image doesn't exist locally, so we can't compare
+			// Return false since we'll pull it later anyway
+			return false, nil
+		}
+		return false, fmt.Errorf("inspecting desired image: %w", err)
+	}
+	
+	// Compare image IDs - if they're different, container needs recreation
+	different := containerImageID != desiredImage.ID
+	if different {
+		c.logger.Info(c.logTag, "Container image mismatch - container: %s, desired: %s", 
+			containerImageID[:12], desiredImage.ID[:12])
+	} else {
+		c.logger.Debug(c.logTag, "Container is using the desired image: %s", containerImageID[:12])
+	}
+	
+	return different, nil
+}
