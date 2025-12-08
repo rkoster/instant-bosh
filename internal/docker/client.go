@@ -37,7 +37,7 @@ const (
 )
 
 type Client struct {
-	cli        *client.Client
+	cli        DockerAPI
 	logger     boshlog.Logger
 	logTag     string
 	socketPath string
