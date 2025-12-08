@@ -529,7 +529,7 @@ func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
 	// Compare digests
 	updateAvailable := localDigest != remoteDigest
 	if updateAvailable {
-		c.logger.Info(c.logTag, "New image version available (local: %s, remote: %s)", 
+		c.logger.Info(c.logTag, "New image version available (local: %s, remote: %s)",
 			localDigest[:12], remoteDigest[:12])
 	} else {
 		c.logger.Debug(c.logTag, "Image is up to date (digest: %s)", localDigest[:12])
@@ -596,12 +596,12 @@ func (c *Client) FollowContainerLogs(ctx context.Context, containerName string, 
 // GetCurrentImageID returns the ID of the currently local image
 func (c *Client) GetCurrentImageID(ctx context.Context) (string, error) {
 	c.logger.Debug(c.logTag, "Getting current image ID for %s", c.imageName)
-	
+
 	localImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
 	if err != nil {
 		return "", fmt.Errorf("inspecting local image: %w", err)
 	}
-	
+
 	return localImage.ID, nil
 }
 
@@ -613,29 +613,44 @@ func (c *Client) GetImageName() string {
 // GetContainerImageID returns the image ID that the specified container is running
 func (c *Client) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
 	c.logger.Debug(c.logTag, "Getting image ID for container %s", containerName)
-	
+
 	inspect, err := c.cli.ContainerInspect(ctx, containerName)
 	if err != nil {
 		return "", fmt.Errorf("inspecting container: %w", err)
 	}
-	
+
 	return inspect.Image, nil
+}
+
+// GetContainerImageName returns the image name/reference that the specified container is running.
+// This returns the original image name as it was passed when creating the container (e.g., "ghcr.io/rkoster/instant-bosh:latest")
+// rather than the image ID (sha256:...).
+func (c *Client) GetContainerImageName(ctx context.Context, containerName string) (string, error) {
+	c.logger.Debug(c.logTag, "Getting image name for container %s", containerName)
+
+	inspect, err := c.cli.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return "", fmt.Errorf("inspecting container: %w", err)
+	}
+
+	// Config.Image contains the image name as it was passed by the operator
+	return inspect.Config.Image, nil
 }
 
 // IsContainerImageDifferent checks if the running container uses a different image than what we want to use.
 // This handles scenarios like:
 // - Custom image specified that differs from running container
-// - New image available locally that differs from running container  
+// - New image available locally that differs from running container
 // Returns true if the container needs to be recreated with a different image.
 func (c *Client) IsContainerImageDifferent(ctx context.Context, containerName string) (bool, error) {
 	c.logger.Debug(c.logTag, "Checking if container %s uses different image than %s", containerName, c.imageName)
-	
+
 	// Get the image ID the container is currently running
 	containerImageID, err := c.GetContainerImageID(ctx, containerName)
 	if err != nil {
 		return false, err
 	}
-	
+
 	// Get the image ID of the image we want to use
 	desiredImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
 	if err != nil {
@@ -646,15 +661,15 @@ func (c *Client) IsContainerImageDifferent(ctx context.Context, containerName st
 		}
 		return false, fmt.Errorf("inspecting desired image: %w", err)
 	}
-	
+
 	// Compare image IDs - if they're different, container needs recreation
 	different := containerImageID != desiredImage.ID
 	if different {
-		c.logger.Info(c.logTag, "Container image mismatch - container: %s, desired: %s", 
+		c.logger.Info(c.logTag, "Container image mismatch - container: %s, desired: %s",
 			containerImageID[:12], desiredImage.ID[:12])
 	} else {
 		c.logger.Debug(c.logTag, "Container is using the desired image: %s", containerImageID[:12])
 	}
-	
+
 	return different, nil
 }

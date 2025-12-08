@@ -26,8 +26,8 @@ import (
 func (c *Client) ExtractFileFromRegistry(ctx context.Context, imageName string, fileToExtract string) ([]byte, error) {
 	c.logger.Debug(c.logTag, "Extracting file %s from image %s via registry", fileToExtract, imageName)
 
-	// Create regclient
-	rc := regclient.New()
+	// Create regclient with Docker credentials from ~/.docker/config.json
+	rc := regclient.New(regclient.WithDockerCreds())
 
 	// Parse image reference
 	r, err := ref.New(imageName)

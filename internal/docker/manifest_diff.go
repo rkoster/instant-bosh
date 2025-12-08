@@ -81,7 +81,7 @@ func (c *Client) ShowManifestDiff(ctx context.Context, currentImageName, newImag
 	var output strings.Builder
 	humanReport := dyff.HumanReport{
 		Report:            report,
-		OmitHeader:        false,
+		OmitHeader:        true,
 		NoTableStyle:      false,
 		DoNotInspectCerts: true,
 		UseGoPatchPaths:   false,
@@ -91,5 +91,5 @@ func (c *Client) ShowManifestDiff(ctx context.Context, currentImageName, newImag
 		return "", fmt.Errorf("failed to generate diff report: %w", err)
 	}
 
-	return output.String(), nil
+	return strings.TrimSpace(output.String()), nil
 }
