@@ -11,7 +11,7 @@
     ],
     "scripts": {
       "test": [
-        "echo \"Error: no test specified\" && exit 1"
+        "ginkgo -r --race --randomize-all"
       ],
       "build-ibosh": [
         "GOFLAGS=-mod=mod go build -o ibosh ./cmd/ibosh"
