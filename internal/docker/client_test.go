@@ -1,6 +1,7 @@
 package docker_test
 
 import (
+	"context"
 	"errors"
 	"os"
 
@@ -115,12 +116,15 @@ var _ = Describe("Docker Client", func() {
 	Describe("CheckForImageUpdate", func() {
 		var (
 			fakeDockerAPI *dockerfakes.FakeDockerAPI
+			client        *docker.Client
+			ctx           context.Context
 		)
 
 		BeforeEach(func() {
+			ctx = context.Background()
 			fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
-			// Note: We need to expose a way to inject the fake API
-			// This will be done through a test constructor or by making cli field accessible in tests
+			// Create a test client with the fake Docker API
+			client = docker.NewTestClient(fakeDockerAPI, logger, "test-image")
 		})
 
 		Context("when image doesn't exist locally", func() {
@@ -132,13 +136,9 @@ var _ = Describe("Docker Client", func() {
 					errdefs.NotFound(errors.New("image not found")),
 				)
 
-				// This test demonstrates the expected behavior:
-				// When image doesn't exist locally, CheckForImageUpdate should return true
-				// 
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// updateAvailable, err := client.CheckForImageUpdate(ctx)
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(updateAvailable).To(BeTrue())
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeTrue())
 			})
 		})
 
@@ -158,13 +158,9 @@ var _ = Describe("Docker Client", func() {
 				}
 				fakeDockerAPI.DistributionInspectReturns(remoteInspect, nil)
 
-				// This test demonstrates the expected behavior:
-				// When digests match, CheckForImageUpdate should return false
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// updateAvailable, err := client.CheckForImageUpdate(ctx)
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(updateAvailable).To(BeFalse())
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeFalse())
 			})
 		})
 
@@ -184,13 +180,9 @@ var _ = Describe("Docker Client", func() {
 				}
 				fakeDockerAPI.DistributionInspectReturns(remoteInspect, nil)
 
-				// This test demonstrates the expected behavior:
-				// When digests differ, CheckForImageUpdate should return true
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// updateAvailable, err := client.CheckForImageUpdate(ctx)
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(updateAvailable).To(BeTrue())
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeTrue())
 			})
 		})
 
@@ -202,13 +194,9 @@ var _ = Describe("Docker Client", func() {
 				}
 				fakeDockerAPI.ImageInspectWithRawReturns(localImage, nil, nil)
 
-				// This test demonstrates the expected behavior:
-				// When image has no repo digest, CheckForImageUpdate should return true
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// updateAvailable, err := client.CheckForImageUpdate(ctx)
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(updateAvailable).To(BeTrue())
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeTrue())
 			})
 		})
 
@@ -226,14 +214,10 @@ var _ = Describe("Docker Client", func() {
 					errors.New("network error: connection timeout"),
 				)
 
-				// This test demonstrates the expected behavior:
-				// When remote inspection fails, CheckForImageUpdate should return error
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// updateAvailable, err := client.CheckForImageUpdate(ctx)
-				// Expect(err).To(HaveOccurred())
-				// Expect(err.Error()).To(ContainSubstring("inspecting remote image"))
-				// Expect(updateAvailable).To(BeFalse())
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("inspecting remote image"))
+				Expect(updateAvailable).To(BeFalse())
 			})
 		})
 	})
@@ -241,10 +225,14 @@ var _ = Describe("Docker Client", func() {
 	Describe("IsContainerImageDifferent", func() {
 		var (
 			fakeDockerAPI *dockerfakes.FakeDockerAPI
+			client        *docker.Client
+			ctx           context.Context
 		)
 
 		BeforeEach(func() {
+			ctx = context.Background()
 			fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
+			client = docker.NewTestClient(fakeDockerAPI, logger, "test-image")
 		})
 
 		Context("when container uses different image", func() {
@@ -263,18 +251,9 @@ var _ = Describe("Docker Client", func() {
 				}
 				fakeDockerAPI.ImageInspectWithRawReturns(desiredImage, nil, nil)
 
-				// This test demonstrates the expected behavior:
-				// When container uses different image, IsContainerImageDifferent should return true
-				//
-				// Scenario examples:
-				// - Custom image specified: --image ghcr.io/rkoster/instant-bosh:main-abc123
-				//   Container uses: ghcr.io/rkoster/instant-bosh:main-def456
-				// - New image pulled locally that differs from container's image
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(different).To(BeTrue())
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(different).To(BeTrue())
 			})
 		})
 
@@ -294,13 +273,9 @@ var _ = Describe("Docker Client", func() {
 				}
 				fakeDockerAPI.ImageInspectWithRawReturns(desiredImage, nil, nil)
 
-				// This test demonstrates the expected behavior:
-				// When container uses same image, IsContainerImageDifferent should return false
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(different).To(BeFalse())
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(different).To(BeFalse())
 			})
 		})
 
@@ -321,13 +296,9 @@ var _ = Describe("Docker Client", func() {
 					errdefs.NotFound(errors.New("image not found")),
 				)
 
-				// This test demonstrates the expected behavior:
-				// When desired image doesn't exist, IsContainerImageDifferent should return false
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(different).To(BeFalse())
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(different).To(BeFalse())
 			})
 		})
 
@@ -339,13 +310,9 @@ var _ = Describe("Docker Client", func() {
 					errors.New("container not found"),
 				)
 
-				// This test demonstrates the expected behavior:
-				// When container inspection fails, IsContainerImageDifferent should return error
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
-				// Expect(err).To(HaveOccurred())
-				// Expect(different).To(BeFalse())
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).To(HaveOccurred())
+				Expect(different).To(BeFalse())
 			})
 		})
 	})
@@ -353,10 +320,14 @@ var _ = Describe("Docker Client", func() {
 	Describe("GetContainerImageID", func() {
 		var (
 			fakeDockerAPI *dockerfakes.FakeDockerAPI
+			client        *docker.Client
+			ctx           context.Context
 		)
 
 		BeforeEach(func() {
+			ctx = context.Background()
 			fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
+			client = docker.NewTestClient(fakeDockerAPI, logger, "test-image")
 		})
 
 		Context("when container exists", func() {
@@ -369,13 +340,9 @@ var _ = Describe("Docker Client", func() {
 				}
 				fakeDockerAPI.ContainerInspectReturns(containerInfo, nil)
 
-				// This test demonstrates the expected behavior:
-				// When container exists, GetContainerImageID should return its image ID
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// imageID, err := client.GetContainerImageID(ctx, "instant-bosh")
-				// Expect(err).NotTo(HaveOccurred())
-				// Expect(imageID).To(Equal("sha256:abc123def456"))
+				imageID, err := client.GetContainerImageID(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(imageID).To(Equal("sha256:abc123def456"))
 			})
 		})
 
@@ -387,14 +354,10 @@ var _ = Describe("Docker Client", func() {
 					errors.New("container not found"),
 				)
 
-				// This test demonstrates the expected behavior:
-				// When container doesn't exist, GetContainerImageID should return error
-				//
-				// TODO: Inject fakeDockerAPI into client to enable this test
-				// imageID, err := client.GetContainerImageID(ctx, "instant-bosh")
-				// Expect(err).To(HaveOccurred())
-				// Expect(err.Error()).To(ContainSubstring("inspecting container"))
-				// Expect(imageID).To(Equal(""))
+				imageID, err := client.GetContainerImageID(ctx, "instant-bosh")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("inspecting container"))
+				Expect(imageID).To(Equal(""))
 			})
 		})
 	})

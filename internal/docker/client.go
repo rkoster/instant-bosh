@@ -121,6 +121,21 @@ func NewClient(logger boshlog.Logger, customImage string) (*Client, error) {
 	}, nil
 }
 
+// NewTestClient creates a Client with a fake Docker API for testing.
+// This allows tests to inject mock Docker API implementations.
+func NewTestClient(fakeAPI DockerAPI, logger boshlog.Logger, imageName string) *Client {
+	if imageName == "" {
+		imageName = ImageName
+	}
+	return &Client{
+		cli:        fakeAPI,
+		logger:     logger,
+		logTag:     "dockerClient",
+		socketPath: "/var/run/docker.sock",
+		imageName:  imageName,
+	}
+}
+
 func (c *Client) Close() error {
 	return c.cli.Close()
 }
