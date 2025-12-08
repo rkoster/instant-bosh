@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
 
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshtbl "github.com/cloudfoundry/bosh-cli/v7/ui/table"
@@ -36,14 +38,13 @@ func EnvAction(ui boshui.UI, logger boshlog.Logger) error {
 		return err
 	}
 
-	ui.PrintLinef("instant-bosh environment:")
+	// Print environment information
+	ui.PrintLinef("%s %s", bold("Environment:"), docker.ContainerName)
 	if running {
-		ui.PrintLinef("  State: Running")
-		ui.PrintLinef("  Container: %s", docker.ContainerName)
-		ui.PrintLinef("  Network: %s", docker.NetworkName)
-		ui.PrintLinef("  IP: %s", docker.ContainerIP)
-		ui.PrintLinef("  Director Port: %s", docker.DirectorPort)
-		ui.PrintLinef("  SSH Port: %s", docker.SSHPort)
+		ui.PrintLinef("%s Running", bold("State:"))
+		ui.PrintLinef("%s %s", bold("IP:"), docker.ContainerIP)
+		ui.PrintLinef("%s %s", bold("Director Port:"), docker.DirectorPort)
+		ui.PrintLinef("%s %s", bold("SSH Port:"), docker.SSHPort)
 		
 		// Fetch and display BOSH releases
 		ui.PrintLinef("")
@@ -54,27 +55,32 @@ func EnvAction(ui boshui.UI, logger boshlog.Logger) error {
 			printReleasesTable(ui, releases)
 		}
 	} else {
-		ui.PrintLinef("  State: Stopped")
+		ui.PrintLinef("%s Stopped", bold("State:"))
 	}
 
-	containers, err := dockerClient.GetContainersOnNetwork(ctx)
+	// Get detailed container information
+	containers, err := dockerClient.GetContainersOnNetworkDetailed(ctx)
 	if err != nil {
 		ui.PrintLinef("")
-		ui.PrintLinef("Containers on network: Unable to retrieve (network may not exist)")
+		ui.PrintLinef("Unable to retrieve containers on network")
 		return nil
 	}
 
+	// Sort containers by creation time (oldest first)
+	sort.Slice(containers, func(i, j int) bool {
+		return containers[i].Created.Before(containers[j].Created)
+	})
+
+	// Print containers table
 	ui.PrintLinef("")
-	ui.PrintLinef("Containers on %s network:", docker.NetworkName)
-	if len(containers) == 0 {
-		ui.PrintLinef("  None")
-	} else {
-		for _, containerName := range containers {
-			ui.PrintLinef("  - %s", containerName)
-		}
-	}
+	printContainersTable(ui, containers)
 
 	return nil
+}
+
+// bold returns a string wrapped in ANSI bold escape codes
+func bold(s string) string {
+	return fmt.Sprintf("\033[1m%s\033[0m", s)
 }
 
 func fetchBoshReleases(ctx context.Context, dockerClient *docker.Client) ([]Release, error) {
@@ -102,9 +108,8 @@ func printReleasesTable(ui boshui.UI, releases []Release) {
 	table := boshtbl.Table{
 		Content: "releases",
 		Header: []boshtbl.Header{
-			boshtbl.NewHeader("Name"),
-			boshtbl.NewHeader("Version"),
-			boshtbl.NewHeader("Commit Hash"),
+			boshtbl.NewHeader(bold("Release")),
+			boshtbl.NewHeader(bold("Version")),
 		},
 		SortBy: []boshtbl.ColumnSort{{Column: 0, Asc: true}},
 	}
@@ -113,9 +118,72 @@ func printReleasesTable(ui boshui.UI, releases []Release) {
 		table.Rows = append(table.Rows, []boshtbl.Value{
 			boshtbl.NewValueString(release.Name),
 			boshtbl.NewValueString(release.Version),
-			boshtbl.NewValueString(release.SHA1),
 		})
 	}
 
 	ui.PrintTable(table)
+}
+
+func printContainersTable(ui boshui.UI, containers []docker.ContainerInfo) {
+	if len(containers) == 0 {
+		ui.PrintLinef("  No containers found")
+		return
+	}
+
+	table := boshtbl.Table{
+		Content: "containers",
+		Header: []boshtbl.Header{
+			boshtbl.NewHeader(bold("Container")),
+			boshtbl.NewHeader(bold("Created")),
+			boshtbl.NewHeader(bold("Network")),
+		},
+	}
+
+	for _, container := range containers {
+		// Format the created time as a human-readable relative time
+		createdStr := formatRelativeTime(container.Created)
+		
+		table.Rows = append(table.Rows, []boshtbl.Value{
+			boshtbl.NewValueString(container.Name),
+			boshtbl.NewValueString(createdStr),
+			boshtbl.NewValueString(container.Network),
+		})
+	}
+
+	ui.PrintTable(table)
+}
+
+// formatRelativeTime formats a time as a human-readable relative time string
+func formatRelativeTime(t time.Time) string {
+	duration := time.Since(t)
+	
+	if duration < time.Minute {
+		seconds := int(duration.Seconds())
+		if seconds <= 1 {
+			return "1 second ago"
+		}
+		return fmt.Sprintf("%d seconds ago", seconds)
+	}
+	
+	if duration < time.Hour {
+		minutes := int(duration.Minutes())
+		if minutes == 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	}
+	
+	if duration < 24*time.Hour {
+		hours := int(duration.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	}
+	
+	days := int(duration.Hours() / 24)
+	if days == 1 {
+		return "1 day ago"
+	}
+	return fmt.Sprintf("%d days ago", days)
 }
