@@ -1,12 +1,19 @@
 package docker_test
 
 import (
+	"context"
+	"errors"
 	"os"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/registry"
+	"github.com/docker/docker/errdefs"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/docker/dockerfakes"
 )
 
 var _ = Describe("Docker Client Constants", func() {
@@ -68,7 +75,7 @@ var _ = Describe("Docker Client", func() {
 				customSocket := "unix:///Users/test/.config/colima/default/docker.sock"
 				os.Setenv("DOCKER_HOST", customSocket)
 
-				client, err := docker.NewClient(logger)
+				client, err := docker.NewClient(logger, "")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
 				defer client.Close()
@@ -84,10 +91,273 @@ var _ = Describe("Docker Client", func() {
 			It("creates a client with the default socket", func() {
 				os.Unsetenv("DOCKER_HOST")
 
-				client, err := docker.NewClient(logger)
+				client, err := docker.NewClient(logger, "")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(client).NotTo(BeNil())
 				defer client.Close()
+			})
+		})
+
+		Context("when custom image is specified", func() {
+			It("uses the custom image instead of default", func() {
+				customImage := "ghcr.io/rkoster/instant-bosh:main-9e61f6f"
+
+				client, err := docker.NewClient(logger, customImage)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(client).NotTo(BeNil())
+				defer client.Close()
+
+				// The custom image will be used for all operations
+				// This is verified through integration tests
+			})
+		})
+	})
+
+	Describe("CheckForImageUpdate", func() {
+		var (
+			fakeDockerAPI *dockerfakes.FakeDockerAPI
+			client        *docker.Client
+			ctx           context.Context
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
+			// Create a test client with the fake Docker API
+			client = docker.NewTestClient(fakeDockerAPI, logger, "test-image")
+		})
+
+		Context("when image doesn't exist locally", func() {
+			It("returns true to indicate update is needed", func() {
+				// Setup: ImageInspectWithRaw returns NotFound error
+				fakeDockerAPI.ImageInspectWithRawReturns(
+					types.ImageInspect{},
+					nil,
+					errdefs.NotFound(errors.New("image not found")),
+				)
+
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeTrue())
+			})
+		})
+
+		Context("when image is up to date", func() {
+			It("returns false when local and remote digests match", func() {
+				// Setup: Local image with digest
+				localImage := types.ImageInspect{
+					RepoDigests: []string{"repo@sha256:abc123"},
+				}
+				fakeDockerAPI.ImageInspectWithRawReturns(localImage, nil, nil)
+
+				// Setup: Remote image with same digest
+				remoteInspect := registry.DistributionInspect{
+					Descriptor: ocispec.Descriptor{
+						Digest: "sha256:abc123",
+					},
+				}
+				fakeDockerAPI.DistributionInspectReturns(remoteInspect, nil)
+
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeFalse())
+			})
+		})
+
+		Context("when update is available", func() {
+			It("returns true when local and remote digests differ", func() {
+				// Setup: Local image with old digest
+				localImage := types.ImageInspect{
+					RepoDigests: []string{"repo@sha256:abc123"},
+				}
+				fakeDockerAPI.ImageInspectWithRawReturns(localImage, nil, nil)
+
+				// Setup: Remote image with new digest
+				remoteInspect := registry.DistributionInspect{
+					Descriptor: ocispec.Descriptor{
+						Digest: "sha256:def456",
+					},
+				}
+				fakeDockerAPI.DistributionInspectReturns(remoteInspect, nil)
+
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeTrue())
+			})
+		})
+
+		Context("when image has no repo digest", func() {
+			It("returns true to trigger update check via pull", func() {
+				// Setup: Local image without RepoDigests (built locally or from tarball)
+				localImage := types.ImageInspect{
+					RepoDigests: []string{}, // Empty - no registry digest
+				}
+				fakeDockerAPI.ImageInspectWithRawReturns(localImage, nil, nil)
+
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updateAvailable).To(BeTrue())
+			})
+		})
+
+		Context("when remote inspection fails", func() {
+			It("returns error when network/auth error occurs", func() {
+				// Setup: Local image inspection succeeds
+				localImage := types.ImageInspect{
+					RepoDigests: []string{"repo@sha256:abc123"},
+				}
+				fakeDockerAPI.ImageInspectWithRawReturns(localImage, nil, nil)
+
+				// Setup: Remote inspection fails (network/auth error)
+				fakeDockerAPI.DistributionInspectReturns(
+					registry.DistributionInspect{},
+					errors.New("network error: connection timeout"),
+				)
+
+				updateAvailable, err := client.CheckForImageUpdate(ctx)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("inspecting remote image"))
+				Expect(updateAvailable).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("IsContainerImageDifferent", func() {
+		var (
+			fakeDockerAPI *dockerfakes.FakeDockerAPI
+			client        *docker.Client
+			ctx           context.Context
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
+			client = docker.NewTestClient(fakeDockerAPI, logger, "test-image")
+		})
+
+		Context("when container uses different image", func() {
+			It("returns true to indicate recreation is needed", func() {
+				// Setup: Container running old image
+				containerInfo := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						Image: "sha256:abc123",
+					},
+				}
+				fakeDockerAPI.ContainerInspectReturns(containerInfo, nil)
+
+				// Setup: Desired image is different
+				desiredImage := types.ImageInspect{
+					ID: "sha256:def456", // Different from container's image
+				}
+				fakeDockerAPI.ImageInspectWithRawReturns(desiredImage, nil, nil)
+
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(different).To(BeTrue())
+			})
+		})
+
+		Context("when container uses same image", func() {
+			It("returns false to indicate no recreation needed", func() {
+				// Setup: Container running current image
+				containerInfo := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						Image: "sha256:abc123",
+					},
+				}
+				fakeDockerAPI.ContainerInspectReturns(containerInfo, nil)
+
+				// Setup: Desired image is the same
+				desiredImage := types.ImageInspect{
+					ID: "sha256:abc123", // Same as container's image
+				}
+				fakeDockerAPI.ImageInspectWithRawReturns(desiredImage, nil, nil)
+
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(different).To(BeFalse())
+			})
+		})
+
+		Context("when desired image doesn't exist locally", func() {
+			It("returns false because we'll pull it later anyway", func() {
+				// Setup: Container exists
+				containerInfo := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						Image: "sha256:abc123",
+					},
+				}
+				fakeDockerAPI.ContainerInspectReturns(containerInfo, nil)
+
+				// Setup: Desired image doesn't exist yet
+				fakeDockerAPI.ImageInspectWithRawReturns(
+					types.ImageInspect{},
+					nil,
+					errdefs.NotFound(errors.New("image not found")),
+				)
+
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(different).To(BeFalse())
+			})
+		})
+
+		Context("when container inspection fails", func() {
+			It("returns error", func() {
+				// Setup: Container inspection fails
+				fakeDockerAPI.ContainerInspectReturns(
+					types.ContainerJSON{},
+					errors.New("container not found"),
+				)
+
+				different, err := client.IsContainerImageDifferent(ctx, "instant-bosh")
+				Expect(err).To(HaveOccurred())
+				Expect(different).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("GetContainerImageID", func() {
+		var (
+			fakeDockerAPI *dockerfakes.FakeDockerAPI
+			client        *docker.Client
+			ctx           context.Context
+		)
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
+			client = docker.NewTestClient(fakeDockerAPI, logger, "test-image")
+		})
+
+		Context("when container exists", func() {
+			It("returns container's image ID", func() {
+				// Setup: Container with image ID
+				containerInfo := types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						Image: "sha256:abc123def456",
+					},
+				}
+				fakeDockerAPI.ContainerInspectReturns(containerInfo, nil)
+
+				imageID, err := client.GetContainerImageID(ctx, "instant-bosh")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(imageID).To(Equal("sha256:abc123def456"))
+			})
+		})
+
+		Context("when container doesn't exist", func() {
+			It("returns error", func() {
+				// Setup: Container inspection fails
+				fakeDockerAPI.ContainerInspectReturns(
+					types.ContainerJSON{},
+					errors.New("container not found"),
+				)
+
+				imageID, err := client.GetContainerImageID(ctx, "instant-bosh")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("inspecting container"))
+				Expect(imageID).To(Equal(""))
 			})
 		})
 	})

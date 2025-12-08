@@ -37,10 +37,11 @@ const (
 )
 
 type Client struct {
-	cli        *client.Client
+	cli        DockerAPI
 	logger     boshlog.Logger
 	logTag     string
 	socketPath string
+	imageName  string
 }
 
 // getDockerHost attempts to get the Docker host from the current context
@@ -70,7 +71,7 @@ func getDockerHost() string {
 	return host
 }
 
-func NewClient(logger boshlog.Logger) (*Client, error) {
+func NewClient(logger boshlog.Logger, customImage string) (*Client, error) {
 	// Try to get Docker host from current context if Docker CLI is available
 	dockerHost := getDockerHost()
 
@@ -105,12 +106,34 @@ func NewClient(logger boshlog.Logger) (*Client, error) {
 		socketPath = daemonHost[7:] // strip "unix://" prefix
 	}
 
+	// Use custom image if provided, otherwise use default
+	imageName := ImageName
+	if customImage != "" {
+		imageName = customImage
+	}
+
 	return &Client{
 		cli:        cli,
 		logger:     logger,
 		logTag:     "dockerClient",
 		socketPath: socketPath,
+		imageName:  imageName,
 	}, nil
+}
+
+// NewTestClient creates a Client with a fake Docker API for testing.
+// This allows tests to inject mock Docker API implementations.
+func NewTestClient(fakeAPI DockerAPI, logger boshlog.Logger, imageName string) *Client {
+	if imageName == "" {
+		imageName = ImageName
+	}
+	return &Client{
+		cli:        fakeAPI,
+		logger:     logger,
+		logTag:     "dockerClient",
+		socketPath: "/var/run/docker.sock",
+		imageName:  imageName,
+	}
 }
 
 func (c *Client) Close() error {
@@ -150,7 +173,7 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Creating container %s", ContainerName)
 
 	config := &container.Config{
-		Image: ImageName,
+		Image: c.imageName,
 		Cmd: []string{
 			"-v", "internal_ip=" + ContainerIP,
 			"-v", "internal_cidr=" + NetworkSubnet,
@@ -346,7 +369,7 @@ func (c *Client) WaitForBoshReady(ctx context.Context, maxWait time.Duration) er
 }
 
 func (c *Client) ImageExists(ctx context.Context) (bool, error) {
-	_, _, err := c.cli.ImageInspectWithRaw(ctx, ImageName)
+	_, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
 	if err != nil {
 		if client.IsErrNotFound(err) {
 			return false, nil
@@ -367,9 +390,9 @@ type pullProgress struct {
 }
 
 func (c *Client) PullImage(ctx context.Context) error {
-	c.logger.Info(c.logTag, "Pulling image %s...", ImageName)
+	c.logger.Info(c.logTag, "Pulling image %s...", c.imageName)
 
-	out, err := c.cli.ImagePull(ctx, ImageName, image.PullOptions{})
+	out, err := c.cli.ImagePull(ctx, c.imageName, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("pulling image: %w", err)
 	}
@@ -394,6 +417,71 @@ func (c *Client) PullImage(ctx context.Context) error {
 
 	c.logger.Info(c.logTag, "Image pulled successfully")
 	return nil
+}
+
+// CheckForImageUpdate checks if a newer version of the image is available in the registry.
+//
+// This method uses Docker's Distribution API to inspect the remote image manifest and compare
+// it with the local image digest WITHOUT downloading the image layers. This makes the check
+// fast and bandwidth-efficient while properly handling registry authentication through the
+// Docker daemon.
+//
+// Returns true if a newer version is available in the registry, false if the local image
+// is up to date.
+func (c *Client) CheckForImageUpdate(ctx context.Context) (bool, error) {
+	c.logger.Debug(c.logTag, "Checking for image updates for %s", c.imageName)
+
+	// Get the current local image
+	localImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			// Image doesn't exist locally, so an update is needed
+			return true, nil
+		}
+		return false, fmt.Errorf("inspecting local image: %w", err)
+	}
+
+	// Get the local image digest from RepoDigests
+	// RepoDigests contains the registry digest(s) for the image
+	var localDigest string
+	if len(localImage.RepoDigests) > 0 {
+		// Extract just the digest part (after @)
+		parts := strings.Split(localImage.RepoDigests[0], "@")
+		if len(parts) == 2 {
+			localDigest = parts[1]
+		}
+	}
+
+	// If we don't have a repo digest, we need to pull to check
+	// This can happen if the image was built locally or loaded from a tarball
+	if localDigest == "" {
+		c.logger.Debug(c.logTag, "Local image has no repo digest, needs update check via pull")
+		return true, nil
+	}
+
+	// Use Docker's native DistributionInspect API to get the remote manifest
+	// This properly handles authentication and avoids direct HTTP calls to the registry
+	remoteInspect, err := c.cli.DistributionInspect(ctx, c.imageName, "")
+	if err != nil {
+		// If we can't check the remote, return the error
+		// The caller can decide whether to treat this as no update or show a warning
+		c.logger.Debug(c.logTag, "Failed to inspect remote image: %v", err)
+		return false, fmt.Errorf("inspecting remote image: %w", err)
+	}
+
+	// Get the remote digest from the Descriptor
+	remoteDigest := remoteInspect.Descriptor.Digest.String()
+
+	// Compare digests
+	updateAvailable := localDigest != remoteDigest
+	if updateAvailable {
+		c.logger.Info(c.logTag, "New image version available (local: %s, remote: %s)", 
+			localDigest[:12], remoteDigest[:12])
+	} else {
+		c.logger.Debug(c.logTag, "Image is up to date (digest: %s)", localDigest[:12])
+	}
+
+	return updateAvailable, nil
 }
 
 func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []string) (string, error) {
@@ -449,4 +537,70 @@ func (c *Client) FollowContainerLogs(ctx context.Context, containerName string, 
 	}
 
 	return nil
+}
+
+// GetCurrentImageID returns the ID of the currently local image
+func (c *Client) GetCurrentImageID(ctx context.Context) (string, error) {
+	c.logger.Debug(c.logTag, "Getting current image ID for %s", c.imageName)
+	
+	localImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
+	if err != nil {
+		return "", fmt.Errorf("inspecting local image: %w", err)
+	}
+	
+	return localImage.ID, nil
+}
+
+// GetImageName returns the image name being used by this client
+func (c *Client) GetImageName() string {
+	return c.imageName
+}
+
+// GetContainerImageID returns the image ID that the specified container is running
+func (c *Client) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
+	c.logger.Debug(c.logTag, "Getting image ID for container %s", containerName)
+	
+	inspect, err := c.cli.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return "", fmt.Errorf("inspecting container: %w", err)
+	}
+	
+	return inspect.Image, nil
+}
+
+// IsContainerImageDifferent checks if the running container uses a different image than what we want to use.
+// This handles scenarios like:
+// - Custom image specified that differs from running container
+// - New image available locally that differs from running container  
+// Returns true if the container needs to be recreated with a different image.
+func (c *Client) IsContainerImageDifferent(ctx context.Context, containerName string) (bool, error) {
+	c.logger.Debug(c.logTag, "Checking if container %s uses different image than %s", containerName, c.imageName)
+	
+	// Get the image ID the container is currently running
+	containerImageID, err := c.GetContainerImageID(ctx, containerName)
+	if err != nil {
+		return false, err
+	}
+	
+	// Get the image ID of the image we want to use
+	desiredImage, _, err := c.cli.ImageInspectWithRaw(ctx, c.imageName)
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			// Image doesn't exist locally, so we can't compare
+			// Return false since we'll pull it later anyway
+			return false, nil
+		}
+		return false, fmt.Errorf("inspecting desired image: %w", err)
+	}
+	
+	// Compare image IDs - if they're different, container needs recreation
+	different := containerImageID != desiredImage.ID
+	if different {
+		c.logger.Info(c.logTag, "Container image mismatch - container: %s, desired: %s", 
+			containerImageID[:12], desiredImage.ID[:12])
+	} else {
+		c.logger.Debug(c.logTag, "Container is using the desired image: %s", containerImageID[:12])
+	}
+	
+	return different, nil
 }
