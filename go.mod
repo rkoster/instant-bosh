@@ -13,9 +13,10 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/qeesung/image2ascii v1.0.1
+	github.com/regclient/regclient v0.11.1
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v2 v2.27.7
-	golang.org/x/term v0.34.0
+	golang.org/x/term v0.37.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -41,6 +42,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -55,6 +57,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
+	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-ciede2000 v0.0.0-20170301095244-782e8c62fec3 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -75,7 +78,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/texttheater/golang-levenshtein v1.0.1 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/virtuald/go-ordered-json v0.0.0-20170621173500-b18e6e673d74 // indirect
 	github.com/vito/go-interact v1.0.2 // indirect
 	github.com/wayneashleyberry/terminal-dimensions v1.1.0 // indirect
@@ -91,7 +96,7 @@ require (
 	golang.org/x/mod v0.27.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect

@@ -40,17 +40,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		}
 		
 		// Determine if we need to upgrade
-		needsUpgrade := false
-		upgradeReason := ""
-		
-		if imageDifferent && err == nil {
-			needsUpgrade = true
-			if customImage != "" {
-				upgradeReason = fmt.Sprintf("upgrading to custom image: %s", customImage)
-			} else {
-				upgradeReason = "upgrading to different image version"
-			}
-		}
+		needsUpgrade := imageDifferent && err == nil
 		
 		// If no upgrade needed, just inform user and exit
 		if !needsUpgrade {
@@ -112,15 +102,15 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		
 		// Proceed with upgrade: stop and remove the running container
 		ui.PrintLinef("")
-		ui.PrintLinef("Stopping current container...")
+		ui.PrintLinef("Stopping and removing current container...")
+		// Note: Container has AutoRemove=true, so stopping it will trigger automatic removal.
+		// We only need to stop it; Docker will handle the removal automatically.
 		if err := dockerClient.StopContainer(ctx); err != nil {
 			return fmt.Errorf("failed to stop container: %w", err)
 		}
 		
-		ui.PrintLinef("Removing old container (%s)...", upgradeReason)
-		if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
-			return fmt.Errorf("failed to remove old container: %w", err)
-		}
+		// Wait a moment for Docker to complete the auto-removal
+		time.Sleep(500 * time.Millisecond)
 		
 		ui.PrintLinef("Upgrading to new image...")
 		// Continue with normal container creation flow below

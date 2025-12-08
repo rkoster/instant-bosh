@@ -1,65 +1,27 @@
 package docker
 
 import (
-	"archive/tar"
 	"context"
 	"fmt"
-	"io"
 	"strings"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/gonvenience/ytbx"
 	"github.com/homeport/dyff/pkg/dyff"
 )
 
 // ExtractManifestFromImage extracts /var/vcap/bosh/manifest.yml from a Docker image
+// using the registry API. This is much more efficient than the old approach of creating
+// a temporary container and exporting its filesystem.
 func (c *Client) ExtractManifestFromImage(ctx context.Context, imageName string) ([]byte, error) {
 	c.logger.Debug(c.logTag, "Extracting manifest from image: %s", imageName)
 
-	// Create a temporary container from the image (don't start it)
-	containerConfig := &container.Config{
-		Image: imageName,
-	}
-	resp, err := c.cli.ContainerCreate(ctx, containerConfig, nil, nil, nil, "")
+	// Use the new registry-based extraction method
+	manifestData, err := c.ExtractFileFromRegistry(ctx, imageName, "/var/vcap/bosh/manifest.yml")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temporary container: %w", err)
-	}
-	containerID := resp.ID
-	defer func() {
-		// Clean up the temporary container
-		_ = c.cli.ContainerRemove(ctx, containerID, container.RemoveOptions{Force: true})
-	}()
-
-	// Export the container filesystem as a tar archive
-	reader, err := c.cli.ContainerExport(ctx, containerID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to export container: %w", err)
-	}
-	defer reader.Close()
-
-	// Extract the manifest file from the tar archive
-	tarReader := tar.NewReader(reader)
-	for {
-		header, err := tarReader.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return nil, fmt.Errorf("error reading tar: %w", err)
-		}
-
-		// Look for the manifest file
-		if header.Name == "var/vcap/bosh/manifest.yml" || header.Name == "./var/vcap/bosh/manifest.yml" {
-			c.logger.Debug(c.logTag, "Found manifest file in image: %s", header.Name)
-			manifestData, err := io.ReadAll(tarReader)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read manifest: %w", err)
-			}
-			return manifestData, nil
-		}
+		return nil, fmt.Errorf("failed to extract manifest from registry: %w", err)
 	}
 
-	return nil, fmt.Errorf("manifest file /var/vcap/bosh/manifest.yml not found in image")
+	return manifestData, nil
 }
 
 // ShowManifestDiff compares manifests from current and new images and returns the diff
