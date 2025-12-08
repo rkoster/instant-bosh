@@ -87,10 +87,11 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 
 		// Ask for user confirmation
 		ui.PrintLinef("")
+		ui.PrintLinef("Continue with upgrade?")
 
 		err = ui.AskForConfirmation()
 		if err != nil {
-			ui.PrintLinef("Upgrade cancelled")
+			ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
 			return nil
 		}
 
@@ -103,8 +104,32 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 			return fmt.Errorf("failed to stop container: %w", err)
 		}
 
-		// Wait a moment for Docker to complete the auto-removal
-		time.Sleep(500 * time.Millisecond)
+		// Wait for Docker to complete the auto-removal by polling ContainerExists
+		// with a timeout to avoid hanging indefinitely
+		maxWaitTime := 30 * time.Second
+		pollInterval := 200 * time.Millisecond
+		deadline := time.Now().Add(maxWaitTime)
+
+		for time.Now().Before(deadline) {
+			exists, err := dockerClient.ContainerExists(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to check if container exists: %w", err)
+			}
+			if !exists {
+				// Container has been removed successfully
+				break
+			}
+			time.Sleep(pollInterval)
+		}
+
+		// Verify the container is truly gone
+		stillExists, err := dockerClient.ContainerExists(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to verify container removal: %w", err)
+		}
+		if stillExists {
+			return fmt.Errorf("container removal timed out after %v", maxWaitTime)
+		}
 
 		ui.PrintLinef("Upgrading to new image...")
 		// Continue with normal container creation flow below

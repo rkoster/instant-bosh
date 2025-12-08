@@ -56,60 +56,69 @@ func (c *Client) ExtractFileFromRegistry(ctx context.Context, imageName string, 
 		layerDesc := layers[i]
 		c.logger.Debug(c.logTag, "Checking layer %s for file %s", layerDesc.Digest, fileToExtract)
 
-		// Get the blob (layer) from the registry
-		blobStream, err := rc.BlobGet(ctx, r, layerDesc)
-		if err != nil {
-			c.logger.Debug(c.logTag, "Failed to get blob %s: %v", layerDesc.Digest, err)
-			continue
-		}
-
-		// Try to decompress the blob (layers are typically gzip-compressed tar archives)
-		var reader io.Reader = blobStream
-		gzipReader, err := gzip.NewReader(blobStream)
-		if err != nil {
-			// Not gzip compressed, use the blob stream directly
-			c.logger.Debug(c.logTag, "Layer %s is not gzip compressed, trying direct tar", layerDesc.Digest)
-		} else {
-			reader = gzipReader
-			defer gzipReader.Close()
-		}
-		defer blobStream.Close()
-
-		// Read the tar archive
-		tarReader := tar.NewReader(reader)
-		for {
-			hdr, err := tarReader.Next()
-			if err == io.EOF {
-				break
-			}
+		// Process each layer in a closure to ensure proper resource cleanup
+		fileData, found, err := func() ([]byte, bool, error) {
+			// Get the blob (layer) from the registry
+			blobStream, err := rc.BlobGet(ctx, r, layerDesc)
 			if err != nil {
-				c.logger.Debug(c.logTag, "Error reading tar in layer %s: %v", layerDesc.Digest, err)
-				break
+				c.logger.Debug(c.logTag, "Failed to get blob %s: %v", layerDesc.Digest, err)
+				return nil, false, nil // Not an error, just skip this layer
+			}
+			defer blobStream.Close()
+
+			// Try to decompress the blob (layers are typically gzip-compressed tar archives)
+			var reader io.Reader = blobStream
+			gzipReader, err := gzip.NewReader(blobStream)
+			if err != nil {
+				// Not gzip compressed, use the blob stream directly
+				c.logger.Debug(c.logTag, "Layer %s is not gzip compressed, trying direct tar", layerDesc.Digest)
+			} else {
+				defer gzipReader.Close()
+				reader = gzipReader
 			}
 
-			// Normalize tar path (layers typically don't start with '/')
-			// Handle both "var/vcap/..." and "./var/vcap/..." formats
-			tarPath := "/" + strings.TrimPrefix(strings.TrimPrefix(hdr.Name, "./"), "/")
-
-			// Check if this is the file we're looking for
-			if path.Clean(tarPath) == targetPath {
-				c.logger.Info(c.logTag, "Found %s in layer %s", fileToExtract, layerDesc.Digest)
-
-				// Read the file contents
-				fileData, err := io.ReadAll(tarReader)
+			// Read the tar archive
+			tarReader := tar.NewReader(reader)
+			for {
+				hdr, err := tarReader.Next()
+				if err == io.EOF {
+					break
+				}
 				if err != nil {
-					return nil, fmt.Errorf("failed to read file %s from layer: %w", fileToExtract, err)
+					c.logger.Debug(c.logTag, "Error reading tar in layer %s: %v", layerDesc.Digest, err)
+					break
 				}
 
-				return fileData, nil
+				// Normalize tar path (layers typically don't start with '/')
+				// Handle both "var/vcap/..." and "./var/vcap/..." formats
+				tarPath := "/" + strings.TrimPrefix(strings.TrimPrefix(hdr.Name, "./"), "/")
+
+				// Check if this is the file we're looking for
+				if path.Clean(tarPath) == targetPath {
+					c.logger.Info(c.logTag, "Found %s in layer %s", fileToExtract, layerDesc.Digest)
+
+					// Read the file contents
+					fileData, err := io.ReadAll(tarReader)
+					if err != nil {
+						return nil, false, fmt.Errorf("failed to read file %s from layer: %w", fileToExtract, err)
+					}
+
+					return fileData, true, nil
+				}
 			}
+
+			return nil, false, nil
+		}()
+
+		// Handle errors from processing the layer
+		if err != nil {
+			return nil, err
 		}
 
-		// Close readers for this layer before moving to the next
-		if gzipReader != nil {
-			gzipReader.Close()
+		// If we found the file, return it
+		if found {
+			return fileData, nil
 		}
-		blobStream.Close()
 	}
 
 	return nil, fmt.Errorf("file %s not found in any layer of image %s", fileToExtract, imageName)
