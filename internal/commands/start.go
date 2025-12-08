@@ -30,12 +30,100 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 	if err != nil {
 		return err
 	}
+	
+	// If container is running, check if we need to upgrade to a different image
 	if running {
-		ui.PrintLinef("instant-bosh is already running")
+		// Check if the running container uses a different image than what we want
+		imageDifferent, err := dockerClient.IsContainerImageDifferent(ctx, docker.ContainerName)
+		if err != nil {
+			logger.Debug("startCommand", "Failed to check if container image is different: %v", err)
+		}
+		
+		// Determine if we need to upgrade
+		needsUpgrade := false
+		upgradeReason := ""
+		
+		if imageDifferent && err == nil {
+			needsUpgrade = true
+			if customImage != "" {
+				upgradeReason = fmt.Sprintf("upgrading to custom image: %s", customImage)
+			} else {
+				upgradeReason = "upgrading to different image version"
+			}
+		}
+		
+		// If no upgrade needed, just inform user and exit
+		if !needsUpgrade {
+			ui.PrintLinef("instant-bosh is already running")
+			ui.PrintLinef("")
+			ui.PrintLinef("To configure your BOSH CLI environment, run:")
+			ui.PrintLinef("  eval \"$(ibosh print-env)\"")
+			return nil
+		}
+		
+		// Get current container's image ID for comparison
+		currentImageID, err := dockerClient.GetContainerImageID(ctx, docker.ContainerName)
+		if err != nil {
+			return fmt.Errorf("failed to get current container image: %w", err)
+		}
+		
+		// Pull the new image if needed (to ensure it's available for diff comparison)
+		targetImageExists, err := dockerClient.ImageExists(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to check if target image exists: %w", err)
+		}
+		
+		if !targetImageExists {
+			ui.PrintLinef("Pulling new image %s...", dockerClient.GetImageName())
+			if err := dockerClient.PullImage(ctx); err != nil {
+				return fmt.Errorf("failed to pull new image: %w", err)
+			}
+		}
+		
+		// Show manifest diff between current and new images
 		ui.PrintLinef("")
-		ui.PrintLinef("To configure your BOSH CLI environment, run:")
-		ui.PrintLinef("  eval \"$(ibosh print-env)\"")
-		return nil
+		ui.PrintLinef("Comparing BOSH manifests between current and new versions...")
+		diff, err := dockerClient.ShowManifestDiff(ctx, currentImageID, dockerClient.GetImageName())
+		if err != nil {
+			logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
+			ui.PrintLinef("Warning: Could not compare manifests: %v", err)
+		} else if diff != "" {
+			ui.PrintLinef("")
+			ui.PrintLinef("=== BOSH Manifest Changes ===")
+			ui.PrintLinef(diff)
+			ui.PrintLinef("=============================")
+		} else {
+			ui.PrintLinef("No differences in BOSH manifest")
+		}
+		
+		// Ask for user confirmation
+		ui.PrintLinef("")
+		ui.PrintLinef("instant-bosh is currently running with a different image.")
+		ui.PrintLinef("Upgrade will stop the current container and start a new one with the updated image.")
+		ui.PrintLinef("All data in volumes will be preserved.")
+		ui.PrintLinef("")
+		ui.PrintLinef("Continue with upgrade?")
+		
+		err = ui.AskForConfirmation()
+		if err != nil {
+			ui.PrintLinef("Upgrade cancelled")
+			return nil
+		}
+		
+		// Proceed with upgrade: stop and remove the running container
+		ui.PrintLinef("")
+		ui.PrintLinef("Stopping current container...")
+		if err := dockerClient.StopContainer(ctx); err != nil {
+			return fmt.Errorf("failed to stop container: %w", err)
+		}
+		
+		ui.PrintLinef("Removing old container (%s)...", upgradeReason)
+		if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
+			return fmt.Errorf("failed to remove old container: %w", err)
+		}
+		
+		ui.PrintLinef("Upgrading to new image...")
+		// Continue with normal container creation flow below
 	}
 
 	// Check if a stopped container exists
