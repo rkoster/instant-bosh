@@ -81,14 +81,14 @@ func main() {
 					return commands.DestroyAction(ui, logger, c.Bool("force"))
 				},
 			},
-			{
-				Name:  "status",
-				Usage: "Show status of instant-bosh and containers on the network",
-				Action: func(c *cli.Context) error {
-					ui, logger := initUIAndLogger(c)
-					return commands.StatusAction(ui, logger)
-				},
+		{
+			Name:  "env",
+			Usage: "Show environment info of instant-bosh including deployed releases",
+			Action: func(c *cli.Context) error {
+				ui, logger := initUIAndLogger(c)
+				return commands.EnvAction(ui, logger)
 			},
+		},
 			{
 				Name:  "pull",
 				Usage: "Pull latest instant-bosh image",
