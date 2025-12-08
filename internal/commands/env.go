@@ -45,7 +45,7 @@ func EnvAction(ui boshui.UI, logger boshlog.Logger) error {
 		ui.PrintLinef("%s %s", bold("IP:"), docker.ContainerIP)
 		ui.PrintLinef("%s %s", bold("Director Port:"), docker.DirectorPort)
 		ui.PrintLinef("%s %s", bold("SSH Port:"), docker.SSHPort)
-		
+
 		// Fetch and display BOSH releases
 		ui.PrintLinef("")
 		releases, err := fetchBoshReleases(ctx, dockerClient)
@@ -106,10 +106,9 @@ func printReleasesTable(ui boshui.UI, releases []Release) {
 	}
 
 	table := boshtbl.Table{
-		Content: "releases",
 		Header: []boshtbl.Header{
-			boshtbl.NewHeader(bold("Release")),
-			boshtbl.NewHeader(bold("Version")),
+			boshtbl.NewHeader("Release"),
+			boshtbl.NewHeader("Version"),
 		},
 		SortBy: []boshtbl.ColumnSort{{Column: 0, Asc: true}},
 	}
@@ -131,18 +130,17 @@ func printContainersTable(ui boshui.UI, containers []docker.ContainerInfo) {
 	}
 
 	table := boshtbl.Table{
-		Content: "containers",
 		Header: []boshtbl.Header{
-			boshtbl.NewHeader(bold("Container")),
-			boshtbl.NewHeader(bold("Created")),
-			boshtbl.NewHeader(bold("Network")),
+			boshtbl.NewHeader("Container"),
+			boshtbl.NewHeader("Created"),
+			boshtbl.NewHeader("Network"),
 		},
 	}
 
 	for _, container := range containers {
 		// Format the created time as a human-readable relative time
 		createdStr := formatRelativeTime(container.Created)
-		
+
 		table.Rows = append(table.Rows, []boshtbl.Value{
 			boshtbl.NewValueString(container.Name),
 			boshtbl.NewValueString(createdStr),
@@ -156,7 +154,7 @@ func printContainersTable(ui boshui.UI, containers []docker.ContainerInfo) {
 // formatRelativeTime formats a time as a human-readable relative time string
 func formatRelativeTime(t time.Time) string {
 	duration := time.Since(t)
-	
+
 	if duration < time.Minute {
 		seconds := int(duration.Seconds())
 		if seconds <= 1 {
@@ -164,7 +162,7 @@ func formatRelativeTime(t time.Time) string {
 		}
 		return fmt.Sprintf("%d seconds ago", seconds)
 	}
-	
+
 	if duration < time.Hour {
 		minutes := int(duration.Minutes())
 		if minutes == 1 {
@@ -172,7 +170,7 @@ func formatRelativeTime(t time.Time) string {
 		}
 		return fmt.Sprintf("%d minutes ago", minutes)
 	}
-	
+
 	if duration < 24*time.Hour {
 		hours := int(duration.Hours())
 		if hours == 1 {
@@ -180,7 +178,7 @@ func formatRelativeTime(t time.Time) string {
 		}
 		return fmt.Sprintf("%d hours ago", hours)
 	}
-	
+
 	days := int(duration.Hours() / 24)
 	if days == 1 {
 		return "1 day ago"
