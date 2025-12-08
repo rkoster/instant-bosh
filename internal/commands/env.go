@@ -3,9 +3,9 @@ package commands
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
+	boshtbl "github.com/cloudfoundry/bosh-cli/v7/ui/table"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"gopkg.in/yaml.v3"
@@ -47,10 +47,9 @@ func EnvAction(ui boshui.UI, logger boshlog.Logger) error {
 		
 		// Fetch and display BOSH releases
 		ui.PrintLinef("")
-		ui.PrintLinef("BOSH Releases:")
 		releases, err := fetchBoshReleases(ctx, dockerClient)
 		if err != nil {
-			ui.PrintLinef("  Unable to fetch releases: %s", err.Error())
+			ui.PrintLinef("Unable to fetch releases: %s", err.Error())
 		} else {
 			printReleasesTable(ui, releases)
 		}
@@ -100,59 +99,23 @@ func printReleasesTable(ui boshui.UI, releases []Release) {
 		return
 	}
 
-	// Calculate column widths
-	nameWidth := len("Name")
-	versionWidth := len("Version")
-	urlWidth := len("URL")
-	sha1Width := len("SHA1")
+	table := boshtbl.Table{
+		Content: "releases",
+		Header: []boshtbl.Header{
+			boshtbl.NewHeader("Name"),
+			boshtbl.NewHeader("Version"),
+			boshtbl.NewHeader("Commit Hash"),
+		},
+		SortBy: []boshtbl.ColumnSort{{Column: 0, Asc: true}},
+	}
 
 	for _, release := range releases {
-		if len(release.Name) > nameWidth {
-			nameWidth = len(release.Name)
-		}
-		if len(release.Version) > versionWidth {
-			versionWidth = len(release.Version)
-		}
-		if len(release.URL) > urlWidth {
-			urlWidth = len(release.URL)
-		}
-		if len(release.SHA1) > sha1Width {
-			sha1Width = len(release.SHA1)
-		}
+		table.Rows = append(table.Rows, []boshtbl.Value{
+			boshtbl.NewValueString(release.Name),
+			boshtbl.NewValueString(release.Version),
+			boshtbl.NewValueString(release.SHA1),
+		})
 	}
 
-	// Limit URL width to avoid overly wide tables
-	maxURLWidth := 70
-	if urlWidth > maxURLWidth {
-		urlWidth = maxURLWidth
-	}
-
-	// Print header
-	ui.PrintLinef("  %-*s  %-*s  %-*s  %-*s",
-		nameWidth, "Name",
-		versionWidth, "Version",
-		urlWidth, "URL",
-		sha1Width, "SHA1")
-
-	// Print separator
-	ui.PrintLinef("  %s  %s  %s  %s",
-		strings.Repeat("-", nameWidth),
-		strings.Repeat("-", versionWidth),
-		strings.Repeat("-", urlWidth),
-		strings.Repeat("-", sha1Width))
-
-	// Print releases
-	for _, release := range releases {
-		// Truncate URL if necessary
-		url := release.URL
-		if len(url) > urlWidth {
-			url = url[:urlWidth-3] + "..."
-		}
-
-		ui.PrintLinef("  %-*s  %-*s  %-*s  %-*s",
-			nameWidth, release.Name,
-			versionWidth, release.Version,
-			urlWidth, url,
-			sha1Width, release.SHA1)
-	}
+	ui.PrintTable(table)
 }
