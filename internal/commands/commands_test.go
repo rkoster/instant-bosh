@@ -25,10 +25,10 @@ var _ = Describe("Commands", func() {
 			Expect(fn).NotTo(BeNil())
 		})
 
-		It("exports StatusAction", func() {
-			fn := commands.StatusAction
-			Expect(fn).NotTo(BeNil())
-		})
+	It("exports EnvAction", func() {
+		fn := commands.EnvAction
+		Expect(fn).NotTo(BeNil())
+	})
 
 		It("exports PullAction", func() {
 			fn := commands.PullAction

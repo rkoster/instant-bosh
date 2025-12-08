@@ -302,6 +302,60 @@ func (c *Client) GetContainersOnNetwork(ctx context.Context) ([]string, error) {
 	return containerNames, nil
 }
 
+// ContainerInfo holds detailed information about a container
+type ContainerInfo struct {
+	Name    string
+	Created time.Time
+	Network string
+}
+
+// GetContainersOnNetworkDetailed returns detailed information about containers on the network
+func (c *Client) GetContainersOnNetworkDetailed(ctx context.Context) ([]ContainerInfo, error) {
+	// First, get the network to find container IDs
+	networkResource, err := c.cli.NetworkInspect(ctx, NetworkName, network.InspectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("inspecting network: %w", err)
+	}
+
+	// Get container IDs from the network
+	var containerIDs []string
+	for containerID := range networkResource.Containers {
+		containerIDs = append(containerIDs, containerID)
+	}
+
+	// Now list all containers and filter by those on the network
+	allContainers, err := c.cli.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return nil, fmt.Errorf("listing containers: %w", err)
+	}
+
+	// Build a map of container IDs on the network for quick lookup
+	networkContainerMap := make(map[string]bool)
+	for _, id := range containerIDs {
+		networkContainerMap[id] = true
+	}
+
+	// Filter and collect container info
+	var result []ContainerInfo
+	for _, c := range allContainers {
+		if networkContainerMap[c.ID] {
+			// Extract container name (remove leading / if present)
+			name := c.Names[0]
+			if len(name) > 0 && name[0] == '/' {
+				name = name[1:]
+			}
+
+			result = append(result, ContainerInfo{
+				Name:    name,
+				Created: time.Unix(c.Created, 0),
+				Network: NetworkName,
+			})
+		}
+	}
+
+	return result, nil
+}
+
 func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tail string) (string, error) {
 	options := container.LogsOptions{
 		ShowStdout: true,

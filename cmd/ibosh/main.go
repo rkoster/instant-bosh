@@ -21,7 +21,8 @@ func initUIAndLogger(c *cli.Context) (boshui.UI, boshlog.Logger) {
 		logLevel = boshlog.LevelDebug
 	}
 	logger := boshlog.NewWriterLogger(logLevel, os.Stderr)
-	ui := boshui.NewWriterUI(os.Stdout, os.Stderr, logger)
+	writerUI := boshui.NewWriterUI(os.Stdout, os.Stderr, logger)
+	ui := boshui.NewColorUI(writerUI)
 	return ui, logger
 }
 
@@ -38,26 +39,26 @@ func main() {
 			},
 		},
 		Commands: []*cli.Command{
-		{
-			Name:  "start",
-			Usage: "Start instant-bosh director",
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:  "skip-update",
-					Usage: "Skip checking for image updates",
-					Value: false,
+			{
+				Name:  "start",
+				Usage: "Start instant-bosh director",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "skip-update",
+						Usage: "Skip checking for image updates",
+						Value: false,
+					},
+					&cli.StringFlag{
+						Name:  "image",
+						Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
+						Value: "",
+					},
 				},
-				&cli.StringFlag{
-					Name:  "image",
-					Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
-					Value: "",
+				Action: func(c *cli.Context) error {
+					ui, logger := initUIAndLogger(c)
+					return commands.StartAction(ui, logger, c.Bool("skip-update"), c.String("image"))
 				},
 			},
-			Action: func(c *cli.Context) error {
-				ui, logger := initUIAndLogger(c)
-				return commands.StartAction(ui, logger, c.Bool("skip-update"), c.String("image"))
-			},
-		},
 			{
 				Name:  "stop",
 				Usage: "Stop instant-bosh director",
@@ -82,11 +83,11 @@ func main() {
 				},
 			},
 			{
-				Name:  "status",
-				Usage: "Show status of instant-bosh and containers on the network",
+				Name:  "env",
+				Usage: "Show environment info of instant-bosh including deployed releases",
 				Action: func(c *cli.Context) error {
 					ui, logger := initUIAndLogger(c)
-					return commands.StatusAction(ui, logger)
+					return commands.EnvAction(ui, logger)
 				},
 			},
 			{
