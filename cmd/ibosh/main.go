@@ -87,30 +87,22 @@ func main() {
 					return commands.DestroyAction(ui, logger, c.Bool("force"))
 				},
 			},
-			{
-				Name:  "env",
-				Usage: "Show environment info of instant-bosh including deployed releases",
-				Action: func(c *cli.Context) error {
-					ui, logger := initUIAndLogger(c)
-					return commands.EnvAction(ui, logger)
-				},
+		{
+			Name:  "env",
+			Usage: "Show environment info of instant-bosh including deployed releases",
+			Action: func(c *cli.Context) error {
+				ui, logger := initUIAndLogger(c)
+				return commands.EnvAction(ui, logger)
 			},
-			{
-				Name:  "pull",
-				Usage: "Pull latest instant-bosh image",
-				Action: func(c *cli.Context) error {
-					ui, logger := initUIAndLogger(c)
-					return commands.PullAction(ui, logger)
-				},
+		},
+		{
+			Name:  "print-env",
+			Usage: "Print environment variables for BOSH CLI",
+			Action: func(c *cli.Context) error {
+				ui, logger := initUIAndLogger(c)
+				return commands.PrintEnvAction(ui, logger)
 			},
-			{
-				Name:  "print-env",
-				Usage: "Print environment variables for BOSH CLI",
-				Action: func(c *cli.Context) error {
-					ui, logger := initUIAndLogger(c)
-					return commands.PrintEnvAction(ui, logger)
-				},
-			},
+		},
 			{
 				Name:  "logs",
 				Usage: "Show logs from the instant-bosh container",
