@@ -56,6 +56,8 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 				return nil
 			}
 
+			ui.PrintLinef("Checking for image updates for %s...", targetImage)
+
 			currentImageName, err := dockerClient.GetContainerImageName(ctx, docker.ContainerName)
 			if err != nil {
 				return fmt.Errorf("failed to get current container image: %w", err)
