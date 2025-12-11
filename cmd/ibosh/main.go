@@ -53,11 +53,16 @@ func main() {
 						Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
 						Value: "",
 					},
-				},
-				Action: func(c *cli.Context) error {
-					ui, logger := initUIAndLogger(c)
-					return commands.StartAction(ui, logger, c.Bool("skip-update"), c.String("image"))
-				},
+			},
+			Action: func(c *cli.Context) error {
+				// Validate mutually exclusive flags
+				if c.Bool("skip-update") && c.String("image") != "" {
+					return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
+				}
+
+				ui, logger := initUIAndLogger(c)
+				return commands.StartAction(ui, logger, c.Bool("skip-update"), c.String("image"))
+			},
 			},
 			{
 				Name:  "stop",
@@ -88,14 +93,6 @@ func main() {
 				Action: func(c *cli.Context) error {
 					ui, logger := initUIAndLogger(c)
 					return commands.EnvAction(ui, logger)
-				},
-			},
-			{
-				Name:  "pull",
-				Usage: "Pull latest instant-bosh image",
-				Action: func(c *cli.Context) error {
-					ui, logger := initUIAndLogger(c)
-					return commands.PullAction(ui, logger)
 				},
 			},
 			{

@@ -100,7 +100,6 @@ COMMANDS:
    stop       Stop instant-bosh director
    destroy    Destroy instant-bosh director and all data
    status     Show status of instant-bosh and containers on the network
-   pull       Pull latest instant-bosh image
    print-env  Print environment variables for BOSH CLI
    logs       Show logs from the instant-bosh container
    help, h    Shows a list of commands or help for one command
