@@ -29,6 +29,20 @@ type Config struct {
 	JumpboxKeyPath string
 }
 
+// ConfigProvider is an interface for retrieving BOSH director configuration.
+// This allows for dependency injection and testing with fake config providers.
+type ConfigProvider interface {
+	GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Config, error)
+}
+
+// DefaultConfigProvider retrieves director config from the running container.
+type DefaultConfigProvider struct{}
+
+// GetDirectorConfig retrieves the BOSH director configuration from the running container.
+func (p *DefaultConfigProvider) GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Config, error) {
+	return GetDirectorConfig(ctx, dockerClient)
+}
+
 // Cleanup removes the temporary jumpbox key file
 func (c *Config) Cleanup() error {
 	if c.JumpboxKeyPath != "" {
