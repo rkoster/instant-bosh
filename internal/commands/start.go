@@ -115,13 +115,13 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 				return fmt.Errorf("failed to pull image: %w", err)
 			}
 		} else if !skipUpdate && customImage == "" {
-			ui.PrintLinef("Checking for image updates...")
+			ui.PrintLinef("Checking for image updates for %s...", targetImage)
 			updateAvailable, err := dockerClient.CheckForImageUpdate(ctx)
 			if err != nil {
 				logger.Debug("startCommand", "Failed to check for updates: %v", err)
 				ui.PrintLinef("Warning: Failed to check for updates, continuing with existing image")
 			} else if updateAvailable {
-				ui.PrintLinef("New image version available! Updating...")
+				ui.PrintLinef("Image %s has a newer revision available! Updating...", targetImage)
 
 				currentImageName := dockerClient.GetImageName()
 
@@ -142,7 +142,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 					ui.PrintLinef("No differences in BOSH manifest")
 				}
 			} else {
-				ui.PrintLinef("Image is up to date")
+				ui.PrintLinef("Image %s is at the latest version", targetImage)
 			}
 		} else if skipUpdate {
 			ui.PrintLinef("Skipping update check (--skip-update flag set)")
