@@ -101,8 +101,9 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		}
 	}
 
-	// --- Subphase 1B: Image management for non-running or upgrade scenarios ---
-	if !running || proceedWithUpgrade {
+	// --- Subphase 1B: Image management for non-running scenarios ---
+	// Skip this phase if we're proceeding with upgrade (image already pulled in 1A)
+	if !running && !proceedWithUpgrade {
 		imageExists, err := dockerClient.ImageExists(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to check if image exists: %w", err)
@@ -113,7 +114,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 			if err := dockerClient.PullImage(ctx); err != nil {
 				return fmt.Errorf("failed to pull image: %w", err)
 			}
-		} else if !skipUpdate && customImage == "" && !proceedWithUpgrade {
+		} else if !skipUpdate && customImage == "" {
 			ui.PrintLinef("Checking for image updates...")
 			updateAvailable, err := dockerClient.CheckForImageUpdate(ctx)
 			if err != nil {
@@ -143,9 +144,9 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 			} else {
 				ui.PrintLinef("Image is up to date")
 			}
-		} else if skipUpdate && !proceedWithUpgrade {
+		} else if skipUpdate {
 			ui.PrintLinef("Skipping update check (--skip-update flag set)")
-		} else if customImage != "" && !proceedWithUpgrade {
+		} else if customImage != "" {
 			ui.PrintLinef("Using custom image: %s", customImage)
 		}
 	}
