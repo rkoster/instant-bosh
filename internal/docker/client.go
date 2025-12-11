@@ -36,6 +36,20 @@ const (
 	SSHPort        = "2222"
 )
 
+// ClientFactory is an interface for creating Docker clients.
+// This allows for dependency injection and testing with fake clients.
+type ClientFactory interface {
+	NewClient(logger boshlog.Logger, customImage string) (*Client, error)
+}
+
+// DefaultClientFactory creates real Docker clients.
+type DefaultClientFactory struct{}
+
+// NewClient creates a new Docker client using the default implementation.
+func (f *DefaultClientFactory) NewClient(logger boshlog.Logger, customImage string) (*Client, error) {
+	return NewClient(logger, customImage)
+}
+
 type Client struct {
 	cli        DockerAPI
 	logger     boshlog.Logger

@@ -12,6 +12,10 @@ import (
 )
 
 func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customImage string) error {
+	return StartActionWithFactory(ui, logger, &docker.DefaultClientFactory{}, skipUpdate, customImage)
+}
+
+func StartActionWithFactory(ui boshui.UI, logger boshlog.Logger, clientFactory docker.ClientFactory, skipUpdate bool, customImage string) error {
 	if err := PrintLogo(); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
 	}
@@ -27,7 +31,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		targetImage = customImage
 	}
 
-	dockerClient, err := docker.NewClient(logger, customImage)
+	dockerClient, err := clientFactory.NewClient(logger, customImage)
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
