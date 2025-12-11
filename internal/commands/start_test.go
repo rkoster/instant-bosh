@@ -20,7 +20,7 @@ var _ = Describe("StartAction Output", func() {
 	})
 
 	Describe("upgrade scenario output", func() {
-		It("should display 'Checking for image updates...' message with image name during upgrade", func() {
+		It("documents expected message format for upgrade scenario", func() {
 			// This test documents the expected behavior:
 			// When a container is running with a different image (upgrade scenario),
 			// the StartAction should display:
@@ -36,7 +36,7 @@ var _ = Describe("StartAction Output", func() {
 			Expect(output).To(ContainSubstring("Checking for image updates for ghcr.io/rkoster/instant-bosh:latest..."))
 		})
 
-		It("should display 'Checking for image updates...' message when starting with stopped container", func() {
+		It("documents expected message format when update is available (stopped container scenario)", func() {
 			// This test documents the expected behavior:
 			// When starting with a stopped container and checking for updates,
 			// the StartAction should display:
@@ -55,7 +55,7 @@ var _ = Describe("StartAction Output", func() {
 			Expect(output).To(ContainSubstring("Image ghcr.io/rkoster/instant-bosh:latest has a newer revision available! Updating..."))
 		})
 
-		It("should display 'Image is at the latest version' message when no update available", func() {
+		It("documents expected message format when image is up to date", func() {
 			imageName := "ghcr.io/rkoster/instant-bosh:latest"
 
 			ui.PrintLinef("Checking for image updates for %s...", imageName)
