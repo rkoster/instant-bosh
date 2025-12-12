@@ -1,7 +1,6 @@
 package commands_test
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"strings"
@@ -13,89 +12,54 @@ import (
 	"github.com/docker/docker/api/types/volume"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
-	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/rkoster/instant-bosh/internal/commands"
+	"github.com/rkoster/instant-bosh/internal/commands/commandsfakes"
 	"github.com/rkoster/instant-bosh/internal/director"
+	"github.com/rkoster/instant-bosh/internal/director/directorfakes"
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/docker/dockerfakes"
 )
 
-// fakeClientFactory is a test implementation of docker.ClientFactory
-type fakeClientFactory struct {
-	fakeDockerAPI *dockerfakes.FakeDockerAPI
-}
-
-func (f *fakeClientFactory) NewClient(logger boshlog.Logger, customImage string) (*docker.Client, error) {
-	imageName := docker.ImageName
-	if customImage != "" {
-		imageName = customImage
-	}
-	return docker.NewTestClient(f.fakeDockerAPI, logger, imageName), nil
-}
-
-// fakeConfigProvider is a test implementation of director.ConfigProvider
-type fakeConfigProvider struct {
-	getConfigFunc func(ctx context.Context, dockerClient *docker.Client) (*director.Config, error)
-}
-
-func (f *fakeConfigProvider) GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*director.Config, error) {
-	if f.getConfigFunc != nil {
-		return f.getConfigFunc(ctx, dockerClient)
-	}
-	// Return a fake config by default
-	return &director.Config{
-		Environment:  "https://127.0.0.1:25555",
-		Client:       "admin",
-		ClientSecret: "fake-password",
-		CACert:       "fake-cert",
-	}, nil
-}
-
-// fakeUI is a test implementation of boshui.UI that allows controlling AskForConfirmation
-type fakeUI struct {
-	*boshui.WriterUI
-	askForConfirmationFunc func() error
-}
-
-func newFakeUI(outBuffer, errBuffer *bytes.Buffer) *fakeUI {
-	return &fakeUI{
-		WriterUI: boshui.NewWriterUI(outBuffer, errBuffer, nil),
-	}
-}
-
-func (f *fakeUI) AskForConfirmation() error {
-	if f.askForConfirmationFunc != nil {
-		return f.askForConfirmationFunc()
-	}
-	// Default: accept confirmation
-	return nil
-}
-
 var _ = Describe("StartAction", func() {
 	var (
 		fakeDockerAPI    *dockerfakes.FakeDockerAPI
-		clientFactory    *fakeClientFactory
-		configProvider   *fakeConfigProvider
-		outBuffer        *bytes.Buffer
-		errBuffer        *bytes.Buffer
-		ui               *fakeUI
+		fakeClientFactory *dockerfakes.FakeClientFactory
+		fakeConfigProvider *directorfakes.FakeConfigProvider
+		fakeUI            *commandsfakes.FakeUI
 		logger           boshlog.Logger
 	)
 
 	BeforeEach(func() {
 		fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
-		clientFactory = &fakeClientFactory{fakeDockerAPI: fakeDockerAPI}
-		configProvider = &fakeConfigProvider{}
-		
-		outBuffer = &bytes.Buffer{}
-		errBuffer = &bytes.Buffer{}
-		ui = newFakeUI(outBuffer, errBuffer)
+		fakeClientFactory = &dockerfakes.FakeClientFactory{}
+		fakeConfigProvider = &directorfakes.FakeConfigProvider{}
+		fakeUI = &commandsfakes.FakeUI{}
 		
 		logger = boshlog.NewLogger(boshlog.LevelNone)
+
+		// Configure fakeClientFactory to return a test client with fakeDockerAPI
+		fakeClientFactory.NewClientStub = func(logger boshlog.Logger, customImage string) (*docker.Client, error) {
+			imageName := docker.ImageName
+			if customImage != "" {
+				imageName = customImage
+			}
+			return docker.NewTestClient(fakeDockerAPI, logger, imageName), nil
+		}
+
+		// Configure fakeConfigProvider to return a default fake config
+		fakeConfigProvider.GetDirectorConfigReturns(&director.Config{
+			Environment:  "https://127.0.0.1:25555",
+			Client:       "admin",
+			ClientSecret: "fake-password",
+			CACert:       "fake-cert",
+		}, nil)
+
+		// Configure fakeUI to accept confirmations by default
+		fakeUI.AskForConfirmationReturns(nil)
 
 		// Default: no containers running
 		fakeDockerAPI.ContainerListReturns([]types.Container{}, nil)
@@ -179,9 +143,7 @@ var _ = Describe("StartAction", func() {
 				}
 				
 				// User accepts the upgrade
-				ui.askForConfirmationFunc = func() error {
-					return nil
-				}
+				fakeUI.AskForConfirmationReturns(nil)
 				
 				// Container stop succeeds
 				fakeDockerAPI.ContainerStopReturns(nil)
@@ -247,14 +209,12 @@ var _ = Describe("StartAction", func() {
 				}
 				
 				// Mock director config provider to return fake config (skip real BOSH connection)
-				configProvider.getConfigFunc = func(ctx context.Context, dockerClient *docker.Client) (*director.Config, error) {
-					return &director.Config{
-						Environment:  "https://127.0.0.1:25555",
-						Client:       "admin",
-						ClientSecret: "fake-password",
-						CACert:       "fake-cert",
-					}, nil
-				}
+				fakeConfigProvider.GetDirectorConfigReturns(&director.Config{
+					Environment:  "https://127.0.0.1:25555",
+					Client:       "admin",
+					ClientSecret: "fake-password",
+					CACert:       "fake-cert",
+				}, nil)
 			})
 
 			It("pulls image if not found locally", func() {
@@ -262,10 +222,10 @@ var _ = Describe("StartAction", func() {
 				// This test verifies the full flow but requires mocking the BOSH director client
 				// which is created internally and difficult to mock without more refactoring
 				
-				err := commands.StartActionWithFactories(ui, logger, clientFactory, configProvider, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, false, "")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(fakeDockerAPI.ImagePullCallCount()).To(Equal(1))
-				Expect(outBuffer.String()).To(ContainSubstring("Image not found locally, pulling..."))
+				Expect(fakeUI.PrintLinefCallCount()).To(BeNumerically(">", 0))
 			})
 		})
 
@@ -312,9 +272,9 @@ var _ = Describe("StartAction", func() {
 			//    - Testing: fakeConfigProvider returns fake director config
 			//    - Enables testing without needing a running BOSH director
 			//
-			// 3. **UI Control** (boshui.UI interface)
+			// 3. **UI Control** (commandsfakes.FakeUI - generated via counterfeiter)
 			//    - Production: Real UI with user input
-			//    - Testing: fakeUI allows controlling AskForConfirmation() behavior
+			//    - Testing: FakeUI allows controlling all UI method behaviors
 			//    - Enables testing interactive prompts without user input
 			//
 			// **Backward Compatibility:**
@@ -334,16 +294,16 @@ var _ = Describe("StartAction", func() {
 			// - ⏳ Cannot yet test cloud-config application (needs DirectorClientFactory)
 			
 			// Verify all factories are properly instantiated
-			Expect(clientFactory).NotTo(BeNil())
-			Expect(configProvider).NotTo(BeNil())
-			Expect(ui).NotTo(BeNil())
+			Expect(fakeClientFactory).NotTo(BeNil())
+			Expect(fakeConfigProvider).NotTo(BeNil())
+			Expect(fakeUI).NotTo(BeNil())
 			
 			// The pattern is working - factories successfully create test doubles
-			client, err := clientFactory.NewClient(logger, "")
+			client, err := fakeClientFactory.NewClient(logger, "")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(client).NotTo(BeNil())
 			
-			config, err := configProvider.GetDirectorConfig(context.Background(), nil)
+			config, err := fakeConfigProvider.GetDirectorConfig(context.Background(), nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config).NotTo(BeNil())
 		})

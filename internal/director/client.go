@@ -31,6 +31,8 @@ type Config struct {
 
 // ConfigProvider is an interface for retrieving BOSH director configuration.
 // This allows for dependency injection and testing with fake config providers.
+//
+//go:generate counterfeiter . ConfigProvider
 type ConfigProvider interface {
 	GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Config, error)
 }

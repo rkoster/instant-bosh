@@ -38,6 +38,8 @@ const (
 
 // ClientFactory is an interface for creating Docker clients.
 // This allows for dependency injection and testing with fake clients.
+//
+//go:generate counterfeiter . ClientFactory
 type ClientFactory interface {
 	NewClient(logger boshlog.Logger, customImage string) (*Client, error)
 }

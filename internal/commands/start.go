@@ -23,7 +23,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 }
 
 func StartActionWithFactories(
-	ui boshui.UI,
+	ui UI,
 	logger boshlog.Logger,
 	clientFactory docker.ClientFactory,
 	configProvider director.ConfigProvider,
@@ -185,7 +185,7 @@ func StartActionWithFactories(
 func startContainer(
 	ctx context.Context,
 	dockerClient *docker.Client,
-	ui boshui.UI,
+	ui UI,
 	logger boshlog.Logger,
 	configProvider director.ConfigProvider,
 ) error {
