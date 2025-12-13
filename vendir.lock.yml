@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.999
-      sha: 40b4d7d09b99f2dbccd58dc72735eed378ad603b
+      commitTitle: Bumping garden-runc to version 1.81.0
+      sha: 6dca8fedc0746b52744b0a5a1dd65d1f6d23b915
       tags:
-      - last-xenial-4278-g40b4d7d0
+      - last-xenial-4281-g6dca8fed
     path: bosh-deployment
   path: manifests
 kind: LockConfig
