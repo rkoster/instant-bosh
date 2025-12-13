@@ -17,6 +17,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		logger,
 		&docker.DefaultClientFactory{},
 		&director.DefaultConfigProvider{},
+		&director.DefaultDirectorFactory{},
 		skipUpdate,
 		customImage,
 	)
@@ -27,6 +28,7 @@ func StartActionWithFactories(
 	logger boshlog.Logger,
 	clientFactory docker.ClientFactory,
 	configProvider director.ConfigProvider,
+	directorFactory director.DirectorFactory,
 	skipUpdate bool,
 	customImage string,
 ) error {
@@ -175,7 +177,7 @@ func StartActionWithFactories(
 	// PHASE 2: CONTAINER LIFECYCLE
 	// =================================================================
 
-	return startContainer(ctx, dockerClient, ui, logger, configProvider)
+	return startContainer(ctx, dockerClient, ui, logger, configProvider, directorFactory)
 }
 
 // startContainer idempotently ensures a container is running with the target image.
@@ -188,6 +190,7 @@ func startContainer(
 	ui UI,
 	logger boshlog.Logger,
 	configProvider director.ConfigProvider,
+	directorFactory director.DirectorFactory,
 ) error {
 	// Check if container is running
 	running, err := dockerClient.IsContainerRunning(ctx)
@@ -300,7 +303,7 @@ func startContainer(
 	ui.PrintLinef("instant-bosh is ready!")
 
 	ui.PrintLinef("Applying cloud-config...")
-	if err := applyCloudConfig(ctx, dockerClient, logger, configProvider); err != nil {
+	if err := applyCloudConfig(ctx, dockerClient, logger, configProvider, directorFactory); err != nil {
 		return fmt.Errorf("failed to apply cloud-config: %w", err)
 	}
 
@@ -316,6 +319,7 @@ func applyCloudConfig(
 	dockerClient *docker.Client,
 	logger boshlog.Logger,
 	configProvider director.ConfigProvider,
+	directorFactory director.DirectorFactory,
 ) error {
 	// Get director configuration
 	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
@@ -325,7 +329,7 @@ func applyCloudConfig(
 	defer config.Cleanup()
 
 	// Create BOSH director client
-	directorClient, err := director.NewDirector(config, logger)
+	directorClient, err := directorFactory.NewDirector(config, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create director client: %w", err)
 	}

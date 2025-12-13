@@ -15,6 +15,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+//go:generate counterfeiter github.com/cloudfoundry/bosh-cli/v7/director.Director
+
 // dialerMutex protects the global state manipulation in NewDirector
 // (os.Unsetenv and boshhttp.ResetDialerContext)
 var dialerMutex sync.Mutex
@@ -39,6 +41,22 @@ type ConfigProvider interface {
 
 // DefaultConfigProvider retrieves director config from the running container.
 type DefaultConfigProvider struct{}
+
+// DirectorFactory is an interface for creating BOSH director clients.
+// This allows for dependency injection and testing with fake directors.
+//
+//go:generate counterfeiter . DirectorFactory
+type DirectorFactory interface {
+	NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error)
+}
+
+// DefaultDirectorFactory creates real BOSH director clients.
+type DefaultDirectorFactory struct{}
+
+// NewDirector creates a real BOSH director client using the provided configuration.
+func (f *DefaultDirectorFactory) NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error) {
+	return NewDirector(config, logger)
+}
 
 // GetDirectorConfig retrieves the BOSH director configuration from the running container.
 func (p *DefaultConfigProvider) GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Config, error) {
