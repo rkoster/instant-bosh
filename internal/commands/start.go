@@ -12,6 +12,24 @@ import (
 )
 
 func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customImage string) error {
+	return StartActionWithFactories(
+		ui,
+		logger,
+		&docker.DefaultClientFactory{},
+		&director.DefaultConfigProvider{},
+		skipUpdate,
+		customImage,
+	)
+}
+
+func StartActionWithFactories(
+	ui UI,
+	logger boshlog.Logger,
+	clientFactory docker.ClientFactory,
+	configProvider director.ConfigProvider,
+	skipUpdate bool,
+	customImage string,
+) error {
 	if err := PrintLogo(); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
 	}
@@ -27,7 +45,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		targetImage = customImage
 	}
 
-	dockerClient, err := docker.NewClient(logger, customImage)
+	dockerClient, err := clientFactory.NewClient(logger, customImage)
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
@@ -55,6 +73,8 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 				ui.PrintLinef("  eval \"$(ibosh print-env)\"")
 				return nil
 			}
+
+			ui.PrintLinef("Checking for image updates for %s...", targetImage)
 
 			currentImageName, err := dockerClient.GetContainerImageName(ctx, docker.ContainerName)
 			if err != nil {
@@ -155,7 +175,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 	// PHASE 2: CONTAINER LIFECYCLE
 	// =================================================================
 
-	return startContainer(ctx, dockerClient, ui, logger)
+	return startContainer(ctx, dockerClient, ui, logger, configProvider)
 }
 
 // startContainer idempotently ensures a container is running with the target image.
@@ -165,8 +185,9 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 func startContainer(
 	ctx context.Context,
 	dockerClient *docker.Client,
-	ui boshui.UI,
+	ui UI,
 	logger boshlog.Logger,
+	configProvider director.ConfigProvider,
 ) error {
 	// Check if container is running
 	running, err := dockerClient.IsContainerRunning(ctx)
@@ -279,7 +300,7 @@ func startContainer(
 	ui.PrintLinef("instant-bosh is ready!")
 
 	ui.PrintLinef("Applying cloud-config...")
-	if err := applyCloudConfig(ctx, dockerClient, logger); err != nil {
+	if err := applyCloudConfig(ctx, dockerClient, logger, configProvider); err != nil {
 		return fmt.Errorf("failed to apply cloud-config: %w", err)
 	}
 
@@ -290,9 +311,14 @@ func startContainer(
 	return nil
 }
 
-func applyCloudConfig(ctx context.Context, dockerClient *docker.Client, logger boshlog.Logger) error {
+func applyCloudConfig(
+	ctx context.Context,
+	dockerClient *docker.Client,
+	logger boshlog.Logger,
+	configProvider director.ConfigProvider,
+) error {
 	// Get director configuration
-	config, err := director.GetDirectorConfig(ctx, dockerClient)
+	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}

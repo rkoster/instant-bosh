@@ -7,7 +7,9 @@
   ],
   "shell": {
     "init_hook": [
-      "echo 'Welcome to devbox!' > /dev/null"
+      "echo 'Welcome to devbox!' > /dev/null",
+      "export PATH=$PATH:$(go env GOPATH)/bin",
+      "which counterfeiter > /dev/null 2>&1 || go install github.com/maxbrunsfeld/counterfeiter/v6@latest"
     ],
     "scripts": {
       "test": [
@@ -15,6 +17,10 @@
       ],
       "build-ibosh": [
         "GOFLAGS=-mod=mod go build -o ibosh ./cmd/ibosh"
+      ],
+      "generate": [
+        "export PATH=$PATH:$(go env GOPATH)/bin",
+        "go generate ./..."
       ]
     }
   }
