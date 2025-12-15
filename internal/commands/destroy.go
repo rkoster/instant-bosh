@@ -10,6 +10,10 @@ import (
 )
 
 func DestroyAction(ui boshui.UI, logger boshlog.Logger, force bool) error {
+	return DestroyActionWithFactory(ui, logger, &docker.DefaultClientFactory{}, force)
+}
+
+func DestroyActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory, force bool) error {
 	logTag := "destroyCommand"
 	ctx := context.Background()
 
@@ -24,7 +28,7 @@ func DestroyAction(ui boshui.UI, logger boshlog.Logger, force bool) error {
 		}
 	}
 
-	dockerClient, err := docker.NewClient(logger, "")
+	dockerClient, err := clientFactory.NewClient(logger, "")
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}

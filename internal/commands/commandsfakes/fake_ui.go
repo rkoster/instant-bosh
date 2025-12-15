@@ -56,6 +56,12 @@ type FakeUI struct {
 		arg1 string
 		arg2 []interface{}
 	}
+	ErrorLinefStub        func(string, ...interface{})
+	errorLinefMutex       sync.RWMutex
+	errorLinefArgsForCall []struct {
+		arg1 string
+		arg2 []interface{}
+	}
 	FlushStub        func()
 	flushMutex       sync.RWMutex
 	flushArgsForCall []struct {
@@ -342,6 +348,39 @@ func (fake *FakeUI) EndLinefArgsForCall(i int) (string, []interface{}) {
 	fake.endLinefMutex.RLock()
 	defer fake.endLinefMutex.RUnlock()
 	argsForCall := fake.endLinefArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeUI) ErrorLinef(arg1 string, arg2 ...interface{}) {
+	fake.errorLinefMutex.Lock()
+	fake.errorLinefArgsForCall = append(fake.errorLinefArgsForCall, struct {
+		arg1 string
+		arg2 []interface{}
+	}{arg1, arg2})
+	stub := fake.ErrorLinefStub
+	fake.recordInvocation("ErrorLinef", []interface{}{arg1, arg2})
+	fake.errorLinefMutex.Unlock()
+	if stub != nil {
+		fake.ErrorLinefStub(arg1, arg2...)
+	}
+}
+
+func (fake *FakeUI) ErrorLinefCallCount() int {
+	fake.errorLinefMutex.RLock()
+	defer fake.errorLinefMutex.RUnlock()
+	return len(fake.errorLinefArgsForCall)
+}
+
+func (fake *FakeUI) ErrorLinefCalls(stub func(string, ...interface{})) {
+	fake.errorLinefMutex.Lock()
+	defer fake.errorLinefMutex.Unlock()
+	fake.ErrorLinefStub = stub
+}
+
+func (fake *FakeUI) ErrorLinefArgsForCall(i int) (string, []interface{}) {
+	fake.errorLinefMutex.RLock()
+	defer fake.errorLinefMutex.RUnlock()
+	argsForCall := fake.errorLinefArgsForCall[i]
 	return argsForCall.arg1, argsForCall.arg2
 }
 

@@ -10,6 +10,7 @@ import (
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . UI
 type UI interface {
 	PrintLinef(pattern string, args ...interface{})
+	ErrorLinef(pattern string, args ...interface{})
 	BeginLinef(pattern string, args ...interface{})
 	EndLinef(pattern string, args ...interface{})
 	PrintBlock(block []byte)

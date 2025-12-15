@@ -14,8 +14,12 @@ import (
 )
 
 func LogsAction(ui boshui.UI, logger boshlog.Logger, listComponents bool, components []string, follow bool, tail string) error {
+	return LogsActionWithFactory(ui, logger, &docker.DefaultClientFactory{}, listComponents, components, follow, tail)
+}
+
+func LogsActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory, listComponents bool, components []string, follow bool, tail string) error {
 	ctx := context.Background()
-	dockerClient, err := docker.NewClient(logger, "")
+	dockerClient, err := clientFactory.NewClient(logger, "")
 	if err != nil {
 		return err
 	}
