@@ -7,7 +7,7 @@ import (
 // UI is a wrapper interface for boshui.UI that allows us to generate fakes for testing.
 // This interface defines the subset of boshui.UI methods that we use in the commands package.
 //
-//go:generate counterfeiter . UI
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . UI
 type UI interface {
 	PrintLinef(pattern string, args ...interface{})
 	BeginLinef(pattern string, args ...interface{})

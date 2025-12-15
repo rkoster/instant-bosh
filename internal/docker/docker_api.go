@@ -16,7 +16,7 @@ import (
 // DockerAPI defines the subset of Docker client API methods that we use.
 // This interface allows us to mock the Docker client for testing.
 //
-//go:generate counterfeiter . DockerAPI
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . DockerAPI
 type DockerAPI interface {
 	// Image operations
 	ImageInspectWithRaw(ctx context.Context, imageID string) (types.ImageInspect, []byte, error)
