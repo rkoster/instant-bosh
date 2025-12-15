@@ -52,12 +52,67 @@ func (f *DefaultClientFactory) NewClient(logger boshlog.Logger, customImage stri
 	return NewClient(logger, customImage)
 }
 
+// ReadinessChecker defines an interface for checking if BOSH is ready.
+// This allows for dependency injection and testing.
+type ReadinessChecker interface {
+	WaitForReady(ctx context.Context, maxWait time.Duration) error
+}
+
+// HTTPReadinessChecker checks BOSH readiness via HTTP /info endpoint
+type HTTPReadinessChecker struct {
+	client *Client
+}
+
+func (h *HTTPReadinessChecker) WaitForReady(ctx context.Context, maxWait time.Duration) error {
+	h.client.logger.Info(h.client.logTag, "Waiting for BOSH to be ready...")
+
+	// Create HTTP client that skips TLS verification (BOSH uses self-signed certs)
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	boshURL := fmt.Sprintf("https://localhost:%s/info", DirectorPort)
+	deadline := time.Now().Add(maxWait)
+
+	for time.Now().Before(deadline) {
+		// First check if container is still running
+		running, err := h.client.IsContainerRunning(ctx)
+		if err != nil {
+			return err
+		}
+		if !running {
+			logs, _ := h.client.GetContainerLogs(ctx, ContainerName, "100")
+			return fmt.Errorf("container stopped unexpectedly. Last logs:\n%s", logs)
+		}
+
+		// Try to connect to BOSH /info endpoint
+		resp, err := httpClient.Get(boshURL)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				h.client.logger.Info(h.client.logTag, "BOSH director is ready")
+				return nil
+			}
+		}
+
+		time.Sleep(2 * time.Second)
+	}
+
+	// Timeout - get logs for debugging
+	logs, _ := h.client.GetContainerLogs(ctx, ContainerName, "100")
+	return fmt.Errorf("timeout waiting for BOSH to start after %v. Last logs:\n%s", maxWait, logs)
+}
+
 type Client struct {
-	cli        DockerAPI
-	logger     boshlog.Logger
-	logTag     string
-	socketPath string
-	imageName  string
+	cli              DockerAPI
+	logger           boshlog.Logger
+	logTag           string
+	socketPath       string
+	imageName        string
+	readinessChecker ReadinessChecker
 }
 
 // getDockerHost attempts to get the Docker host from the current context
@@ -128,13 +183,15 @@ func NewClient(logger boshlog.Logger, customImage string) (*Client, error) {
 		imageName = customImage
 	}
 
-	return &Client{
+	client := &Client{
 		cli:        cli,
 		logger:     logger,
 		logTag:     "dockerClient",
 		socketPath: socketPath,
 		imageName:  imageName,
-	}, nil
+	}
+	client.readinessChecker = &HTTPReadinessChecker{client: client}
+	return client, nil
 }
 
 // NewTestClient creates a Client with a fake Docker API for testing.
@@ -143,13 +200,24 @@ func NewTestClient(fakeAPI DockerAPI, logger boshlog.Logger, imageName string) *
 	if imageName == "" {
 		imageName = ImageName
 	}
-	return &Client{
+	client := &Client{
 		cli:        fakeAPI,
 		logger:     logger,
 		logTag:     "dockerClient",
 		socketPath: "/var/run/docker.sock",
 		imageName:  imageName,
 	}
+	// Use a mock readiness checker for tests that immediately returns success
+	client.readinessChecker = &mockReadinessChecker{}
+	return client
+}
+
+// mockReadinessChecker is a test implementation that immediately returns success
+type mockReadinessChecker struct{}
+
+func (m *mockReadinessChecker) WaitForReady(ctx context.Context, maxWait time.Duration) error {
+	// In tests, BOSH is instantly ready
+	return nil
 }
 
 func (c *Client) Close() error {
@@ -396,46 +464,7 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tai
 }
 
 func (c *Client) WaitForBoshReady(ctx context.Context, maxWait time.Duration) error {
-	c.logger.Info(c.logTag, "Waiting for BOSH to be ready...")
-
-	// Create HTTP client that skips TLS verification (BOSH uses self-signed certs)
-	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
-	}
-
-	boshURL := fmt.Sprintf("https://localhost:%s/info", DirectorPort)
-	deadline := time.Now().Add(maxWait)
-
-	for time.Now().Before(deadline) {
-		// First check if container is still running
-		running, err := c.IsContainerRunning(ctx)
-		if err != nil {
-			return err
-		}
-		if !running {
-			logs, _ := c.GetContainerLogs(ctx, ContainerName, "100")
-			return fmt.Errorf("container stopped unexpectedly. Last logs:\n%s", logs)
-		}
-
-		// Try to connect to BOSH /info endpoint
-		resp, err := httpClient.Get(boshURL)
-		if err == nil {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				c.logger.Info(c.logTag, "BOSH director is ready")
-				return nil
-			}
-		}
-
-		time.Sleep(2 * time.Second)
-	}
-
-	// Timeout - get logs for debugging
-	logs, _ := c.GetContainerLogs(ctx, ContainerName, "100")
-	return fmt.Errorf("timeout waiting for BOSH to start after %v. Last logs:\n%s", maxWait, logs)
+	return c.readinessChecker.WaitForReady(ctx, maxWait)
 }
 
 func (c *Client) ImageExists(ctx context.Context) (bool, error) {
