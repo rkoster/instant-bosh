@@ -55,7 +55,7 @@ var _ = Describe("LogsAction", func() {
 	Describe("listing components", func() {
 		Context("when listComponents flag is true", func() {
 			BeforeEach(func() {
-				// Return logs with multiple components
+				// Return logs with multiple components in Docker multiplexed format
 				logContent := `
 [main] Starting BOSH director
 [director] Director initialized
@@ -63,7 +63,7 @@ var _ = Describe("LogsAction", func() {
 [nats] NATS server running
 [main] BOSH ready
 `
-				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(strings.NewReader(logContent)), nil)
+				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(formatDockerStdout(logContent)), nil)
 			})
 
 			It("should list available log components", func() {
@@ -83,10 +83,10 @@ var _ = Describe("LogsAction", func() {
 	Describe("streaming logs", func() {
 		Context("when following logs with no component filter", func() {
 			BeforeEach(func() {
-				// Return some log content
+				// Return some log content in Docker multiplexed format
 				logContent := `[main] Test log message
 [director] Another log message`
-				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(strings.NewReader(logContent)), nil)
+				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(formatDockerStdout(logContent)), nil)
 			})
 
 			It("should stream all logs", func() {
@@ -104,7 +104,7 @@ var _ = Describe("LogsAction", func() {
 				logContent := `[main] Main component log
 [director] Director component log
 [uaa] UAA component log`
-				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(strings.NewReader(logContent)), nil)
+				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(formatDockerStdout(logContent)), nil)
 			})
 
 			It("should stream logs for specified components only", func() {
@@ -121,7 +121,7 @@ var _ = Describe("LogsAction", func() {
 		Context("when using tail option", func() {
 			BeforeEach(func() {
 				logContent := strings.Repeat("[main] Log line\n", 200)
-				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(strings.NewReader(logContent)), nil)
+				fakeDockerAPI.ContainerLogsReturns(io.NopCloser(formatDockerStdout(logContent)), nil)
 			})
 
 			It("should stream last N lines of logs", func() {

@@ -1,10 +1,12 @@
 package commands_test
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -117,13 +119,45 @@ var _ = Describe("EnvAction", func() {
 
 	Describe("when container is stopped", func() {
 		BeforeEach(func() {
-			// Container not running
-			fakeDockerAPI.ContainerListReturns([]types.Container{}, nil)
+			createdTime := time.Now().Add(-2 * time.Hour)
 
-			// But container exists on network
+			// ContainerList is called twice:
+			// 1. First by IsContainerRunning with name filter - returns empty (not running)
+			// 2. Then by GetContainersOnNetworkDetailed with All:true - returns the stopped container
+			callCount := 0
+			fakeDockerAPI.ContainerListStub = func(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
+				callCount++
+				if callCount == 1 {
+					// First call from IsContainerRunning - container not running
+					return []types.Container{}, nil
+				}
+				// Second call from GetContainersOnNetworkDetailed - return stopped container
+				return []types.Container{
+					{
+						ID:      "instant-bosh-id",
+						Names:   []string{"/instant-bosh"},
+						Created: createdTime.Unix(),
+						State:   "exited",
+					},
+				}, nil
+			}
+
+			// Container exists on network
 			fakeDockerAPI.NetworkInspectReturns(network.Inspect{
 				Containers: map[string]network.EndpointResource{
 					"instant-bosh-id": {Name: "instant-bosh"},
+				},
+			}, nil)
+
+			// Container inspect returns info for the stopped container
+			fakeDockerAPI.ContainerInspectReturns(types.ContainerJSON{
+				ContainerJSONBase: &types.ContainerJSONBase{
+					ID:      "instant-bosh-id",
+					Name:    "/instant-bosh",
+					Created: createdTime.Format(time.RFC3339),
+					State: &types.ContainerState{
+						Status: "exited",
+					},
 				},
 			}, nil)
 		})
@@ -175,8 +209,22 @@ var _ = Describe("EnvAction", func() {
 			BeforeEach(func() {
 				// Container is running
 				fakeDockerAPI.ContainerListReturns([]types.Container{
-					{Names: []string{"/instant-bosh"}, State: "running"},
+					{Names: []string{"/instant-bosh"}, State: "running", ID: "instant-bosh-id"},
 				}, nil)
+
+				// Container inspect returns detailed info
+				fakeDockerAPI.ContainerInspectReturns(types.ContainerJSON{
+					ContainerJSONBase: &types.ContainerJSONBase{
+						ID:      "instant-bosh-id",
+						Name:    "/instant-bosh",
+						Created: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+					},
+				}, nil)
+
+				// Mock exec commands - make ExecAttach fail to prevent nil pointer
+				// The ExecCreate succeeds but ExecAttach fails
+				fakeDockerAPI.ContainerExecCreateReturns(types.IDResponse{ID: "exec-id"}, nil)
+				fakeDockerAPI.ContainerExecAttachReturns(types.HijackedResponse{}, errors.New("exec attach failed"))
 
 				// Network inspection fails
 				fakeDockerAPI.NetworkInspectReturns(network.Inspect{}, errors.New("network error"))
