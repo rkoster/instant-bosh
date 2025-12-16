@@ -266,17 +266,45 @@ func startContainer(
 	}
 
 	// Create and start container
-	ui.PrintLinef("Creating volumes...")
-	if err := dockerClient.CreateVolume(ctx, docker.VolumeStore); err != nil {
-		logger.Debug("startContainer", "Volume %s may already exist: %v", docker.VolumeStore, err)
+	// Check if volumes exist
+	storeExists, err := dockerClient.VolumeExists(ctx, docker.VolumeStore)
+	if err != nil {
+		return fmt.Errorf("failed to check if volume %s exists: %w", docker.VolumeStore, err)
 	}
-	if err := dockerClient.CreateVolume(ctx, docker.VolumeData); err != nil {
-		logger.Debug("startContainer", "Volume %s may already exist: %v", docker.VolumeData, err)
+	dataExists, err := dockerClient.VolumeExists(ctx, docker.VolumeData)
+	if err != nil {
+		return fmt.Errorf("failed to check if volume %s exists: %w", docker.VolumeData, err)
 	}
 
-	ui.PrintLinef("Creating network...")
-	if err := dockerClient.CreateNetwork(ctx); err != nil {
-		logger.Debug("startContainer", "Network may already exist: %v", err)
+	if storeExists && dataExists {
+		ui.PrintLinef("Using existing volumes...")
+	} else {
+		ui.PrintLinef("Creating volumes...")
+		if !storeExists {
+			if err := dockerClient.CreateVolume(ctx, docker.VolumeStore); err != nil {
+				return fmt.Errorf("failed to create volume %s: %w", docker.VolumeStore, err)
+			}
+		}
+		if !dataExists {
+			if err := dockerClient.CreateVolume(ctx, docker.VolumeData); err != nil {
+				return fmt.Errorf("failed to create volume %s: %w", docker.VolumeData, err)
+			}
+		}
+	}
+
+	// Check if network exists
+	networkExists, err := dockerClient.NetworkExists(ctx, docker.NetworkName)
+	if err != nil {
+		return fmt.Errorf("failed to check if network exists: %w", err)
+	}
+
+	if networkExists {
+		ui.PrintLinef("Using existing network...")
+	} else {
+		ui.PrintLinef("Creating network...")
+		if err := dockerClient.CreateNetwork(ctx); err != nil {
+			return fmt.Errorf("failed to create network: %w", err)
+		}
 	}
 
 	ui.PrintLinef("Starting instant-bosh container...")

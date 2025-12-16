@@ -43,6 +43,7 @@ type DockerAPI interface {
 	// Volume operations
 	VolumeCreate(ctx context.Context, options volume.CreateOptions) (volume.Volume, error)
 	VolumeRemove(ctx context.Context, volumeID string, force bool) error
+	VolumeInspect(ctx context.Context, volumeID string) (volume.Volume, error)
 
 	// Utility methods
 	Close() error

@@ -224,6 +224,30 @@ func (c *Client) Close() error {
 	return c.cli.Close()
 }
 
+func (c *Client) VolumeExists(ctx context.Context, name string) (bool, error) {
+	c.logger.Debug(c.logTag, "Checking if volume %s exists", name)
+	_, err := c.cli.VolumeInspect(ctx, name)
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("inspecting volume %s: %w", name, err)
+	}
+	return true, nil
+}
+
+func (c *Client) NetworkExists(ctx context.Context, name string) (bool, error) {
+	c.logger.Debug(c.logTag, "Checking if network %s exists", name)
+	_, err := c.cli.NetworkInspect(ctx, name, network.InspectOptions{})
+	if err != nil {
+		if client.IsErrNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("inspecting network %s: %w", name, err)
+	}
+	return true, nil
+}
+
 func (c *Client) CreateVolume(ctx context.Context, name string) error {
 	c.logger.Debug(c.logTag, "Creating volume %s", name)
 	_, err := c.cli.VolumeCreate(ctx, volume.CreateOptions{
