@@ -283,6 +283,20 @@ type FakeDockerAPI struct {
 		result1 volume.Volume
 		result2 error
 	}
+	VolumeInspectStub        func(context.Context, string) (volume.Volume, error)
+	volumeInspectMutex       sync.RWMutex
+	volumeInspectArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	volumeInspectReturns struct {
+		result1 volume.Volume
+		result2 error
+	}
+	volumeInspectReturnsOnCall map[int]struct {
+		result1 volume.Volume
+		result2 error
+	}
 	VolumeRemoveStub        func(context.Context, string, bool) error
 	volumeRemoveMutex       sync.RWMutex
 	volumeRemoveArgsForCall []struct {
@@ -1511,6 +1525,71 @@ func (fake *FakeDockerAPI) VolumeCreateReturnsOnCall(i int, result1 volume.Volum
 		})
 	}
 	fake.volumeCreateReturnsOnCall[i] = struct {
+		result1 volume.Volume
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeDockerAPI) VolumeInspect(arg1 context.Context, arg2 string) (volume.Volume, error) {
+	fake.volumeInspectMutex.Lock()
+	ret, specificReturn := fake.volumeInspectReturnsOnCall[len(fake.volumeInspectArgsForCall)]
+	fake.volumeInspectArgsForCall = append(fake.volumeInspectArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.VolumeInspectStub
+	fakeReturns := fake.volumeInspectReturns
+	fake.recordInvocation("VolumeInspect", []interface{}{arg1, arg2})
+	fake.volumeInspectMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeDockerAPI) VolumeInspectCallCount() int {
+	fake.volumeInspectMutex.RLock()
+	defer fake.volumeInspectMutex.RUnlock()
+	return len(fake.volumeInspectArgsForCall)
+}
+
+func (fake *FakeDockerAPI) VolumeInspectCalls(stub func(context.Context, string) (volume.Volume, error)) {
+	fake.volumeInspectMutex.Lock()
+	defer fake.volumeInspectMutex.Unlock()
+	fake.VolumeInspectStub = stub
+}
+
+func (fake *FakeDockerAPI) VolumeInspectArgsForCall(i int) (context.Context, string) {
+	fake.volumeInspectMutex.RLock()
+	defer fake.volumeInspectMutex.RUnlock()
+	argsForCall := fake.volumeInspectArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeDockerAPI) VolumeInspectReturns(result1 volume.Volume, result2 error) {
+	fake.volumeInspectMutex.Lock()
+	defer fake.volumeInspectMutex.Unlock()
+	fake.VolumeInspectStub = nil
+	fake.volumeInspectReturns = struct {
+		result1 volume.Volume
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeDockerAPI) VolumeInspectReturnsOnCall(i int, result1 volume.Volume, result2 error) {
+	fake.volumeInspectMutex.Lock()
+	defer fake.volumeInspectMutex.Unlock()
+	fake.VolumeInspectStub = nil
+	if fake.volumeInspectReturnsOnCall == nil {
+		fake.volumeInspectReturnsOnCall = make(map[int]struct {
+			result1 volume.Volume
+			result2 error
+		})
+	}
+	fake.volumeInspectReturnsOnCall[i] = struct {
 		result1 volume.Volume
 		result2 error
 	}{result1, result2}
