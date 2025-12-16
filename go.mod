@@ -9,6 +9,7 @@ require (
 	github.com/docker/go-connections v0.6.0
 	github.com/gonvenience/ytbx v1.4.7
 	github.com/homeport/dyff v1.10.2
+	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/opencontainers/image-spec v1.1.1

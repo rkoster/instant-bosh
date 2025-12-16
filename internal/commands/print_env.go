@@ -11,9 +11,13 @@ import (
 )
 
 func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
+	return PrintEnvActionWithFactories(ui, logger, &docker.DefaultClientFactory{}, &director.DefaultConfigProvider{})
+}
+
+func PrintEnvActionWithFactories(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory, configProvider director.ConfigProvider) error {
 	ctx := context.Background()
 
-	dockerClient, err := docker.NewClient(logger, "")
+	dockerClient, err := clientFactory.NewClient(logger, "")
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
@@ -29,7 +33,7 @@ func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
 	}
 
 	// Get director configuration
-	config, err := director.GetDirectorConfig(ctx, dockerClient)
+	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}

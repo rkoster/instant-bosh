@@ -10,9 +10,13 @@ import (
 )
 
 func StopAction(ui boshui.UI, logger boshlog.Logger) error {
+	return StopActionWithFactory(ui, logger, &docker.DefaultClientFactory{})
+}
+
+func StopActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory) error {
 	ctx := context.Background()
 
-	dockerClient, err := docker.NewClient(logger, "")
+	dockerClient, err := clientFactory.NewClient(logger, "")
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}

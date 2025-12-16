@@ -14,8 +14,12 @@ import (
 )
 
 func LogsAction(ui boshui.UI, logger boshlog.Logger, listComponents bool, components []string, follow bool, tail string) error {
+	return LogsActionWithFactory(ui, logger, &docker.DefaultClientFactory{}, listComponents, components, follow, tail)
+}
+
+func LogsActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory, listComponents bool, components []string, follow bool, tail string) error {
 	ctx := context.Background()
-	dockerClient, err := docker.NewClient(logger, "")
+	dockerClient, err := clientFactory.NewClient(logger, "")
 	if err != nil {
 		return err
 	}
@@ -76,7 +80,7 @@ func isTerminal(fd uintptr) bool {
 
 // StreamMainComponentLogs streams logs from the main component, showing only messages
 // This is used during startup to show progress without cluttering the output
-func StreamMainComponentLogs(ctx context.Context, dockerClient *docker.Client, ui boshui.UI) error {
+func StreamMainComponentLogs(ctx context.Context, dockerClient *docker.Client, ui UI) error {
 	// Use the UI to write messages directly - use same writer for both stdout and stderr
 	// since we want all logs from the main component
 	config := logwriter.Config{
@@ -91,9 +95,9 @@ func StreamMainComponentLogs(ctx context.Context, dockerClient *docker.Client, u
 	return dockerClient.FollowContainerLogs(ctx, docker.ContainerName, true, "all", writer, writer)
 }
 
-// uiWriter wraps boshui.UI to implement io.Writer
+// uiWriter wraps UI to implement io.Writer
 type uiWriter struct {
-	ui boshui.UI
+	ui UI
 }
 
 func (w *uiWriter) Write(p []byte) (n int, err error) {

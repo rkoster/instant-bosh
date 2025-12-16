@@ -25,9 +25,13 @@ type BoshManifest struct {
 }
 
 func EnvAction(ui boshui.UI, logger boshlog.Logger) error {
+	return EnvActionWithFactory(ui, logger, &docker.DefaultClientFactory{})
+}
+
+func EnvActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory) error {
 	ctx := context.Background()
 
-	dockerClient, err := docker.NewClient(logger, "")
+	dockerClient, err := clientFactory.NewClient(logger, "")
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
@@ -99,7 +103,7 @@ func fetchBoshReleases(ctx context.Context, dockerClient *docker.Client) ([]Rele
 	return manifest.Releases, nil
 }
 
-func printReleasesTable(ui boshui.UI, releases []Release) {
+func printReleasesTable(ui UI, releases []Release) {
 	if len(releases) == 0 {
 		ui.PrintLinef("  No releases found")
 		return
@@ -123,7 +127,7 @@ func printReleasesTable(ui boshui.UI, releases []Release) {
 	ui.PrintTable(table)
 }
 
-func printContainersTable(ui boshui.UI, containers []docker.ContainerInfo) {
+func printContainersTable(ui UI, containers []docker.ContainerInfo) {
 	if len(containers) == 0 {
 		ui.PrintLinef("  No containers found")
 		return
