@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping garden-runc to version 1.82.0
-      sha: 91534d97fbc74d5fe7e9af5779d20148bd330ab5
+      commitTitle: Bumping backup-and-restore-sdk to version 1.19.48
+      sha: 9ad6d119c89720f9321f65f79720288e2a5731e1
       tags:
-      - last-xenial-4282-g91534d97
+      - last-xenial-4284-g9ad6d119
     path: bosh-deployment
   path: manifests
 kind: LockConfig
