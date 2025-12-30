@@ -141,6 +141,33 @@ func main() {
 					)
 				},
 			},
+			{
+				Name:      "upload-stemcell",
+				Usage:     "Upload a light stemcell from a container image",
+				ArgsUsage: "<image-reference>",
+				Description: `Upload a light stemcell to the BOSH director.
+
+Examples:
+  ibosh upload-stemcell ghcr.io/cloudfoundry/ubuntu-noble-stemcell:latest
+  ibosh upload-stemcell ghcr.io/cloudfoundry/ubuntu-noble-stemcell:1.165
+  ibosh upload-stemcell ghcr.io/cloudfoundry/ubuntu-jammy-stemcell:1.234
+
+The command will:
+  1. Resolve 'latest' tags to actual version numbers
+  2. Get the image digest for verification
+  3. Create a light stemcell tarball
+  4. Upload it to the BOSH director (if not already present)
+
+Works offline if the image is already pulled locally.`,
+				Action: func(c *cli.Context) error {
+					if c.NArg() < 1 {
+						return cli.Exit("Error: image reference required", 1)
+					}
+					imageRef := c.Args().First()
+					ui, logger := initUIAndLogger(c)
+					return commands.UploadStemcellAction(ui, logger, imageRef)
+				},
+			},
 		},
 	}
 
