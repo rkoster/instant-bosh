@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping backup-and-restore-sdk to version 1.19.48
-      sha: 9ad6d119c89720f9321f65f79720288e2a5731e1
+      commitTitle: Bumping syslog to version 12.3.13
+      sha: 1b6e7bc06996a6ace26db14a0e5314e4ad807f6b
       tags:
-      - last-xenial-4284-g9ad6d119
+      - last-xenial-4285-g1b6e7bc0
     path: bosh-deployment
   path: manifests
 kind: LockConfig
