@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.13
-      sha: 1b6e7bc06996a6ace26db14a0e5314e4ad807f6b
+      commitTitle: Bumping CPI bosh-docker-cpi to version 0.2.0
+      sha: 6b00e9ab5faa71ec780a014907e845c20daa1952
       tags:
-      - last-xenial-4285-g1b6e7bc0
+      - last-xenial-4287-g6b00e9ab
     path: bosh-deployment
   path: manifests
 kind: LockConfig
