@@ -335,6 +335,14 @@ func startContainer(
 		return fmt.Errorf("failed to apply cloud-config: %w", err)
 	}
 
+	// Upload default light stemcells
+	ui.PrintLinef("Uploading light stemcells...")
+	if err := uploadLightStemcells(ctx, dockerClient, ui, logger, configProvider, directorFactory); err != nil {
+		// Non-fatal: Log warning and continue
+		ui.PrintLinef("Warning: Failed to upload light stemcells: %v", err)
+		ui.PrintLinef("You can manually upload stemcells with: ibosh upload-stemcell <image-ref>")
+	}
+
 	ui.PrintLinef("")
 	ui.PrintLinef("To configure your BOSH CLI environment, run:")
 	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
@@ -367,6 +375,71 @@ func applyCloudConfig(
 		return fmt.Errorf("failed to update cloud-config: %w", err)
 	}
 	logger.Debug("startCommand", "Cloud-config applied successfully")
+
+	return nil
+}
+
+// Default stemcell images to upload automatically
+var defaultStemcellImages = []string{
+	"ghcr.io/cloudfoundry/ubuntu-noble-stemcell:latest",
+	"ghcr.io/cloudfoundry/ubuntu-jammy-stemcell:latest",
+}
+
+// uploadLightStemcells uploads default light stemcells to the BOSH director
+func uploadLightStemcells(
+	ctx context.Context,
+	dockerClient *docker.Client,
+	ui UI,
+	logger boshlog.Logger,
+	configProvider director.ConfigProvider,
+	directorFactory director.DirectorFactory,
+) error {
+	// Get director configuration
+	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
+	if err != nil {
+		return fmt.Errorf("getting director config: %w", err)
+	}
+	defer config.Cleanup()
+
+	// Create BOSH director client
+	directorClient, err := directorFactory.NewDirector(config, logger)
+	if err != nil {
+		return fmt.Errorf("creating director client: %w", err)
+	}
+
+	// Get list of existing stemcells
+	existingStemcells, err := directorClient.Stemcells()
+	if err != nil {
+		return fmt.Errorf("listing existing stemcells: %w", err)
+	}
+
+	// Build a map for quick lookup
+	existingMap := make(map[string]bool)
+	for _, s := range existingStemcells {
+		key := fmt.Sprintf("%s/%s", s.Name(), s.Version().String())
+		existingMap[key] = true
+	}
+
+	// Upload each default stemcell
+	uploadedCount := 0
+	for _, imageRef := range defaultStemcellImages {
+		uploaded, err := uploadStemcellIfNeeded(ctx, dockerClient, directorClient, ui, logger, imageRef, existingMap)
+		if err != nil {
+			// Log warning but continue with other stemcells
+			ui.PrintLinef("  Warning: %s: %v", imageRef, err)
+			continue
+		}
+
+		if uploaded {
+			uploadedCount++
+		}
+	}
+
+	if uploadedCount > 0 {
+		ui.PrintLinef("  Uploaded %d light stemcell(s)", uploadedCount)
+	} else {
+		logger.Debug("uploadLightStemcells", "All default stemcells already uploaded")
+	}
 
 	return nil
 }
