@@ -8,4 +8,10 @@ directories:
       - last-xenial-4287-g6b00e9ab
     path: bosh-deployment
   path: manifests
+- contents:
+  - git:
+      commitTitle: 'Merge pull request #35 from rkoster/opencode-issue-34-1767533706...'
+      sha: aeb0d3ad9fd29f539710041f45a0d36d49dfd2a9
+    path: .
+  path: .github/scripts/deskrun
 kind: LockConfig
