@@ -13,3 +13,13 @@ directories:
     - docker/unix-sock.yml
     - docker/cloud-config.yml
     - jumpbox-user.yml
+- path: .github/scripts/deskrun
+  contents:
+  - path: .
+    git:
+      url: https://github.com/rkoster/deskrun
+      ref: origin/main
+    includePaths:
+    - public/nix-setup.sh
+    - public/install-devbox.sh
+    newRootPath: public
