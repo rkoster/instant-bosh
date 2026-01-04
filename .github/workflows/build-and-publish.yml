@@ -9,6 +9,7 @@ on:
     paths:
       - 'ops/**'
       - 'manifests/**'
+      - 'devbox.lock'
       - 'vendor/**'
       - 'Makefile'
       - 'LICENSE'
