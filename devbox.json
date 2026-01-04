@@ -3,7 +3,8 @@
   "packages": [
     "vendir@latest",
     "go@latest",
-    "ginkgo@latest"
+    "ginkgo@latest",
+    "docker@latest"
   ],
   "shell": {
     "init_hook": [
