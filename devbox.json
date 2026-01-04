@@ -3,7 +3,8 @@
   "packages": [
     "vendir@latest",
     "go@latest",
-    "ginkgo@latest"
+    "ginkgo@latest",
+    "git@latest"
   ],
   "shell": {
     "init_hook": [
