@@ -22,4 +22,5 @@ directories:
     includePaths:
     - public/nix-setup.sh
     - public/install-devbox.sh
+    - public/install-docker.sh
     newRootPath: public

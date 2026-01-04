@@ -41,6 +41,10 @@ jobs:
         run: |
           .github/scripts/deskrun/install-devbox.sh
 
+      - name: Install Docker CLI
+        run: |
+          .github/scripts/deskrun/install-docker.sh
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5

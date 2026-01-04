@@ -10,8 +10,8 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: 'Merge pull request #35 from rkoster/opencode-issue-34-1767533706...'
-      sha: aeb0d3ad9fd29f539710041f45a0d36d49dfd2a9
+      commitTitle: 'feat: add install-docker.sh for host Docker mode...'
+      sha: f587467f3ce1f61225985bce8ae32228775e65fb
     path: .
   path: .github/scripts/deskrun
 kind: LockConfig
