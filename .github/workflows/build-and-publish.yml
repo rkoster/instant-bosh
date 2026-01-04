@@ -68,7 +68,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GIT_BOB_PULL_SECRET }}
         run: |
           # Clone the bob repository using the token
-          git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
+          devbox run -- git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
           
           # Add bob flake from the cloned repo to devbox
           devbox add path:/tmp/bosh-oci-builder#bob
