@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -216,7 +217,7 @@ func TestParseImageReference(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			registry, repository, tag, err := stemcell.ParseImageReference(tt.imageRef)
+			registry, repository, tag, err := docker.ParseImageRef(tt.imageRef)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

@@ -9,6 +9,7 @@ import (
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
 func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, skipStemcellUpload bool, customImage string) error {
@@ -426,11 +427,21 @@ func uploadLightStemcells(
 
 	// Upload each default stemcell
 	for _, imageRef := range defaultStemcellImages {
-		_, err := uploadStemcellIfNeeded(ctx, dockerClient, directorClient, ui, logger, imageRef, existingMap)
+		uploaded, err := uploadStemcellIfNeeded(ctx, dockerClient, directorClient, ui, logger, imageRef, existingMap)
 		if err != nil {
 			// Log warning but continue with other stemcells
 			ui.PrintLinef("  Warning: %s: %v", imageRef, err)
 			continue
+		}
+		if uploaded {
+			metadata, _ := dockerClient.GetImageMetadata(ctx, imageRef)
+			if metadata != nil {
+				os, _ := stemcell.ParseOSFromImageRef(metadata.Repository)
+				if os != "" {
+					key := fmt.Sprintf("%s/%s", stemcell.BuildStemcellName(os), metadata.Tag)
+					existingMap[key] = true
+				}
+			}
 		}
 	}
 

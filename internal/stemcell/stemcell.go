@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io"
 	"regexp"
 	"strings"
 )
@@ -105,48 +104,3 @@ func BuildStemcellName(os string) string {
 	return fmt.Sprintf("bosh-docker-%s", os)
 }
 
-// ParseImageReference parses a full image reference and extracts its components
-// e.g., "ghcr.io/cloudfoundry/ubuntu-noble-stemcell:1.165@sha256:abc"
-// Returns: registry, repository, tag (or empty if digest only)
-func ParseImageReference(imageRef string) (registry, repository, tag string, err error) {
-	// Handle digest if present (strip it for now, we get it separately)
-	if strings.Contains(imageRef, "@") {
-		imageRef = strings.Split(imageRef, "@")[0]
-	}
-
-	// Split by "/" to find registry and repository
-	parts := strings.Split(imageRef, "/")
-	if len(parts) < 2 {
-		return "", "", "", fmt.Errorf("invalid image reference format: %s", imageRef)
-	}
-
-	// Check if first part looks like a registry (has "." or ":" or is "localhost")
-	if strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":") || parts[0] == "localhost" {
-		registry = parts[0]
-		repository = strings.Join(parts[1:], "/")
-	} else {
-		// No registry, assume docker.io
-		registry = "docker.io"
-		repository = imageRef
-	}
-
-	// Extract tag if present
-	if strings.Contains(repository, ":") {
-		repoParts := strings.Split(repository, ":")
-		repository = repoParts[0]
-		tag = repoParts[1]
-	} else {
-		tag = "latest"
-	}
-
-	return registry, repository, tag, nil
-}
-
-// ReadCloserWrapper wraps an io.Reader to add a Close method
-type ReadCloserWrapper struct {
-	io.Reader
-}
-
-func (r *ReadCloserWrapper) Close() error {
-	return nil
-}

@@ -166,7 +166,7 @@ func (c *Client) getImageMetadataFromLocal(ctx context.Context, imageRef string)
 	}
 
 	// Parse the image reference to extract components
-	registry, repository, tag, err := parseImageRef(imageRef)
+	registry, repository, tag, err := ParseImageRef(imageRef)
 	if err != nil {
 		return nil, fmt.Errorf("parsing image reference: %w", err)
 	}
@@ -192,8 +192,8 @@ func (c *Client) getImageMetadataFromLocal(ctx context.Context, imageRef string)
 	return metadata, nil
 }
 
-// parseImageRef parses an image reference into its components
-func parseImageRef(imageRef string) (registry, repository, tag string, err error) {
+// ParseImageRef parses an image reference into its components
+func ParseImageRef(imageRef string) (registry, repository, tag string, err error) {
 	// Handle digest if present (strip it for parsing)
 	if strings.Contains(imageRef, "@") {
 		imageRef = strings.Split(imageRef, "@")[0]
@@ -215,11 +215,11 @@ func parseImageRef(imageRef string) (registry, repository, tag string, err error
 		repository = imageRef
 	}
 
-	// Extract tag if present
-	if strings.Contains(repository, ":") {
-		repoParts := strings.Split(repository, ":")
-		repository = repoParts[0]
-		tag = repoParts[1]
+	// Extract tag if present (use last ":" to handle registry addresses with ports)
+	idx := strings.LastIndex(repository, ":")
+	if idx != -1 && idx < len(repository)-1 {
+		tag = repository[idx+1:]
+		repository = repository[:idx]
 	} else {
 		tag = "latest"
 	}
@@ -230,10 +230,10 @@ func parseImageRef(imageRef string) (registry, repository, tag string, err error
 // findVersionTagInRepoTags finds a version-like tag in the RepoTags list
 func findVersionTagInRepoTags(repoTags []string) string {
 	for _, repoTag := range repoTags {
-		// RepoTags format: "registry/repo:tag"
-		parts := strings.Split(repoTag, ":")
-		if len(parts) == 2 {
-			tag := parts[1]
+		// RepoTags format: "registry/repo:tag" (use last ":" to handle registry addresses with ports)
+		idx := strings.LastIndex(repoTag, ":")
+		if idx != -1 && idx < len(repoTag)-1 {
+			tag := repoTag[idx+1:]
 			if isVersionTag(tag) {
 				return tag
 			}
