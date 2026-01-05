@@ -16,6 +16,7 @@ import (
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 github.com/cloudfoundry/bosh-cli/v7/director.Director
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 github.com/cloudfoundry/bosh-cli/v7/director.Stemcell
 
 // dialerMutex protects the global state manipulation in NewDirector
 // (os.Unsetenv and boshhttp.ResetDialerContext)

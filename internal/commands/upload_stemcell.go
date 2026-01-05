@@ -162,7 +162,7 @@ func uploadStemcellIfNeeded(
 	// Check if already exists
 	key := fmt.Sprintf("%s/%s", stemcellInfo.Name, stemcellInfo.Version)
 	if existingMap[key] {
-		logger.Debug("uploadStemcell", "Stemcell %s already exists, skipping", key)
+		ui.PrintLinef("%s/%s (already uploaded)", stemcellInfo.Name, stemcellInfo.Version)
 		return false, nil
 	}
 
@@ -175,6 +175,8 @@ func uploadStemcellIfNeeded(
 	if err := directorClient.UploadStemcellFile(uploadableFile, false); err != nil {
 		return false, fmt.Errorf("uploading stemcell: %w", err)
 	}
+
+	ui.PrintLinef("Uploaded: %s/%s", stemcellInfo.Name, stemcellInfo.Version)
 
 	return true, nil
 }

@@ -48,21 +48,26 @@ func main() {
 						Usage: "Skip checking for image updates",
 						Value: false,
 					},
+					&cli.BoolFlag{
+						Name:  "skip-stemcell-upload",
+						Usage: "Skip automatic stemcell upload",
+						Value: false,
+					},
 					&cli.StringFlag{
 						Name:  "image",
 						Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
 						Value: "",
 					},
-			},
-			Action: func(c *cli.Context) error {
-				// Validate mutually exclusive flags
-				if c.Bool("skip-update") && c.String("image") != "" {
-					return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
-				}
+				},
+				Action: func(c *cli.Context) error {
+					// Validate mutually exclusive flags
+					if c.Bool("skip-update") && c.String("image") != "" {
+						return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
+					}
 
-				ui, logger := initUIAndLogger(c)
-				return commands.StartAction(ui, logger, c.Bool("skip-update"), c.String("image"))
-			},
+					ui, logger := initUIAndLogger(c)
+					return commands.StartAction(ui, logger, c.Bool("skip-update"), c.Bool("skip-stemcell-upload"), c.String("image"))
+				},
 			},
 			{
 				Name:  "stop",

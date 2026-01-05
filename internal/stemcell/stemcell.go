@@ -3,6 +3,7 @@ package stemcell
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"regexp"
@@ -30,9 +31,10 @@ func CreateLightStemcell(info Info) (*UploadableFile, error) {
 		return nil, fmt.Errorf("generating manifest: %w", err)
 	}
 
-	// Create a buffer to hold the tarball
+	// Create a buffer to hold the gzipped tarball
 	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
 
 	// Add stemcell.MF to the tarball
 	manifestHeader := &tar.Header{
@@ -60,6 +62,11 @@ func CreateLightStemcell(info Info) (*UploadableFile, error) {
 	// Close the tar writer
 	if err := tw.Close(); err != nil {
 		return nil, fmt.Errorf("closing tar writer: %w", err)
+	}
+
+	// Close the gzip writer
+	if err := gw.Close(); err != nil {
+		return nil, fmt.Errorf("closing gzip writer: %w", err)
 	}
 
 	// Create an UploadableFile from the buffer
@@ -99,7 +106,7 @@ func BuildStemcellName(os string) string {
 }
 
 // ParseImageReference parses a full image reference and extracts its components
-// e.g., "ghcr.io/cloudfoundry/ubuntu-noble-stemcell:1.165@sha256:abc" 
+// e.g., "ghcr.io/cloudfoundry/ubuntu-noble-stemcell:1.165@sha256:abc"
 // Returns: registry, repository, tag (or empty if digest only)
 func ParseImageReference(imageRef string) (registry, repository, tag string, err error) {
 	// Handle digest if present (strip it for now, we get it separately)

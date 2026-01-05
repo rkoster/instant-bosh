@@ -3,6 +3,7 @@ package stemcell_test
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"io"
 	"testing"
 
@@ -101,12 +102,17 @@ func TestCreateLightStemcell(t *testing.T) {
 	assert.Equal(t, "bosh-docker-ubuntu-noble-1.165.tgz", fileInfo.Name())
 	assert.Greater(t, fileInfo.Size(), int64(0))
 
-	// Read the tarball contents
-	tarData, err := io.ReadAll(uploadableFile)
+	// Read the gzipped tarball contents
+	gzipData, err := io.ReadAll(uploadableFile)
 	require.NoError(t, err)
 
+	// Decompress the gzip data
+	gr, err := gzip.NewReader(bytes.NewReader(gzipData))
+	require.NoError(t, err)
+	defer gr.Close()
+
 	// Verify tarball structure
-	tr := tar.NewReader(bytes.NewReader(tarData))
+	tr := tar.NewReader(gr)
 
 	// First file should be stemcell.MF
 	header, err := tr.Next()

@@ -11,7 +11,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/docker"
 )
 
-func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customImage string) error {
+func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, skipStemcellUpload bool, customImage string) error {
 	return StartActionWithFactories(
 		ui,
 		logger,
@@ -19,6 +19,7 @@ func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, customIma
 		&director.DefaultConfigProvider{},
 		&director.DefaultDirectorFactory{},
 		skipUpdate,
+		skipStemcellUpload,
 		customImage,
 	)
 }
@@ -30,6 +31,7 @@ func StartActionWithFactories(
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
 	skipUpdate bool,
+	skipStemcellUpload bool,
 	customImage string,
 ) error {
 	if err := PrintLogo(); err != nil {
@@ -177,7 +179,7 @@ func StartActionWithFactories(
 	// PHASE 2: CONTAINER LIFECYCLE
 	// =================================================================
 
-	return startContainer(ctx, dockerClient, ui, logger, configProvider, directorFactory)
+	return startContainer(ctx, dockerClient, ui, logger, configProvider, directorFactory, skipStemcellUpload)
 }
 
 // startContainer idempotently ensures a container is running with the target image.
@@ -191,6 +193,7 @@ func startContainer(
 	logger boshlog.Logger,
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
+	skipStemcellUpload bool,
 ) error {
 	// Check if container is running
 	running, err := dockerClient.IsContainerRunning(ctx)
@@ -335,12 +338,14 @@ func startContainer(
 		return fmt.Errorf("failed to apply cloud-config: %w", err)
 	}
 
-	// Upload default light stemcells
-	ui.PrintLinef("Uploading light stemcells...")
-	if err := uploadLightStemcells(ctx, dockerClient, ui, logger, configProvider, directorFactory); err != nil {
-		// Non-fatal: Log warning and continue
-		ui.PrintLinef("Warning: Failed to upload light stemcells: %v", err)
-		ui.PrintLinef("You can manually upload stemcells with: ibosh upload-stemcell <image-ref>")
+	// Upload default light stemcells (unless skipped)
+	if !skipStemcellUpload {
+		ui.PrintLinef("Uploading light stemcells...")
+		if err := uploadLightStemcells(ctx, dockerClient, ui, logger, configProvider, directorFactory); err != nil {
+			// Non-fatal: Log warning and continue
+			ui.PrintLinef("Warning: Failed to upload light stemcells: %v", err)
+			ui.PrintLinef("You can manually upload stemcells with: ibosh upload-stemcell <image-ref>")
+		}
 	}
 
 	ui.PrintLinef("")
@@ -382,7 +387,6 @@ func applyCloudConfig(
 // Default stemcell images to upload automatically
 var defaultStemcellImages = []string{
 	"ghcr.io/cloudfoundry/ubuntu-noble-stemcell:latest",
-	"ghcr.io/cloudfoundry/ubuntu-jammy-stemcell:latest",
 }
 
 // uploadLightStemcells uploads default light stemcells to the BOSH director
@@ -421,24 +425,13 @@ func uploadLightStemcells(
 	}
 
 	// Upload each default stemcell
-	uploadedCount := 0
 	for _, imageRef := range defaultStemcellImages {
-		uploaded, err := uploadStemcellIfNeeded(ctx, dockerClient, directorClient, ui, logger, imageRef, existingMap)
+		_, err := uploadStemcellIfNeeded(ctx, dockerClient, directorClient, ui, logger, imageRef, existingMap)
 		if err != nil {
 			// Log warning but continue with other stemcells
 			ui.PrintLinef("  Warning: %s: %v", imageRef, err)
 			continue
 		}
-
-		if uploaded {
-			uploadedCount++
-		}
-	}
-
-	if uploadedCount > 0 {
-		ui.PrintLinef("  Uploaded %d light stemcell(s)", uploadedCount)
-	} else {
-		logger.Debug("uploadLightStemcells", "All default stemcells already uploaded")
 	}
 
 	return nil
