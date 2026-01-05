@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "vendir@latest",
+    "go@latest",
+    "ginkgo@latest",
+    "docker@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to devbox!' > /dev/null",
+      "export PATH=$PATH:$(go env GOPATH)/bin"
+    ],
+    "scripts": {
+      "test": [
+        "ginkgo -r --race --randomize-all"
+      ],
+      "build-ibosh": [
+        "GOFLAGS=-mod=mod go build -o ibosh ./cmd/ibosh"
+      ],
+      "generate": [
+        "go generate ./..."
+      ]
+    }
+  }
+}
