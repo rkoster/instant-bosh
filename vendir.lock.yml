@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-docker-cpi to version 0.2.0
-      sha: 6b00e9ab5faa71ec780a014907e845c20daa1952
+      commitTitle: Bumping garden-runc to version 1.83.0
+      sha: 9f21fde4d62b86a8e984018bef6ed465ba252869
       tags:
-      - last-xenial-4287-g6b00e9ab
+      - last-xenial-4288-g9f21fde4
     path: bosh-deployment
   path: manifests
 - contents:
