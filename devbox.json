@@ -4,6 +4,7 @@
     "vendir@latest",
     "go@latest",
     "ginkgo@latest",
+    "docker@latest",
     "git@latest"
   ],
   "shell": {

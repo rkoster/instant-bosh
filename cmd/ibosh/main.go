@@ -48,21 +48,26 @@ func main() {
 						Usage: "Skip checking for image updates",
 						Value: false,
 					},
+					&cli.BoolFlag{
+						Name:  "skip-stemcell-upload",
+						Usage: "Skip automatic stemcell upload",
+						Value: false,
+					},
 					&cli.StringFlag{
 						Name:  "image",
 						Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
 						Value: "",
 					},
-			},
-			Action: func(c *cli.Context) error {
-				// Validate mutually exclusive flags
-				if c.Bool("skip-update") && c.String("image") != "" {
-					return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
-				}
+				},
+				Action: func(c *cli.Context) error {
+					// Validate mutually exclusive flags
+					if c.Bool("skip-update") && c.String("image") != "" {
+						return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
+					}
 
-				ui, logger := initUIAndLogger(c)
-				return commands.StartAction(ui, logger, c.Bool("skip-update"), c.String("image"))
-			},
+					ui, logger := initUIAndLogger(c)
+					return commands.StartAction(ui, logger, c.Bool("skip-update"), c.Bool("skip-stemcell-upload"), c.String("image"))
+				},
 			},
 			{
 				Name:  "stop",
@@ -139,6 +144,33 @@ func main() {
 						c.Bool("follow"),
 						c.String("tail"),
 					)
+				},
+			},
+			{
+				Name:      "upload-stemcell",
+				Usage:     "Upload a light stemcell from a container image",
+				ArgsUsage: "<image-reference>",
+				Description: `Upload a light stemcell to the BOSH director.
+
+Examples:
+  ibosh upload-stemcell ghcr.io/cloudfoundry/ubuntu-noble-stemcell:latest
+  ibosh upload-stemcell ghcr.io/cloudfoundry/ubuntu-noble-stemcell:1.165
+  ibosh upload-stemcell ghcr.io/cloudfoundry/ubuntu-jammy-stemcell:1.234
+
+The command will:
+  1. Resolve 'latest' tags to actual version numbers
+  2. Get the image digest for verification
+  3. Create a light stemcell tarball
+  4. Upload it to the BOSH director (if not already present)
+
+Works offline if the image is already pulled locally.`,
+				Action: func(c *cli.Context) error {
+					if c.NArg() < 1 {
+						return cli.Exit("Error: image reference required", 1)
+					}
+					imageRef := c.Args().First()
+					ui, logger := initUIAndLogger(c)
+					return commands.UploadStemcellAction(ui, logger, imageRef)
 				},
 			},
 		},
