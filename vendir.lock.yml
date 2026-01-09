@@ -2,16 +2,16 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping garden-runc to version 1.83.0
-      sha: 9f21fde4d62b86a8e984018bef6ed465ba252869
+      commitTitle: Bumping bosh to version 282.1.2
+      sha: 8fd07e1df4f2e69747bb7c9e9d0a18889ba67077
       tags:
-      - last-xenial-4288-g9f21fde4
+      - last-xenial-4316-g8fd07e1d
     path: bosh-deployment
   path: manifests
 - contents:
   - git:
-      commitTitle: 'feat: add install-docker.sh for host Docker mode...'
-      sha: f587467f3ce1f61225985bce8ae32228775e65fb
+      commitTitle: Update vendorHash in flake.nix
+      sha: 1038e23c452c7f8b4e9db190f321f2470016783c
     path: .
   path: .github/scripts/deskrun
 kind: LockConfig
