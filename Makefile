@@ -27,6 +27,8 @@ build:
 		--manifest manifests/bosh-deployment/bosh.yml \
 		--ops-file manifests/bosh-deployment/docker/cpi.yml \
 		--ops-file manifests/bosh-deployment/docker/unix-sock.yml \
+		--ops-file ops/lxd-cpi.yml \
+		--ops-file ops/select-cpi.yml \
 		--ops-file ops/stemcell.yml \
 		--ops-file ops/docker-localhost.yml \
                 --ops-file ops/fast-nats-sync.yml \
@@ -42,6 +44,8 @@ dev-bob-build:
 		--manifest ../instant-bosh/manifests/bosh-deployment/bosh.yml \
 		--ops-file ../instant-bosh/manifests/bosh-deployment/docker/cpi.yml \
 		--ops-file ../instant-bosh/manifests/bosh-deployment/docker/unix-sock.yml \
+		--ops-file ../instant-bosh/ops/lxd-cpi.yml \
+		--ops-file ../instant-bosh/ops/select-cpi.yml \
 		--ops-file ../instant-bosh/ops/stemcell.yml \
 		--ops-file ../instant-bosh/ops/docker-localhost.yml \
                 --ops-file ../instant-bosh/ops/fast-nats-sync.yml \

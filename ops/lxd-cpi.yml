@@ -1,0 +1,33 @@
+---
+# Add lxd-bosh-cpi release
+- type: replace
+  path: /releases/-
+  value:
+    name: lxd-bosh-cpi
+    url: https://github.com/a2geek/bosh-lxd-cpi-release/releases/download/v6/bosh-lxd-cpi-release.tgz
+    sha1: 735fd3f106735b64f6129ee3b83a9987a6d93c8b
+
+# Add lxd_cpi job to bosh instance group
+- type: replace
+  path: /instance_groups/name=bosh/jobs/-
+  value:
+    name: lxd_cpi
+    release: lxd-bosh-cpi
+    properties:
+      lxd_cpi:
+        server:
+          type: ((lxd_server_type))
+          url: ((lxd_server_url))
+          insecure_skip_verify: ((lxd_server_insecure))
+          tls_client_cert: ((lxd_client_cert))
+          tls_client_key: ((lxd_client_key))
+          project_name: ((lxd_project_name))
+          profile_name: ((lxd_profile_name))
+          network_name: ((lxd_network_name))
+          storage_pool_name: ((lxd_storage_pool_name))
+        agent:
+          mbus: nats://((internal_ip)):4222
+        agent_config:
+          type: CDROM
+          label: "config-2"
+          filestore_path: "/var/vcap/store/agent-data"
