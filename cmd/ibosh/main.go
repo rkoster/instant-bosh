@@ -58,9 +58,31 @@ func main() {
 						Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
 						Value: "",
 					},
+					&cli.StringFlag{
+						Name:    "incus",
+						Usage:   "Use Incus mode with specified remote (empty or 'local' for local socket)",
+						EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-network",
+						Usage:   "Incus network name for VM connectivity",
+						Value:   "incusbr0",
+						EnvVars: []string{"IBOSH_INCUS_NETWORK"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-storage-pool",
+						Usage:   "Incus storage pool name",
+						Value:   "default",
+						EnvVars: []string{"IBOSH_INCUS_STORAGE_POOL"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-project",
+						Usage:   "Incus project name",
+						Value:   "default",
+						EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+					},
 				},
 				Action: func(c *cli.Context) error {
-					// Validate mutually exclusive flags
 					if c.Bool("skip-update") && c.String("image") != "" {
 						return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
 					}
