@@ -3,10 +3,11 @@ package incus
 import (
 	"context"
 	"fmt"
+	"io"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
-	incus "github.com/lxc/incus/client"
-	"github.com/lxc/incus/shared/api"
+	incus "github.com/lxc/incus/v6/client"
+	"github.com/lxc/incus/v6/shared/api"
 )
 
 const (
@@ -302,7 +303,7 @@ func (w *incusAPIWrapper) DeleteInstance(name string) (incus.Operation, error) {
 	return w.server.DeleteInstance(name)
 }
 
-func (w *incusAPIWrapper) GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *api.InstanceFileResponse, error) {
+func (w *incusAPIWrapper) GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *incus.InstanceFileResponse, error) {
 	return w.server.GetInstanceFile(instanceName, filePath)
 }
 
@@ -342,7 +343,7 @@ func (w *incusAPIWrapper) CreateNetwork(network api.NetworksPost) error {
 	return w.server.CreateNetwork(network)
 }
 
-func (w *incusAPIWrapper) DeleteNetwork(name string) (incus.Operation, error) {
+func (w *incusAPIWrapper) DeleteNetwork(name string) error {
 	return w.server.DeleteNetwork(name)
 }
 
@@ -366,8 +367,8 @@ func (w *incusAPIWrapper) UseTarget(name string) incus.InstanceServer {
 	return w.server.UseTarget(name)
 }
 
-func (w *incusAPIWrapper) GetInstanceLogs(instanceName string) ([]string, error) {
-	return w.server.GetInstanceLogs(instanceName)
+func (w *incusAPIWrapper) GetInstanceLogfiles(instanceName string) ([]string, error) {
+	return w.server.GetInstanceLogfiles(instanceName)
 }
 
 func (w *incusAPIWrapper) GetInstanceLogfile(instanceName string, filename string) (io.ReadCloser, error) {

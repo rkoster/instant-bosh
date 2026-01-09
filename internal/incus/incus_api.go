@@ -1,11 +1,10 @@
 package incus
 
 import (
-	"context"
 	"io"
 
-	incus "github.com/lxc/incus/client"
-	"github.com/lxc/incus/shared/api"
+	incus "github.com/lxc/incus/v6/client"
+	"github.com/lxc/incus/v6/shared/api"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . IncusAPI
@@ -16,7 +15,7 @@ type IncusAPI interface {
 	CreateInstance(instance api.InstancesPost) (incus.Operation, error)
 	UpdateInstanceState(name string, state api.InstanceStatePut, ETag string) (incus.Operation, error)
 	DeleteInstance(name string) (incus.Operation, error)
-	GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *api.InstanceFileResponse, error)
+	GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *incus.InstanceFileResponse, error)
 	DeleteInstanceFile(instanceName string, filePath string) error
 	CreateInstanceFromImage(source incus.ImageServer, image api.Image, req api.InstancesPost) (incus.RemoteOperation, error)
 	
@@ -28,7 +27,7 @@ type IncusAPI interface {
 	GetNetwork(name string) (*api.Network, string, error)
 	GetNetworks() ([]api.Network, error)
 	CreateNetwork(network api.NetworksPost) error
-	DeleteNetwork(name string) (incus.Operation, error)
+	DeleteNetwork(name string) error
 	
 	GetStoragePool(name string) (*api.StoragePool, string, error)
 	GetStoragePools() ([]api.StoragePool, error)
@@ -38,7 +37,7 @@ type IncusAPI interface {
 	UseProject(name string) incus.InstanceServer
 	UseTarget(name string) incus.InstanceServer
 	
-	GetInstanceLogs(instanceName string) ([]string, error)
+	GetInstanceLogfiles(instanceName string) ([]string, error)
 	GetInstanceLogfile(instanceName string, filename string) (io.ReadCloser, error)
 	
 	Disconnect()

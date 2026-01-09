@@ -76,6 +76,5 @@ compilation:
 )
 
 var (
-	cloudConfigYAMLBytes       = []byte(cloudConfigYAML)
-	incusCloudConfigYAMLBytes  = []byte(incusCloudConfigYAML)
+	cloudConfigYAMLBytes = []byte(cloudConfigYAML)
 )
