@@ -20,7 +20,6 @@ networks:
   - azs: [z1, z2, z3]
     range: 10.245.0.0/16
     dns: [8.8.8.8]
-    # IPs that will not be used for anything
     reserved: [10.245.0.2-10.245.0.10]
     gateway: 10.245.0.1
     static: [10.245.0.34]
@@ -41,9 +40,42 @@ compilation:
   network: default
 `
 
+	incusCloudConfigYAML = `azs:
+- name: z1
+- name: z2
+- name: z3
 
+vm_types:
+- name: default
+  cloud_properties:
+    instance_type: c2-m4
+    ephemeral_disk: 10240
+
+disk_types:
+- name: default
+  disk_size: 10240
+
+networks:
+- name: default
+  type: manual
+  subnets:
+  - azs: [z1, z2, z3]
+    range: 10.246.0.0/16
+    gateway: 10.246.0.1
+    reserved: [10.246.0.1-10.246.0.20]
+    static: [10.246.0.21-10.246.0.100]
+    cloud_properties:
+      name: instant-bosh-incus
+
+compilation:
+  workers: 4
+  az: z1
+  vm_type: default
+  network: default
+`
 )
 
 var (
-	cloudConfigYAMLBytes = []byte(cloudConfigYAML)
+	cloudConfigYAMLBytes       = []byte(cloudConfigYAML)
+	incusCloudConfigYAMLBytes  = []byte(incusCloudConfigYAML)
 )
