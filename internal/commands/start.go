@@ -12,16 +12,25 @@ import (
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
-func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, skipStemcellUpload bool, customImage string) error {
+type StartOptions struct {
+	SkipUpdate         bool
+	SkipStemcellUpload bool
+	CustomImage        string
+	// Incus mode parameters
+	IncusRemote      string
+	IncusNetwork     string
+	IncusStoragePool string
+	IncusProject     string
+}
+
+func StartAction(ui boshui.UI, logger boshlog.Logger, opts StartOptions) error {
 	return StartActionWithFactories(
 		ui,
 		logger,
 		&docker.DefaultClientFactory{},
 		&director.DefaultConfigProvider{},
 		&director.DefaultDirectorFactory{},
-		skipUpdate,
-		skipStemcellUpload,
-		customImage,
+		opts,
 	)
 }
 
@@ -31,9 +40,7 @@ func StartActionWithFactories(
 	clientFactory docker.ClientFactory,
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
-	skipUpdate bool,
-	skipStemcellUpload bool,
-	customImage string,
+	opts StartOptions,
 ) error {
 	if err := PrintLogo(); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
@@ -41,16 +48,22 @@ func StartActionWithFactories(
 
 	ctx := context.Background()
 
+	useIncusMode := opts.IncusRemote != ""
+	
+	if useIncusMode {
+		return fmt.Errorf("Incus mode is not yet fully implemented (missing OCI image conversion)")
+	}
+
 	// =================================================================
 	// PHASE 1: IMAGE MANAGEMENT
 	// =================================================================
 
 	targetImage := docker.ImageName
-	if customImage != "" {
-		targetImage = customImage
+	if opts.CustomImage != "" {
+		targetImage = opts.CustomImage
 	}
 
-	dockerClient, err := clientFactory.NewClient(logger, customImage)
+	dockerClient, err := clientFactory.NewClient(logger, opts.CustomImage)
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
@@ -71,7 +84,7 @@ func StartActionWithFactories(
 		}
 
 		if imageDifferent {
-			if skipUpdate {
+			if opts.SkipUpdate {
 				ui.PrintLinef("instant-bosh is already running")
 				ui.PrintLinef("")
 				ui.PrintLinef("To configure your BOSH CLI environment, run:")
@@ -139,7 +152,7 @@ func StartActionWithFactories(
 			if err := dockerClient.PullImage(ctx); err != nil {
 				return fmt.Errorf("failed to pull image: %w", err)
 			}
-		} else if !skipUpdate && customImage == "" {
+		} else if !opts.SkipUpdate && opts.CustomImage == "" {
 			ui.PrintLinef("Checking for image updates for %s...", targetImage)
 			updateAvailable, err := dockerClient.CheckForImageUpdate(ctx)
 			if err != nil {
@@ -169,10 +182,10 @@ func StartActionWithFactories(
 			} else {
 				ui.PrintLinef("Image %s is at the latest version", targetImage)
 			}
-		} else if skipUpdate {
+		} else if opts.SkipUpdate {
 			ui.PrintLinef("Skipping update check (--skip-update flag set)")
-		} else if customImage != "" {
-			ui.PrintLinef("Using custom image: %s", customImage)
+		} else if opts.CustomImage != "" {
+			ui.PrintLinef("Using custom image: %s", opts.CustomImage)
 		}
 	}
 
@@ -180,7 +193,7 @@ func StartActionWithFactories(
 	// PHASE 2: CONTAINER LIFECYCLE
 	// =================================================================
 
-	return startContainer(ctx, dockerClient, ui, logger, configProvider, directorFactory, skipStemcellUpload)
+	return startContainer(ctx, dockerClient, ui, logger, configProvider, directorFactory, opts.SkipStemcellUpload)
 }
 
 // startContainer idempotently ensures a container is running with the target image.

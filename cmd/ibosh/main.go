@@ -88,7 +88,16 @@ func main() {
 					}
 
 					ui, logger := initUIAndLogger(c)
-					return commands.StartAction(ui, logger, c.Bool("skip-update"), c.Bool("skip-stemcell-upload"), c.String("image"))
+					opts := commands.StartOptions{
+						SkipUpdate:         c.Bool("skip-update"),
+						SkipStemcellUpload: c.Bool("skip-stemcell-upload"),
+						CustomImage:        c.String("image"),
+						IncusRemote:        c.String("incus"),
+						IncusNetwork:       c.String("incus-network"),
+						IncusStoragePool:   c.String("incus-storage-pool"),
+						IncusProject:       c.String("incus-project"),
+					}
+					return commands.StartAction(ui, logger, opts)
 				},
 			},
 			{

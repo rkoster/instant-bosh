@@ -61,6 +61,7 @@ networks:
   subnets:
   - azs: [z1, z2, z3]
     range: 10.246.0.0/16
+    dns: [8.8.8.8]
     gateway: 10.246.0.1
     reserved: [10.246.0.1-10.246.0.20]
     static: [10.246.0.21-10.246.0.100]
@@ -70,11 +71,13 @@ networks:
 compilation:
   workers: 4
   az: z1
+  reuse_compilation_vms: true
   vm_type: default
   network: default
 `
 )
 
 var (
-	cloudConfigYAMLBytes = []byte(cloudConfigYAML)
+	cloudConfigYAMLBytes      = []byte(cloudConfigYAML)
+	incusCloudConfigYAMLBytes = []byte(incusCloudConfigYAML)
 )
