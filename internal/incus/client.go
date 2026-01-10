@@ -58,7 +58,16 @@ func NewClient(logger boshlog.Logger, remote string, project string, customImage
 			return nil, fmt.Errorf("connecting to local Incus: %w", err)
 		}
 	} else {
-		return nil, fmt.Errorf("remote Incus connections not yet implemented")
+		logger.Debug("incusClient", "Connecting to remote Incus server: %s", remote)
+		
+		args := &incus.ConnectionArgs{
+			InsecureSkipVerify: false,
+		}
+		
+		server, err = incus.ConnectIncus(remote, args)
+		if err != nil {
+			return nil, fmt.Errorf("connecting to remote Incus at %s: %w\n\nHint: Make sure the Incus server certificate is trusted. You may need to:\n1. Add the server certificate to your trust store\n2. Generate and add a client certificate on the server: 'incus config trust add'\n3. Or use environment variable INCUS_INSECURE=true to skip certificate verification (not recommended for production)", remote, err)
+		}
 	}
 	
 	if project == "" {
