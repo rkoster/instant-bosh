@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	incus "github.com/lxc/incus/v6/client"
@@ -272,7 +273,110 @@ func (c *Client) EnsureImage(ctx context.Context, imageRef string) (string, erro
 	
 	c.logger.Info(c.logTag, "Image not found locally, pulling and converting from %s", imageRef)
 	
-	return "", fmt.Errorf("OCI image conversion not yet implemented")
+	remote, err := incus.ConnectOCI("https://ghcr.io", nil)
+	if err != nil {
+		return "", fmt.Errorf("connecting to OCI registry: %w", err)
+	}
+	
+	imageParts := strings.Split(imageRef, ":")
+	if len(imageParts) != 2 {
+		return "", fmt.Errorf("invalid image reference format: %s (expected repository:tag)", imageRef)
+	}
+	
+	repository := strings.TrimPrefix(imageParts[0], "ghcr.io/")
+	repository = strings.TrimPrefix(repository, "docker.io/")
+	tag := imageParts[1]
+	ociImagePath := fmt.Sprintf("/%s:%s", repository, tag)
+	
+	c.logger.Debug(c.logTag, "Fetching OCI image: %s", ociImagePath)
+	
+	ociImage, _, err := remote.GetImage(ociImagePath)
+	if err != nil {
+		return "", fmt.Errorf("getting OCI image metadata: %w", err)
+	}
+	
+	tempContainerName := "instant-bosh-oci-convert-temp"
+	c.logger.Debug(c.logTag, "Creating temporary container from OCI image")
+	
+	createReq := api.InstancesPost{
+		Name: tempContainerName,
+		Type: api.InstanceTypeContainer,
+		Source: api.InstanceSource{
+			Type:        "image",
+			Mode:        "pull",
+			Server:      "https://ghcr.io",
+			Protocol:    "oci",
+			Fingerprint: ociImage.Fingerprint,
+		},
+	}
+	
+	op, err := c.cli.CreateInstance(createReq)
+	if err != nil {
+		return "", fmt.Errorf("creating temporary container: %w", err)
+	}
+	
+	err = op.Wait()
+	if err != nil {
+		return "", fmt.Errorf("waiting for temporary container creation: %w", err)
+	}
+	
+	c.logger.Debug(c.logTag, "Publishing container as Incus image with alias: %s", convertedAlias)
+	
+	publishReq := api.ImagesPost{
+		ImagePut: api.ImagePut{
+			Properties: map[string]string{
+				"os":           "Ubuntu",
+				"architecture": "x86_64",
+				"type":         "system",
+				"description":  "instant-bosh system container (converted from OCI)",
+			},
+		},
+		Source: &api.ImagesPostSource{
+			Type: "instance",
+			Name: tempContainerName,
+		},
+	}
+	
+	imageOp, err := c.cli.CreateImage(publishReq, nil)
+	if err != nil {
+		c.cli.DeleteInstance(tempContainerName)
+		return "", fmt.Errorf("publishing image: %w", err)
+	}
+	
+	err = imageOp.Wait()
+	if err != nil {
+		c.cli.DeleteInstance(tempContainerName)
+		return "", fmt.Errorf("waiting for image publish: %w", err)
+	}
+	
+	imageFingerprint := imageOp.Get().Metadata["fingerprint"].(string)
+	c.logger.Debug(c.logTag, "Image published with fingerprint: %s", imageFingerprint)
+	
+	aliasReq := api.ImageAliasesPost{
+		ImageAliasesEntry: api.ImageAliasesEntry{
+			Name: convertedAlias,
+			ImageAliasesEntryPut: api.ImageAliasesEntryPut{
+				Target: imageFingerprint,
+			},
+		},
+	}
+	
+	err = c.cli.CreateImageAlias(aliasReq)
+	if err != nil {
+		c.logger.Warn(c.logTag, "Failed to create alias (continuing anyway): %v", err)
+	}
+	
+	c.logger.Debug(c.logTag, "Cleaning up temporary container")
+	deleteOp, err := c.cli.DeleteInstance(tempContainerName)
+	if err != nil {
+		c.logger.Warn(c.logTag, "Failed to delete temporary container: %v", err)
+	} else {
+		deleteOp.Wait()
+	}
+	
+	c.logger.Info(c.logTag, "Successfully converted and cached OCI image")
+	
+	return imageFingerprint, nil
 }
 
 type incusAPIWrapper struct {
@@ -325,6 +429,10 @@ func (w *incusAPIWrapper) GetImageAliases() ([]api.ImageAliasesEntry, error) {
 
 func (w *incusAPIWrapper) CreateImage(image api.ImagesPost, args *incus.ImageCreateArgs) (incus.Operation, error) {
 	return w.server.CreateImage(image, args)
+}
+
+func (w *incusAPIWrapper) CreateImageAlias(alias api.ImageAliasesPost) error {
+	return w.server.CreateImageAlias(alias)
 }
 
 func (w *incusAPIWrapper) DeleteImage(fingerprint string) (incus.Operation, error) {

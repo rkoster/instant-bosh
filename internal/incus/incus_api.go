@@ -22,6 +22,7 @@ type IncusAPI interface {
 	GetImage(fingerprint string) (*api.Image, string, error)
 	GetImageAliases() ([]api.ImageAliasesEntry, error)
 	CreateImage(image api.ImagesPost, args *incus.ImageCreateArgs) (incus.Operation, error)
+	CreateImageAlias(alias api.ImageAliasesPost) error
 	DeleteImage(fingerprint string) (incus.Operation, error)
 	
 	GetNetwork(name string) (*api.Network, string, error)
