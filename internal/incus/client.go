@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"strconv"
 	"strings"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -60,8 +62,22 @@ func NewClient(logger boshlog.Logger, remote string, project string, customImage
 	} else {
 		logger.Debug("incusClient", "Connecting to remote Incus server: %s", remote)
 		
+		// Check if INCUS_INSECURE environment variable is set to skip certificate verification
+		insecure := false
+		if insecureEnv := os.Getenv("INCUS_INSECURE"); insecureEnv != "" {
+			var parseErr error
+			insecure, parseErr = strconv.ParseBool(insecureEnv)
+			if parseErr != nil {
+				logger.Warn("incusClient", "Invalid INCUS_INSECURE value '%s', using default (false)", insecureEnv)
+			}
+		}
+		
+		if insecure {
+			logger.Warn("incusClient", "Certificate verification disabled (INCUS_INSECURE=true). This is insecure and not recommended for production.")
+		}
+		
 		args := &incus.ConnectionArgs{
-			InsecureSkipVerify: false,
+			InsecureSkipVerify: insecure,
 		}
 		
 		server, err = incus.ConnectIncus(remote, args)
