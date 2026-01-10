@@ -67,8 +67,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GIT_BOB_PULL_SECRET }}
         run: |
-          # Clean stale devbox generated files to avoid devenv.lock errors
-          rm -rf .devbox/gen
+          # Clean stale devbox state to avoid devenv.lock errors from cached runners
+          rm -rf .devbox
           
           # Clone the bob repository using the token
           devbox run -- git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
