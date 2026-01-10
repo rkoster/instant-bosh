@@ -72,6 +72,9 @@ jobs:
           # Clean stale devbox state
           rm -rf .devbox
           
+          # Install git via nix (the container doesn't have it)
+          nix profile install nixpkgs#git --extra-experimental-features "nix-command flakes"
+          
           # Clone the bob repository using the token (without devbox shell)
           git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
           
