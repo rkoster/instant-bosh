@@ -27,7 +27,7 @@ func StopActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.Cl
 	if err != nil {
 		return err
 	}
-	
+
 	if dockerRunning {
 		ui.PrintLinef("Stopping instant-bosh container (Docker mode)...")
 		if err := dockerClient.StopContainer(ctx); err != nil {
@@ -38,7 +38,7 @@ func StopActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.Cl
 	}
 
 	incusFactory := &incus.DefaultClientFactory{}
-	incusClient, err := incusFactory.NewClient(logger, "", "", "")
+	incusClient, err := incusFactory.NewClient(logger, "", "", "", "", "")
 	if err != nil {
 		ui.PrintLinef("instant-bosh is not running")
 		return nil

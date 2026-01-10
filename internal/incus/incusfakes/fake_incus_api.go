@@ -11,6 +11,21 @@ import (
 )
 
 type FakeIncusAPI struct {
+	CopyImageStub        func(incusa.ImageServer, api.Image, *incusa.ImageCopyArgs) (incusa.RemoteOperation, error)
+	copyImageMutex       sync.RWMutex
+	copyImageArgsForCall []struct {
+		arg1 incusa.ImageServer
+		arg2 api.Image
+		arg3 *incusa.ImageCopyArgs
+	}
+	copyImageReturns struct {
+		result1 incusa.RemoteOperation
+		result2 error
+	}
+	copyImageReturnsOnCall map[int]struct {
+		result1 incusa.RemoteOperation
+		result2 error
+	}
 	CreateImageStub        func(api.ImagesPost, *incusa.ImageCreateArgs) (incusa.Operation, error)
 	createImageMutex       sync.RWMutex
 	createImageArgsForCall []struct {
@@ -363,6 +378,72 @@ type FakeIncusAPI struct {
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
+}
+
+func (fake *FakeIncusAPI) CopyImage(arg1 incusa.ImageServer, arg2 api.Image, arg3 *incusa.ImageCopyArgs) (incusa.RemoteOperation, error) {
+	fake.copyImageMutex.Lock()
+	ret, specificReturn := fake.copyImageReturnsOnCall[len(fake.copyImageArgsForCall)]
+	fake.copyImageArgsForCall = append(fake.copyImageArgsForCall, struct {
+		arg1 incusa.ImageServer
+		arg2 api.Image
+		arg3 *incusa.ImageCopyArgs
+	}{arg1, arg2, arg3})
+	stub := fake.CopyImageStub
+	fakeReturns := fake.copyImageReturns
+	fake.recordInvocation("CopyImage", []interface{}{arg1, arg2, arg3})
+	fake.copyImageMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeIncusAPI) CopyImageCallCount() int {
+	fake.copyImageMutex.RLock()
+	defer fake.copyImageMutex.RUnlock()
+	return len(fake.copyImageArgsForCall)
+}
+
+func (fake *FakeIncusAPI) CopyImageCalls(stub func(incusa.ImageServer, api.Image, *incusa.ImageCopyArgs) (incusa.RemoteOperation, error)) {
+	fake.copyImageMutex.Lock()
+	defer fake.copyImageMutex.Unlock()
+	fake.CopyImageStub = stub
+}
+
+func (fake *FakeIncusAPI) CopyImageArgsForCall(i int) (incusa.ImageServer, api.Image, *incusa.ImageCopyArgs) {
+	fake.copyImageMutex.RLock()
+	defer fake.copyImageMutex.RUnlock()
+	argsForCall := fake.copyImageArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeIncusAPI) CopyImageReturns(result1 incusa.RemoteOperation, result2 error) {
+	fake.copyImageMutex.Lock()
+	defer fake.copyImageMutex.Unlock()
+	fake.CopyImageStub = nil
+	fake.copyImageReturns = struct {
+		result1 incusa.RemoteOperation
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeIncusAPI) CopyImageReturnsOnCall(i int, result1 incusa.RemoteOperation, result2 error) {
+	fake.copyImageMutex.Lock()
+	defer fake.copyImageMutex.Unlock()
+	fake.CopyImageStub = nil
+	if fake.copyImageReturnsOnCall == nil {
+		fake.copyImageReturnsOnCall = make(map[int]struct {
+			result1 incusa.RemoteOperation
+			result2 error
+		})
+	}
+	fake.copyImageReturnsOnCall[i] = struct {
+		result1 incusa.RemoteOperation
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeIncusAPI) CreateImage(arg1 api.ImagesPost, arg2 *incusa.ImageCreateArgs) (incusa.Operation, error) {

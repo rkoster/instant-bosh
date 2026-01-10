@@ -43,7 +43,7 @@ func PrintEnvActionWithFactories(ui UI, logger boshlog.Logger, dockerClientFacto
 		return nil
 	}
 
-	incusClient, err := incusClientFactory.NewClient(logger, "local", incus.DefaultProject, "")
+	incusClient, err := incusClientFactory.NewClient(logger, "local", incus.DefaultProject, "", "", "")
 	if err != nil {
 		return fmt.Errorf("failed to create incus client: %w", err)
 	}

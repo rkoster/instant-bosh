@@ -5,38 +5,39 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	incus "github.com/lxc/incus/v6/client"
 	"github.com/lxc/incus/v6/shared/api"
+	"github.com/lxc/incus/v6/shared/cliconfig"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
 
 const (
-	ContainerName    = "instant-bosh"
-	NetworkName      = "instant-bosh-incus"
-	NetworkSubnet    = "10.246.0.0/16"
-	NetworkGateway   = "10.246.0.1"
-	ContainerIP      = "10.246.0.10"
-	DirectorPort     = "25555"
-	SSHPort          = "2222"
-	DefaultProject   = "default"
-	DefaultProfile   = "default"
+	ContainerName      = "instant-bosh"
+	NetworkName        = "ibosh-net"
+	NetworkSubnet      = "10.246.0.0/16"
+	NetworkGateway     = "10.246.0.1"
+	ContainerIP        = "10.246.0.10"
+	DirectorPort       = "25555"
+	SSHPort            = "2222"
+	DefaultProject     = "default"
+	DefaultProfile     = "default"
 	DefaultStoragePool = "default"
 )
 
 //counterfeiter:generate . ClientFactory
 type ClientFactory interface {
-	NewClient(logger boshlog.Logger, remote string, project string, customImage string) (*Client, error)
+	NewClient(logger boshlog.Logger, remote string, project string, network string, storagePool string, customImage string) (*Client, error)
 }
 
 type DefaultClientFactory struct{}
 
-func (f *DefaultClientFactory) NewClient(logger boshlog.Logger, remote string, project string, customImage string) (*Client, error) {
-	return NewClient(logger, remote, project, customImage)
+func (f *DefaultClientFactory) NewClient(logger boshlog.Logger, remote string, project string, network string, storagePool string, customImage string) (*Client, error) {
+	return NewClient(logger, remote, project, network, storagePool, customImage)
 }
 
 type Client struct {
@@ -48,72 +49,145 @@ type Client struct {
 	imageName   string
 	storagePool string
 	networkName string
+	cliConfig   *cliconfig.Config
 }
 
-func NewClient(logger boshlog.Logger, remote string, project string, customImage string) (*Client, error) {
+func NewClient(logger boshlog.Logger, remote string, project string, network string, storagePool string, customImage string) (*Client, error) {
 	var server incus.InstanceServer
 	var err error
-	
-	if remote == "" || remote == "local" {
-		server, err = incus.ConnectIncusUnix("", nil)
-		if err != nil {
-			return nil, fmt.Errorf("connecting to local Incus: %w", err)
-		}
-	} else {
-		logger.Debug("incusClient", "Connecting to remote Incus server: %s", remote)
-		
-		// Check if INCUS_INSECURE environment variable is set to skip certificate verification
-		insecure := false
-		if insecureEnv := os.Getenv("INCUS_INSECURE"); insecureEnv != "" {
-			var parseErr error
-			insecure, parseErr = strconv.ParseBool(insecureEnv)
-			if parseErr != nil {
-				logger.Warn("incusClient", "Invalid INCUS_INSECURE value '%s', using default (false)", insecureEnv)
-			}
-		}
-		
-		if insecure {
-			logger.Warn("incusClient", "Certificate verification disabled (INCUS_INSECURE=true). This is insecure and not recommended for production.")
-		}
-		
-		args := &incus.ConnectionArgs{
-			InsecureSkipVerify: insecure,
-		}
-		
-		server, err = incus.ConnectIncus(remote, args)
-		if err != nil {
-			return nil, fmt.Errorf("connecting to remote Incus at %s: %w\n\nHint: Make sure the Incus server certificate is trusted. You may need to:\n1. Add the server certificate to your trust store\n2. Generate and add a client certificate on the server: 'incus config trust add'\n3. Or use environment variable INCUS_INSECURE=true to skip certificate verification (not recommended for production)", remote, err)
-		}
+	var actualRemote string
+	var cliConfig *cliconfig.Config
+
+	// Load the incus CLI configuration to use existing remotes with their certificates
+	server, actualRemote, cliConfig, err = connectUsingCLIConfig(logger, remote)
+	if err != nil {
+		return nil, err
 	}
-	
+
 	if project == "" {
 		project = DefaultProject
 	}
-	
+
+	if network == "" {
+		network = NetworkName
+	}
+
+	if storagePool == "" {
+		storagePool = DefaultStoragePool
+	}
+
 	imageName := "ghcr.io/rkoster/instant-bosh:latest"
 	if customImage != "" {
 		imageName = customImage
 	}
-	
+
 	projectServer := server.UseProject(project)
-	
+
 	client := &Client{
 		cli:         &incusAPIWrapper{server: projectServer},
 		logger:      logger,
 		logTag:      "incusClient",
-		remote:      remote,
+		remote:      actualRemote,
 		project:     project,
 		imageName:   imageName,
-		storagePool: DefaultStoragePool,
-		networkName: NetworkName,
+		storagePool: storagePool,
+		networkName: network,
+		cliConfig:   cliConfig,
 	}
-	
+
 	return client, nil
+}
+
+// connectUsingCLIConfig attempts to connect to an Incus server using the incus CLI configuration.
+// This allows reusing remotes configured via 'incus remote add' with their certificates.
+// If remote is empty, it uses the default remote from the CLI configuration.
+// Returns the connected server, the actual remote name used, and the CLI config.
+func connectUsingCLIConfig(logger boshlog.Logger, remote string) (incus.InstanceServer, string, *cliconfig.Config, error) {
+	// Determine the config directory
+	configDir := os.Getenv("INCUS_CONF")
+	if configDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return nil, "", nil, fmt.Errorf("getting home directory: %w", err)
+		}
+		configDir = filepath.Join(homeDir, ".config", "incus")
+	}
+
+	configPath := filepath.Join(configDir, "config.yml")
+
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		// No config file, fall back to local unix socket if no remote specified
+		if remote == "" || remote == "local" {
+			logger.Debug("incusClient", "No incus config found, connecting to local unix socket")
+			server, err := incus.ConnectIncusUnix("", nil)
+			if err != nil {
+				return nil, "", nil, fmt.Errorf("connecting to local Incus: %w", err)
+			}
+			return server, "local", nil, nil
+		}
+		return nil, "", nil, fmt.Errorf("incus configuration not found at %s. Please configure the remote first using 'incus remote add'", configPath)
+	}
+
+	// Load the CLI configuration
+	config, err := cliconfig.LoadConfig(configPath)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("loading incus config from %s: %w", configPath, err)
+	}
+
+	// Determine which remote to use
+	remoteName := remote
+	if remoteName == "" {
+		// Use the default remote from CLI config
+		remoteName = config.DefaultRemote
+		if remoteName == "" {
+			remoteName = "local"
+		}
+		logger.Debug("incusClient", "Using default remote: %s", remoteName)
+	}
+
+	// Check if the remote is a URL instead of a name
+	isURL := strings.HasPrefix(remoteName, "https://") || strings.HasPrefix(remoteName, "http://")
+
+	if isURL {
+		// Find remote by URL
+		found := false
+		for name, r := range config.Remotes {
+			if r.Addr == remoteName {
+				remoteName = name
+				found = true
+				logger.Debug("incusClient", "Found remote '%s' matching URL %s", name, remote)
+				break
+			}
+		}
+		if !found {
+			return nil, "", nil, fmt.Errorf("no configured remote found for URL %s. Please add it first using 'incus remote add <name> %s'", remote, remote)
+		}
+	} else {
+		// Check if remote name exists
+		if _, exists := config.Remotes[remoteName]; !exists {
+			return nil, "", nil, fmt.Errorf("remote '%s' not found in incus configuration. Please add it first using 'incus remote add'", remoteName)
+		}
+	}
+
+	logger.Debug("incusClient", "Connecting to remote '%s' using incus CLI configuration", remoteName)
+
+	// Use the CLI config to get the instance server (handles certificates automatically)
+	server, err := config.GetInstanceServer(remoteName)
+	if err != nil {
+		return nil, "", nil, fmt.Errorf("connecting to remote '%s': %w", remoteName, err)
+	}
+
+	return server, remoteName, config, nil
 }
 
 func (c *Client) Close() error {
 	c.cli.Disconnect()
 	return nil
+}
+
+func (c *Client) NetworkName() string {
+	return c.networkName
 }
 
 func (c *Client) NetworkExists(ctx context.Context, name string) (bool, error) {
@@ -130,7 +204,7 @@ func (c *Client) NetworkExists(ctx context.Context, name string) (bool, error) {
 
 func (c *Client) CreateNetwork(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Creating network %s", c.networkName)
-	
+
 	network := api.NetworksPost{
 		Name: c.networkName,
 		NetworkPut: api.NetworkPut{
@@ -141,7 +215,7 @@ func (c *Client) CreateNetwork(ctx context.Context) error {
 		},
 		Type: "bridge",
 	}
-	
+
 	err := c.cli.CreateNetwork(network)
 	if err != nil {
 		return fmt.Errorf("creating network: %w", err)
@@ -173,12 +247,12 @@ func (c *Client) IsContainerRunning(ctx context.Context) (bool, error) {
 
 func (c *Client) StartContainer(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Creating container %s", ContainerName)
-	
-	convertedImage, err := c.EnsureImage(ctx, c.imageName)
+
+	imageFingerprint, err := c.EnsureImage(ctx, c.imageName)
 	if err != nil {
 		return fmt.Errorf("ensuring image: %w", err)
 	}
-	
+
 	devices := map[string]map[string]string{
 		"eth0": {
 			"type":    "nic",
@@ -191,12 +265,12 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"pool": c.storagePool,
 		},
 	}
-	
+
 	config := map[string]string{
 		"security.privileged": "true",
 		"raw.lxc":             "lxc.mount.auto = proc:rw sys:rw cgroup:rw\nlxc.apparmor.profile = unconfined",
 	}
-	
+
 	req := api.InstancesPost{
 		Name: ContainerName,
 		Type: api.InstanceTypeContainer,
@@ -206,99 +280,99 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		},
 		Source: api.InstanceSource{
 			Type:        "image",
-			Fingerprint: convertedImage,
+			Fingerprint: imageFingerprint,
 		},
 	}
-	
+
 	op, err := c.cli.CreateInstance(req)
 	if err != nil {
 		return fmt.Errorf("creating instance: %w", err)
 	}
-	
+
 	err = op.Wait()
 	if err != nil {
 		return fmt.Errorf("waiting for instance creation: %w", err)
 	}
-	
+
 	c.logger.Debug(c.logTag, "Starting container %s", ContainerName)
-	
+
 	state := api.InstanceStatePut{
 		Action:  "start",
 		Timeout: -1,
 	}
-	
+
 	op, err = c.cli.UpdateInstanceState(ContainerName, state, "")
 	if err != nil {
 		return fmt.Errorf("starting container: %w", err)
 	}
-	
+
 	err = op.Wait()
 	if err != nil {
 		return fmt.Errorf("waiting for container to start: %w", err)
 	}
-	
+
 	return nil
 }
 
 func (c *Client) StopContainer(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Stopping container %s", ContainerName)
-	
+
 	state := api.InstanceStatePut{
 		Action:  "stop",
 		Timeout: 30,
 		Force:   false,
 	}
-	
+
 	op, err := c.cli.UpdateInstanceState(ContainerName, state, "")
 	if err != nil {
 		return fmt.Errorf("stopping container: %w", err)
 	}
-	
+
 	err = op.Wait()
 	if err != nil {
 		return fmt.Errorf("waiting for container to stop: %w", err)
 	}
-	
+
 	return nil
 }
 
 func (c *Client) RemoveContainer(ctx context.Context, containerName string) error {
 	c.logger.Debug(c.logTag, "Removing container %s", containerName)
-	
+
 	op, err := c.cli.DeleteInstance(containerName)
 	if err != nil {
 		return fmt.Errorf("removing container: %w", err)
 	}
-	
+
 	err = op.Wait()
 	if err != nil {
 		return fmt.Errorf("waiting for container removal: %w", err)
 	}
-	
+
 	return nil
 }
 
 func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []string) (string, error) {
 	c.logger.Debug(c.logTag, "Executing command in container %s: %v", containerName, cmd)
-	
+
 	req := api.InstanceExecPost{
 		Command:     cmd,
 		WaitForWS:   true,
 		Interactive: false,
 		Environment: map[string]string{},
 	}
-	
+
 	args := incus.InstanceExecArgs{
 		Stdin:  nil,
 		Stdout: &strings.Builder{},
 		Stderr: &strings.Builder{},
 	}
-	
+
 	op, err := c.cli.ExecInstance(containerName, req, &args)
 	if err != nil {
 		return "", fmt.Errorf("executing command: %w", err)
 	}
-	
+
 	err = op.Wait()
 	if err != nil {
 		stderrOutput := args.Stderr.(*strings.Builder).String()
@@ -307,12 +381,12 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 		}
 		return "", fmt.Errorf("command failed: %w", err)
 	}
-	
+
 	opAPI := op.Get()
 	if opAPI.StatusCode != api.Success {
 		return "", fmt.Errorf("command returned non-zero exit code: %d", opAPI.StatusCode)
 	}
-	
+
 	output := args.Stdout.(*strings.Builder).String()
 	return output, nil
 }
@@ -322,128 +396,91 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tai
 }
 
 func (c *Client) EnsureImage(ctx context.Context, imageRef string) (string, error) {
-	c.logger.Debug(c.logTag, "Ensuring image %s", imageRef)
-	
-	convertedAlias := "instant-bosh-system"
-	
-	aliases, err := c.cli.GetImageAliases()
-	if err != nil {
-		return "", fmt.Errorf("getting image aliases: %w", err)
-	}
-	
-	for _, alias := range aliases {
-		if alias.Name == convertedAlias {
-			c.logger.Debug(c.logTag, "Using existing converted image: %s", convertedAlias)
-			return alias.Target, nil
-		}
-	}
-	
-	c.logger.Info(c.logTag, "Image not found locally, pulling and converting from %s", imageRef)
-	
-	remote, err := incus.ConnectOCI("https://ghcr.io", nil)
-	if err != nil {
-		return "", fmt.Errorf("connecting to OCI registry: %w", err)
-	}
-	
+	c.logger.Debug(c.logTag, "Ensuring OCI image %s is available", imageRef)
+
+	// Parse image reference to determine registry and image path
+	// Format: ghcr.io/rkoster/instant-bosh:latest or docker.io/library/ubuntu:22.04
 	imageParts := strings.Split(imageRef, ":")
 	if len(imageParts) != 2 {
 		return "", fmt.Errorf("invalid image reference format: %s (expected repository:tag)", imageRef)
 	}
-	
-	repository := strings.TrimPrefix(imageParts[0], "ghcr.io/")
-	repository = strings.TrimPrefix(repository, "docker.io/")
+
+	registryAndRepo := imageParts[0]
 	tag := imageParts[1]
-	ociImagePath := fmt.Sprintf("/%s:%s", repository, tag)
-	
-	c.logger.Debug(c.logTag, "Fetching OCI image: %s", ociImagePath)
-	
-	ociImage, _, err := remote.GetImage(ociImagePath)
-	if err != nil {
-		return "", fmt.Errorf("getting OCI image metadata: %w", err)
+
+	// Split registry from repository path
+	parts := strings.SplitN(registryAndRepo, "/", 2)
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid image reference format: %s (expected registry/repository:tag)", imageRef)
 	}
-	
-	tempContainerName := "instant-bosh-oci-convert-temp"
-	c.logger.Debug(c.logTag, "Creating temporary container from OCI image")
-	
-	createReq := api.InstancesPost{
-		Name: tempContainerName,
-		Type: api.InstanceTypeContainer,
-		Source: api.InstanceSource{
-			Type:        "image",
-			Mode:        "pull",
-			Server:      "https://ghcr.io",
-			Protocol:    "oci",
-			Fingerprint: ociImage.Fingerprint,
-		},
+	registry := parts[0]
+	repository := parts[1]
+
+	// Map registry to OCI remote name (as configured in incus CLI)
+	ociRemoteName := ""
+	if c.cliConfig != nil {
+		registryURL := "https://" + registry
+		for name, remote := range c.cliConfig.Remotes {
+			if remote.Protocol == "oci" && remote.Addr == registryURL {
+				ociRemoteName = name
+				c.logger.Debug(c.logTag, "Found OCI remote '%s' for registry %s", name, registry)
+				break
+			}
+		}
 	}
-	
-	op, err := c.cli.CreateInstance(createReq)
-	if err != nil {
-		return "", fmt.Errorf("creating temporary container: %w", err)
+
+	if ociRemoteName != "" && c.cliConfig != nil {
+		// Use the OCI remote via cliconfig to pull the image
+		c.logger.Debug(c.logTag, "Using OCI remote '%s' to pull image", ociRemoteName)
+
+		ociImageServer, err := c.cliConfig.GetImageServer(ociRemoteName)
+		if err != nil {
+			return "", fmt.Errorf("connecting to OCI remote '%s': %w", ociRemoteName, err)
+		}
+
+		// For OCI, the alias format is: repository:tag (without leading /)
+		ociAlias := fmt.Sprintf("%s:%s", repository, tag)
+
+		// Get the image alias from the OCI registry
+		aliasEntry, _, err := ociImageServer.GetImageAlias(ociAlias)
+		if err != nil {
+			return "", fmt.Errorf("getting image alias '%s' from OCI remote: %w", ociAlias, err)
+		}
+
+		// Get the full image info
+		image, _, err := ociImageServer.GetImage(aliasEntry.Target)
+		if err != nil {
+			return "", fmt.Errorf("getting image info from OCI remote: %w", err)
+		}
+
+		// Check if the image already exists on the Incus server
+		_, _, err = c.cli.GetImage(image.Fingerprint)
+		if err == nil {
+			c.logger.Debug(c.logTag, "Image already exists on server, fingerprint=%s", image.Fingerprint)
+			return image.Fingerprint, nil
+		}
+
+		// Copy the image from OCI registry to the Incus server
+		c.logger.Info(c.logTag, "Copying OCI image from %s to Incus server", imageRef)
+		copyOp, err := c.cli.CopyImage(ociImageServer, *image, &incus.ImageCopyArgs{
+			CopyAliases: false,
+			Public:      false,
+		})
+		if err != nil {
+			return "", fmt.Errorf("copying image from OCI registry: %w", err)
+		}
+
+		err = copyOp.Wait()
+		if err != nil {
+			return "", fmt.Errorf("waiting for image copy: %w", err)
+		}
+		c.logger.Info(c.logTag, "Image copied successfully, fingerprint=%s", image.Fingerprint)
+
+		return image.Fingerprint, nil
 	}
-	
-	err = op.Wait()
-	if err != nil {
-		return "", fmt.Errorf("waiting for temporary container creation: %w", err)
-	}
-	
-	c.logger.Debug(c.logTag, "Publishing container as Incus image with alias: %s", convertedAlias)
-	
-	publishReq := api.ImagesPost{
-		ImagePut: api.ImagePut{
-			Properties: map[string]string{
-				"os":           "Ubuntu",
-				"architecture": "x86_64",
-				"type":         "system",
-				"description":  "instant-bosh system container (converted from OCI)",
-			},
-		},
-		Source: &api.ImagesPostSource{
-			Type: "instance",
-			Name: tempContainerName,
-		},
-	}
-	
-	imageOp, err := c.cli.CreateImage(publishReq, nil)
-	if err != nil {
-		c.cli.DeleteInstance(tempContainerName)
-		return "", fmt.Errorf("publishing image: %w", err)
-	}
-	
-	err = imageOp.Wait()
-	if err != nil {
-		c.cli.DeleteInstance(tempContainerName)
-		return "", fmt.Errorf("waiting for image publish: %w", err)
-	}
-	
-	imageFingerprint := imageOp.Get().Metadata["fingerprint"].(string)
-	c.logger.Debug(c.logTag, "Image published with fingerprint: %s", imageFingerprint)
-	
-	aliasReq := api.ImageAliasesPost{
-		ImageAliasesEntry: api.ImageAliasesEntry{
-			Name: convertedAlias,
-			ImageAliasesEntryPut: api.ImageAliasesEntryPut{
-				Target: imageFingerprint,
-			},
-		},
-	}
-	
-	err = c.cli.CreateImageAlias(aliasReq)
-	if err != nil {
-		c.logger.Warn(c.logTag, "Failed to create alias (continuing anyway): %v", err)
-	}
-	
-	c.logger.Debug(c.logTag, "Cleaning up temporary container")
-	deleteOp, err := c.cli.DeleteInstance(tempContainerName)
-	if err != nil {
-		c.logger.Warn(c.logTag, "Failed to delete temporary container: %v", err)
-	} else {
-		deleteOp.Wait()
-	}
-	
-	c.logger.Info(c.logTag, "Successfully converted and cached OCI image")
-	
-	return imageFingerprint, nil
+
+	// No OCI remote configured - this is an error for remote Incus servers
+	return "", fmt.Errorf("no OCI remote configured for registry %s. Please add it first using 'incus remote add <name> https://%s --protocol=oci'", registry, registry)
 }
 
 type incusAPIWrapper struct {
@@ -488,6 +525,10 @@ func (w *incusAPIWrapper) DeleteInstanceFile(instanceName string, filePath strin
 
 func (w *incusAPIWrapper) CreateInstanceFromImage(source incus.ImageServer, image api.Image, req api.InstancesPost) (incus.RemoteOperation, error) {
 	return w.server.CreateInstanceFromImage(source, image, req)
+}
+
+func (w *incusAPIWrapper) CopyImage(source incus.ImageServer, image api.Image, args *incus.ImageCopyArgs) (incus.RemoteOperation, error) {
+	return w.server.CopyImage(source, image, args)
 }
 
 func (w *incusAPIWrapper) GetImage(fingerprint string) (*api.Image, string, error) {

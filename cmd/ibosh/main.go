@@ -59,14 +59,20 @@ func main() {
 						Value: "",
 					},
 					&cli.StringFlag{
-						Name:    "incus",
-						Usage:   "Use Incus mode with specified remote (empty or 'local' for local socket)",
+						Name:    "cpi",
+						Usage:   "CPI to use: 'docker' or 'incus'",
+						Value:   "docker",
+						EnvVars: []string{"IBOSH_CPI"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-remote",
+						Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
 						EnvVars: []string{"IBOSH_INCUS_REMOTE"},
 					},
 					&cli.StringFlag{
 						Name:    "incus-network",
-						Usage:   "Incus network name for VM connectivity",
-						Value:   "incusbr0",
+						Usage:   "Incus network name for VM connectivity (default: instant-bosh-incus)",
+						Value:   "",
 						EnvVars: []string{"IBOSH_INCUS_NETWORK"},
 					},
 					&cli.StringFlag{
@@ -87,12 +93,18 @@ func main() {
 						return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
 					}
 
+					cpi := c.String("cpi")
+					if cpi != "docker" && cpi != "incus" {
+						return cli.Exit("Error: --cpi must be 'docker' or 'incus'", 1)
+					}
+
 					ui, logger := initUIAndLogger(c)
 					opts := commands.StartOptions{
 						SkipUpdate:         c.Bool("skip-update"),
 						SkipStemcellUpload: c.Bool("skip-stemcell-upload"),
 						CustomImage:        c.String("image"),
-						IncusRemote:        c.String("incus"),
+						CPI:                cpi,
+						IncusRemote:        c.String("incus-remote"),
 						IncusNetwork:       c.String("incus-network"),
 						IncusStoragePool:   c.String("incus-storage-pool"),
 						IncusProject:       c.String("incus-project"),

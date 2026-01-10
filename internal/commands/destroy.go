@@ -83,7 +83,7 @@ func DestroyActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker
 	}
 
 	incusFactory := &incus.DefaultClientFactory{}
-	incusClient, err := incusFactory.NewClient(logger, "", "", "")
+	incusClient, err := incusFactory.NewClient(logger, "", "", "", "", "")
 	if err != nil {
 		logger.Debug(logTag, "Failed to create Incus client: %v", err)
 	} else {
@@ -97,7 +97,7 @@ func DestroyActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker
 
 		if incusExists {
 			ui.PrintLinef("Destroying Incus mode resources...")
-			
+
 			ui.PrintLinef("Removing instant-bosh container...")
 			if err := incusClient.RemoveContainer(ctx, incus.ContainerName); err != nil {
 				ui.ErrorLinef("  Failed to remove container: %s", err)

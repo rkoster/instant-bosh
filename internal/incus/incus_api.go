@@ -19,28 +19,29 @@ type IncusAPI interface {
 	GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *incus.InstanceFileResponse, error)
 	DeleteInstanceFile(instanceName string, filePath string) error
 	CreateInstanceFromImage(source incus.ImageServer, image api.Image, req api.InstancesPost) (incus.RemoteOperation, error)
-	
+	CopyImage(source incus.ImageServer, image api.Image, args *incus.ImageCopyArgs) (incus.RemoteOperation, error)
+
 	GetImage(fingerprint string) (*api.Image, string, error)
 	GetImageAliases() ([]api.ImageAliasesEntry, error)
 	CreateImage(image api.ImagesPost, args *incus.ImageCreateArgs) (incus.Operation, error)
 	CreateImageAlias(alias api.ImageAliasesPost) error
 	DeleteImage(fingerprint string) (incus.Operation, error)
-	
+
 	GetNetwork(name string) (*api.Network, string, error)
 	GetNetworks() ([]api.Network, error)
 	CreateNetwork(network api.NetworksPost) error
 	DeleteNetwork(name string) error
-	
+
 	GetStoragePool(name string) (*api.StoragePool, string, error)
 	GetStoragePools() ([]api.StoragePool, error)
-	
+
 	GetProfile(name string) (*api.Profile, string, error)
-	
+
 	UseProject(name string) incus.InstanceServer
 	UseTarget(name string) incus.InstanceServer
-	
+
 	GetInstanceLogfiles(instanceName string) ([]string, error)
 	GetInstanceLogfile(instanceName string, filename string) (io.ReadCloser, error)
-	
+
 	Disconnect()
 }

@@ -18,6 +18,8 @@ type StartOptions struct {
 	SkipUpdate         bool
 	SkipStemcellUpload bool
 	CustomImage        string
+	// CPI mode: "docker" or "incus"
+	CPI string
 	// Incus mode parameters
 	IncusRemote      string
 	IncusNetwork     string
@@ -50,9 +52,7 @@ func StartActionWithFactories(
 
 	ctx := context.Background()
 
-	useIncusMode := opts.IncusRemote != ""
-	
-	if useIncusMode {
+	if opts.CPI == "incus" {
 		return startIncusMode(ctx, ui, logger, configProvider, directorFactory, opts)
 	}
 
@@ -470,8 +470,8 @@ func startIncusMode(
 	opts StartOptions,
 ) error {
 	incusFactory := &incus.DefaultClientFactory{}
-	
-	incusClient, err := incusFactory.NewClient(logger, opts.IncusRemote, opts.IncusProject, opts.CustomImage)
+
+	incusClient, err := incusFactory.NewClient(logger, opts.IncusRemote, opts.IncusProject, opts.IncusNetwork, opts.IncusStoragePool, opts.CustomImage)
 	if err != nil {
 		return fmt.Errorf("failed to create incus client: %w", err)
 	}
@@ -502,12 +502,7 @@ func startIncusMode(
 		}
 	}
 
-	networkName := incus.NetworkName
-	if opts.IncusNetwork != "" {
-		networkName = opts.IncusNetwork
-	}
-
-	networkExists, err := incusClient.NetworkExists(ctx, networkName)
+	networkExists, err := incusClient.NetworkExists(ctx, incusClient.NetworkName())
 	if err != nil {
 		return fmt.Errorf("failed to check if network exists: %w", err)
 	}
@@ -558,4 +553,3 @@ func startIncusMode(
 
 	return nil
 }
-

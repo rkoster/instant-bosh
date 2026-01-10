@@ -9,13 +9,15 @@ import (
 )
 
 type FakeClientFactory struct {
-	NewClientStub        func(logger.Logger, string, string, string) (*incus.Client, error)
+	NewClientStub        func(logger.Logger, string, string, string, string, string) (*incus.Client, error)
 	newClientMutex       sync.RWMutex
 	newClientArgsForCall []struct {
 		arg1 logger.Logger
 		arg2 string
 		arg3 string
 		arg4 string
+		arg5 string
+		arg6 string
 	}
 	newClientReturns struct {
 		result1 *incus.Client
@@ -29,7 +31,7 @@ type FakeClientFactory struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeClientFactory) NewClient(arg1 logger.Logger, arg2 string, arg3 string, arg4 string) (*incus.Client, error) {
+func (fake *FakeClientFactory) NewClient(arg1 logger.Logger, arg2 string, arg3 string, arg4 string, arg5 string, arg6 string) (*incus.Client, error) {
 	fake.newClientMutex.Lock()
 	ret, specificReturn := fake.newClientReturnsOnCall[len(fake.newClientArgsForCall)]
 	fake.newClientArgsForCall = append(fake.newClientArgsForCall, struct {
@@ -37,13 +39,15 @@ func (fake *FakeClientFactory) NewClient(arg1 logger.Logger, arg2 string, arg3 s
 		arg2 string
 		arg3 string
 		arg4 string
-	}{arg1, arg2, arg3, arg4})
+		arg5 string
+		arg6 string
+	}{arg1, arg2, arg3, arg4, arg5, arg6})
 	stub := fake.NewClientStub
 	fakeReturns := fake.newClientReturns
-	fake.recordInvocation("NewClient", []interface{}{arg1, arg2, arg3, arg4})
+	fake.recordInvocation("NewClient", []interface{}{arg1, arg2, arg3, arg4, arg5, arg6})
 	fake.newClientMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2, arg3, arg4)
+		return stub(arg1, arg2, arg3, arg4, arg5, arg6)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -57,17 +61,17 @@ func (fake *FakeClientFactory) NewClientCallCount() int {
 	return len(fake.newClientArgsForCall)
 }
 
-func (fake *FakeClientFactory) NewClientCalls(stub func(logger.Logger, string, string, string) (*incus.Client, error)) {
+func (fake *FakeClientFactory) NewClientCalls(stub func(logger.Logger, string, string, string, string, string) (*incus.Client, error)) {
 	fake.newClientMutex.Lock()
 	defer fake.newClientMutex.Unlock()
 	fake.NewClientStub = stub
 }
 
-func (fake *FakeClientFactory) NewClientArgsForCall(i int) (logger.Logger, string, string, string) {
+func (fake *FakeClientFactory) NewClientArgsForCall(i int) (logger.Logger, string, string, string, string, string) {
 	fake.newClientMutex.RLock()
 	defer fake.newClientMutex.RUnlock()
 	argsForCall := fake.newClientArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5, argsForCall.arg6
 }
 
 func (fake *FakeClientFactory) NewClientReturns(result1 *incus.Client, result2 error) {
