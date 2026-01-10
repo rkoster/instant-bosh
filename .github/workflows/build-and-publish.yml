@@ -71,24 +71,13 @@ jobs:
           # Clean stale devbox state
           rm -rf .devbox
           
-          # Generate devbox flake files first
-          devbox generate direnv
-          devbox generate devcontainer
+          # Initialize devbox state without running any commands
+          devbox info
           
-          # Ensure the gen/flake directory exists with proper permissions
-          mkdir -p .devbox/gen/flake
-          chmod 777 .devbox/gen/flake
-          
-          # Pre-create the lock file that nix expects
-          cat > .devbox/gen/flake/devenv.lock << 'LOCKEOF'
-          {
-            "nodes": {
-              "root": {}
-            },
-            "root": "root",
-            "version": 7
-          }
-          LOCKEOF
+          # Ensure the lock file exists for nix flake 
+          if [ -d .devbox/gen/flake ] && [ ! -f .devbox/gen/flake/devenv.lock ]; then
+            cp .devbox/gen/flake/flake.lock .devbox/gen/flake/devenv.lock 2>/dev/null || true
+          fi
           
           # Clone the bob repository using the token
           devbox run -- git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
