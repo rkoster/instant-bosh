@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh to version 282.1.2
-      sha: 8fd07e1df4f2e69747bb7c9e9d0a18889ba67077
+      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.1016
+      sha: 5f502b2974cb677e66119356f695e0d534392e66
       tags:
-      - last-xenial-4316-g8fd07e1d
+      - last-xenial-4326-g5f502b29
     path: bosh-deployment
   path: manifests
 - contents:
