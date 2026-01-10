@@ -4,6 +4,7 @@
   path: /releases/-
   value:
     name: lxd-bosh-cpi
+    version: "6"
     url: https://github.com/a2geek/bosh-lxd-cpi-release/releases/download/v6/bosh-lxd-cpi-release.tgz
     sha1: 735fd3f106735b64f6129ee3b83a9987a6d93c8b
 
