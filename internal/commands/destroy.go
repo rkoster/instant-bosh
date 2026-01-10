@@ -7,6 +7,7 @@ import (
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/incus"
 )
 
 func DestroyAction(ui boshui.UI, logger boshlog.Logger, force bool) error {
@@ -34,6 +35,12 @@ func DestroyActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker
 	}
 	defer dockerClient.Close()
 
+	dockerExists, err := dockerClient.ContainerExists(ctx)
+	if err != nil {
+		logger.Debug(logTag, "Failed to check Docker container existence: %v", err)
+		dockerExists = false
+	}
+
 	ui.PrintLinef("Getting containers on instant-bosh network...")
 	containers, err := dockerClient.GetContainersOnNetwork(ctx)
 	if err != nil {
@@ -51,11 +58,7 @@ func DestroyActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker
 		}
 	}
 
-	exists, err := dockerClient.ContainerExists(ctx)
-	if err != nil {
-		return err
-	}
-	if exists {
+	if dockerExists {
 		ui.PrintLinef("Removing instant-bosh container...")
 		if err := dockerClient.RemoveContainer(ctx, docker.ContainerName); err != nil {
 			ui.ErrorLinef("  Failed to remove container: %s", err)
@@ -77,6 +80,40 @@ func DestroyActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker
 	if err := dockerClient.RemoveNetwork(ctx); err != nil {
 		ui.ErrorLinef("  Failed to remove network: %s", err)
 		logger.Warn(logTag, "Failed to remove network: %v", err)
+	}
+
+	incusFactory := &incus.DefaultClientFactory{}
+	incusClient, err := incusFactory.NewClient(logger, "", "", "")
+	if err != nil {
+		logger.Debug(logTag, "Failed to create Incus client: %v", err)
+	} else {
+		defer incusClient.Close()
+
+		incusExists, err := incusClient.ContainerExists(ctx)
+		if err != nil {
+			logger.Debug(logTag, "Failed to check Incus container existence: %v", err)
+			incusExists = false
+		}
+
+		if incusExists {
+			ui.PrintLinef("Destroying Incus mode resources...")
+			
+			ui.PrintLinef("Removing instant-bosh container...")
+			if err := incusClient.RemoveContainer(ctx, incus.ContainerName); err != nil {
+				ui.ErrorLinef("  Failed to remove container: %s", err)
+				logger.Warn(logTag, "Failed to remove container: %v", err)
+			}
+
+			ui.PrintLinef("Note: Incus network and VMs must be manually cleaned up")
+		}
+	}
+
+	if !dockerExists && (incusClient == nil || !func() bool {
+		exists, _ := incusClient.ContainerExists(ctx)
+		return exists
+	}()) {
+		ui.PrintLinef("No instant-bosh resources found to destroy")
+		return nil
 	}
 
 	ui.PrintLinef("Destroy complete")
