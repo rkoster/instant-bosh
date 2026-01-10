@@ -68,14 +68,27 @@ jobs:
           GH_TOKEN: ${{ secrets.GIT_BOB_PULL_SECRET }}
           DEVBOX_DEBUG: "1"
         run: |
-          # Clean stale devbox state to avoid devenv.lock errors from cached runners
+          # Clean stale devbox state
           rm -rf .devbox
           
-          # Pre-generate the devbox flake to work around nix daemon race condition
-          devbox generate
+          # Generate devbox flake files first
+          devbox generate direnv
+          devbox generate devcontainer
           
-          # Create empty devenv.lock to work around nix bug expecting this file
-          touch .devbox/gen/flake/devenv.lock 2>/dev/null || true
+          # Ensure the gen/flake directory exists with proper permissions
+          mkdir -p .devbox/gen/flake
+          chmod 777 .devbox/gen/flake
+          
+          # Pre-create the lock file that nix expects
+          cat > .devbox/gen/flake/devenv.lock << 'LOCKEOF'
+          {
+            "nodes": {
+              "root": {}
+            },
+            "root": "root",
+            "version": 7
+          }
+          LOCKEOF
           
           # Clone the bob repository using the token
           devbox run -- git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
