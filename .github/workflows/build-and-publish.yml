@@ -71,8 +71,11 @@ jobs:
           # Clean stale devbox state to avoid devenv.lock errors from cached runners
           rm -rf .devbox
           
-          # Invalidate nix flake cache for this directory
-          nix flake metadata --refresh path:. 2>/dev/null || true
+          # Pre-generate the devbox flake to work around nix daemon race condition
+          devbox generate
+          
+          # Create empty devenv.lock to work around nix bug expecting this file
+          touch .devbox/gen/flake/devenv.lock 2>/dev/null || true
           
           # Clone the bob repository using the token
           devbox run -- git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
