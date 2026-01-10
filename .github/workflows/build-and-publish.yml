@@ -66,18 +66,34 @@ jobs:
       - name: Install bob (BOSH OCI Builder)
         env:
           GH_TOKEN: ${{ secrets.GIT_BOB_PULL_SECRET }}
-          DEVBOX_DEBUG: "1"
         run: |
           # Clean stale devbox state
           rm -rf .devbox
           
-          # Install devbox packages (initializes the flake)
-          devbox install
+          # Create the flake directory structure that devbox will use
+          mkdir -p .devbox/gen/flake
           
-          # Ensure the lock file exists for nix flake 
-          if [ -d .devbox/gen/flake ] && [ ! -f .devbox/gen/flake/devenv.lock ]; then
-            cp .devbox/gen/flake/flake.lock .devbox/gen/flake/devenv.lock 2>/dev/null || true
-          fi
+          # Generate the flake.nix manually for x86_64-linux
+          cat > .devbox/gen/flake/flake.nix << 'FLAKEEOF'
+          {
+            description = "A devbox shell";
+            inputs = {
+              nixpkgs.url = "github:NixOS/nixpkgs/16c7794d0a28b5a37904d55bcca36003b9109aaa";
+            };
+            outputs = { self, nixpkgs }:
+              let pkgs = nixpkgs.legacyPackages.x86_64-linux;
+              in { devShells.x86_64-linux.default = pkgs.mkShell { buildInputs = []; }; };
+          }
+          FLAKEEOF
+          
+          # Generate the lock file using nix flake
+          nix flake lock .devbox/gen/flake --extra-experimental-features "nix-command flakes"
+          
+          # Also create devenv.lock as a symlink to flake.lock (nix seems to want this)
+          ln -sf flake.lock .devbox/gen/flake/devenv.lock
+          
+          # Now run devbox install which should use our pre-generated flake
+          devbox install || true
           
           # Clone the bob repository using the token
           devbox run -- git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
