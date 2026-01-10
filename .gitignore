@@ -19,3 +19,5 @@ go.work.sum
 
 # macOS
 .DS_Store
+# Large generated file (>2000 lines), regenerate with: devbox run generate
+internal/incus/incusfakes/fake_incus_api.go
