@@ -71,8 +71,8 @@ jobs:
           # Clean stale devbox state
           rm -rf .devbox
           
-          # Initialize devbox state without running any commands
-          devbox info
+          # Install devbox packages (initializes the flake)
+          devbox install
           
           # Ensure the lock file exists for nix flake 
           if [ -d .devbox/gen/flake ] && [ ! -f .devbox/gen/flake/devenv.lock ]; then
