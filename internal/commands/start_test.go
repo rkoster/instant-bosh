@@ -546,7 +546,7 @@ var _ = Describe("StartAction", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(client).NotTo(BeNil())
 
-			config, err := fakeConfigProvider.GetDirectorConfig(context.Background(), nil)
+			config, err := fakeConfigProvider.GetDirectorConfig(context.Background(), nil, "instant-bosh")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config).NotTo(BeNil())
 

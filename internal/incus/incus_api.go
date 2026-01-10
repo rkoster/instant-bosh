@@ -15,6 +15,7 @@ type IncusAPI interface {
 	CreateInstance(instance api.InstancesPost) (incus.Operation, error)
 	UpdateInstanceState(name string, state api.InstanceStatePut, ETag string) (incus.Operation, error)
 	DeleteInstance(name string) (incus.Operation, error)
+	ExecInstance(name string, req api.InstanceExecPost, args *incus.InstanceExecArgs) (incus.Operation, error)
 	GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *incus.InstanceFileResponse, error)
 	DeleteInstanceFile(instanceName string, filePath string) error
 	CreateInstanceFromImage(source incus.ImageServer, image api.Image, req api.InstancesPost) (incus.RemoteOperation, error)

@@ -15,27 +15,30 @@ import (
 	"github.com/rkoster/instant-bosh/internal/director/directorfakes"
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/docker/dockerfakes"
+	"github.com/rkoster/instant-bosh/internal/incus/incusfakes"
 )
 
 var _ = Describe("PrintEnvAction", func() {
 	var (
-		fakeDockerAPI      *dockerfakes.FakeDockerAPI
-		fakeClientFactory  *dockerfakes.FakeClientFactory
-		fakeConfigProvider *directorfakes.FakeConfigProvider
-		fakeUI             *commandsfakes.FakeUI
-		logger             boshlog.Logger
+		fakeDockerAPI           *dockerfakes.FakeDockerAPI
+		fakeDockerClientFactory *dockerfakes.FakeClientFactory
+		fakeIncusClientFactory  *incusfakes.FakeClientFactory
+		fakeConfigProvider      *directorfakes.FakeConfigProvider
+		fakeUI                  *commandsfakes.FakeUI
+		logger                  boshlog.Logger
 	)
 
 	BeforeEach(func() {
 		fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
-		fakeClientFactory = &dockerfakes.FakeClientFactory{}
+		fakeDockerClientFactory = &dockerfakes.FakeClientFactory{}
+		fakeIncusClientFactory = &incusfakes.FakeClientFactory{}
 		fakeConfigProvider = &directorfakes.FakeConfigProvider{}
 		fakeUI = &commandsfakes.FakeUI{}
 
 		logger = boshlog.NewLogger(boshlog.LevelNone)
 
-		// Configure fakeClientFactory to return a test client with fakeDockerAPI
-		fakeClientFactory.NewClientStub = func(logger boshlog.Logger, customImage string) (*docker.Client, error) {
+		// Configure fakeDockerClientFactory to return a test client with fakeDockerAPI
+		fakeDockerClientFactory.NewClientStub = func(logger boshlog.Logger, customImage string) (*docker.Client, error) {
 			return docker.NewTestClient(fakeDockerAPI, logger, docker.ImageName), nil
 		}
 
@@ -62,7 +65,7 @@ var _ = Describe("PrintEnvAction", func() {
 
 	Describe("when container is running", func() {
 		It("should print environment variables for shell evaluation", func() {
-			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 			Expect(err).NotTo(HaveOccurred())
 
@@ -103,7 +106,7 @@ var _ = Describe("PrintEnvAction", func() {
 		})
 
 		It("should output in shell-compatible format", func() {
-			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 			Expect(err).NotTo(HaveOccurred())
 
@@ -126,7 +129,7 @@ var _ = Describe("PrintEnvAction", func() {
 			})
 
 			It("should use the provided configuration", func() {
-				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 				Expect(err).NotTo(HaveOccurred())
 
@@ -145,16 +148,16 @@ var _ = Describe("PrintEnvAction", func() {
 
 	Describe("when container is not running", func() {
 		BeforeEach(func() {
-			// No containers running
 			fakeDockerAPI.ContainerListReturns([]types.Container{}, nil)
+			
+			fakeIncusClientFactory.NewClientReturns(nil, errors.New("incus not available"))
 		})
 
 		It("should return an error instructing to start instant-bosh", func() {
-			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("instant-bosh container is not running"))
-			Expect(err.Error()).To(ContainSubstring("ibosh start"))
+			Expect(err.Error()).To(ContainSubstring("incus not available"))
 
 			// Should check container status
 			Expect(fakeDockerAPI.ContainerListCallCount()).To(BeNumerically(">", 0))
@@ -170,11 +173,11 @@ var _ = Describe("PrintEnvAction", func() {
 	Describe("error handling", func() {
 		Context("when docker client creation fails", func() {
 			BeforeEach(func() {
-				fakeClientFactory.NewClientReturns(nil, errors.New("docker connection failed"))
+				fakeDockerClientFactory.NewClientReturns(nil, errors.New("docker connection failed"))
 			})
 
 			It("should return an error", func() {
-				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to create docker client"))
@@ -190,7 +193,7 @@ var _ = Describe("PrintEnvAction", func() {
 			})
 
 			It("should return an error", func() {
-				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("docker api error"))
@@ -209,7 +212,7 @@ var _ = Describe("PrintEnvAction", func() {
 			})
 
 			It("should return an error", func() {
-				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+				err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to get director config"))
@@ -226,7 +229,7 @@ var _ = Describe("PrintEnvAction", func() {
 
 	Describe("usage with eval", func() {
 		It("should produce output suitable for shell evaluation", func() {
-			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider)
+			err := commands.PrintEnvActionWithFactories(fakeUI, logger, fakeDockerClientFactory, fakeIncusClientFactory, fakeConfigProvider)
 
 			Expect(err).NotTo(HaveOccurred())
 

@@ -11,7 +11,7 @@ import (
 	bosherr "github.com/cloudfoundry/bosh-utils/errors"
 	boshhttp "github.com/cloudfoundry/bosh-utils/httpclient"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
-	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/container"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,7 +37,7 @@ type Config struct {
 //
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 . ConfigProvider
 type ConfigProvider interface {
-	GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Config, error)
+	GetDirectorConfig(ctx context.Context, containerClient container.Client, containerName string) (*Config, error)
 }
 
 // DefaultConfigProvider retrieves director config from the running container.
@@ -60,8 +60,8 @@ func (f *DefaultDirectorFactory) NewDirector(config *Config, logger boshlog.Logg
 }
 
 // GetDirectorConfig retrieves the BOSH director configuration from the running container.
-func (p *DefaultConfigProvider) GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Config, error) {
-	return GetDirectorConfig(ctx, dockerClient)
+func (p *DefaultConfigProvider) GetDirectorConfig(ctx context.Context, containerClient container.Client, containerName string) (*Config, error) {
+	return GetDirectorConfig(ctx, containerClient, containerName)
 }
 
 // Cleanup removes the temporary jumpbox key file
@@ -75,9 +75,8 @@ func (c *Config) Cleanup() error {
 }
 
 // GetDirectorConfig retrieves the BOSH director configuration from the running container
-func GetDirectorConfig(ctx context.Context, dockerClient *docker.Client) (*Config, error) {
-	// Read vars-store.yml from container
-	varsStore, err := dockerClient.ExecCommand(ctx, docker.ContainerName, []string{"cat", "/var/vcap/store/vars-store.yml"})
+func GetDirectorConfig(ctx context.Context, containerClient container.Client, containerName string) (*Config, error) {
+	varsStore, err := containerClient.ExecCommand(ctx, containerName, []string{"cat", "/var/vcap/store/vars-store.yml"})
 	if err != nil {
 		return nil, fmt.Errorf("failed to read vars-store.yml: %w", err)
 	}

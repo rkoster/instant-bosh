@@ -7,6 +7,7 @@ import (
 
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
+	"github.com/rkoster/instant-bosh/internal/container"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/incus"
@@ -210,15 +211,13 @@ func startContainer(
 	ui.PrintLinef("instant-bosh is ready!")
 
 	ui.PrintLinef("Applying cloud-config...")
-	if err := applyCloudConfig(ctx, dockerClient, logger, configProvider, directorFactory); err != nil {
+	if err := applyCloudConfig(ctx, dockerClient, docker.ContainerName, logger, configProvider, directorFactory); err != nil {
 		return fmt.Errorf("failed to apply cloud-config: %w", err)
 	}
 
-	// Upload default light stemcells (unless skipped)
 	if !skipStemcellUpload {
 		ui.PrintLinef("Uploading light stemcells...")
 		if err := uploadLightStemcells(ctx, dockerClient, ui, logger, configProvider, directorFactory); err != nil {
-			// Non-fatal: Log warning and continue
 			ui.PrintLinef("Warning: Failed to upload light stemcells: %v", err)
 			ui.PrintLinef("You can manually upload stemcells with: ibosh upload-stemcell <image-ref>")
 		}
@@ -233,13 +232,13 @@ func startContainer(
 
 func applyCloudConfig(
 	ctx context.Context,
-	dockerClient *docker.Client,
+	containerClient container.Client,
+	containerName string,
 	logger boshlog.Logger,
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
 ) error {
-	// Get director configuration
-	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
+	config, err := configProvider.GetDirectorConfig(ctx, containerClient, containerName)
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}
@@ -274,8 +273,7 @@ func uploadLightStemcells(
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
 ) error {
-	// Get director configuration
-	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
+	config, err := configProvider.GetDirectorConfig(ctx, dockerClient, docker.ContainerName)
 	if err != nil {
 		return fmt.Errorf("getting director config: %w", err)
 	}
@@ -533,11 +531,30 @@ func startIncusMode(
 
 	ui.PrintLinef("instant-bosh is ready!")
 
+	ui.PrintLinef("Applying cloud-config...")
+	config, err := configProvider.GetDirectorConfig(ctx, incusClient, incus.ContainerName)
+	if err != nil {
+		return fmt.Errorf("failed to get director config: %w", err)
+	}
+	defer config.Cleanup()
+
+	directorClient, err := directorFactory.NewDirector(config, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create director client: %w", err)
+	}
+
+	if err := directorClient.UpdateCloudConfig("default", incusCloudConfigYAMLBytes); err != nil {
+		return fmt.Errorf("failed to update cloud-config: %w", err)
+	}
+	logger.Debug("startCommand", "Cloud-config applied successfully")
+
+	if !opts.SkipStemcellUpload {
+		ui.PrintLinef("Note: Stemcell upload for Incus mode not yet implemented")
+	}
+
 	ui.PrintLinef("")
 	ui.PrintLinef("To configure your BOSH CLI environment, run:")
 	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
-	ui.PrintLinef("")
-	ui.PrintLinef("Note: Cloud config and stemcell upload for Incus mode require director integration")
 
 	return nil
 }

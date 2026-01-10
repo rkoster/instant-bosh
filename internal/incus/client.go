@@ -11,6 +11,8 @@ import (
 	"github.com/lxc/incus/v6/shared/api"
 )
 
+//go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
+
 const (
 	ContainerName    = "instant-bosh"
 	NetworkName      = "instant-bosh-incus"
@@ -24,6 +26,7 @@ const (
 	DefaultStoragePool = "default"
 )
 
+//counterfeiter:generate . ClientFactory
 type ClientFactory interface {
 	NewClient(logger boshlog.Logger, remote string, project string, customImage string) (*Client, error)
 }
@@ -250,6 +253,45 @@ func (c *Client) RemoveContainer(ctx context.Context, containerName string) erro
 	return nil
 }
 
+func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []string) (string, error) {
+	c.logger.Debug(c.logTag, "Executing command in container %s: %v", containerName, cmd)
+	
+	req := api.InstanceExecPost{
+		Command:     cmd,
+		WaitForWS:   true,
+		Interactive: false,
+		Environment: map[string]string{},
+	}
+	
+	args := incus.InstanceExecArgs{
+		Stdin:  nil,
+		Stdout: &strings.Builder{},
+		Stderr: &strings.Builder{},
+	}
+	
+	op, err := c.cli.ExecInstance(containerName, req, &args)
+	if err != nil {
+		return "", fmt.Errorf("executing command: %w", err)
+	}
+	
+	err = op.Wait()
+	if err != nil {
+		stderrOutput := args.Stderr.(*strings.Builder).String()
+		if stderrOutput != "" {
+			return "", fmt.Errorf("command failed: %w\nstderr: %s", err, stderrOutput)
+		}
+		return "", fmt.Errorf("command failed: %w", err)
+	}
+	
+	opAPI := op.Get()
+	if opAPI.StatusCode != api.Success {
+		return "", fmt.Errorf("command returned non-zero exit code: %d", opAPI.StatusCode)
+	}
+	
+	output := args.Stdout.(*strings.Builder).String()
+	return output, nil
+}
+
 func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tail string) (string, error) {
 	return "", fmt.Errorf("GetContainerLogs not yet implemented for Incus")
 }
@@ -405,6 +447,10 @@ func (w *incusAPIWrapper) UpdateInstanceState(name string, state api.InstanceSta
 
 func (w *incusAPIWrapper) DeleteInstance(name string) (incus.Operation, error) {
 	return w.server.DeleteInstance(name)
+}
+
+func (w *incusAPIWrapper) ExecInstance(name string, req api.InstanceExecPost, args *incus.InstanceExecArgs) (incus.Operation, error) {
+	return w.server.ExecInstance(name, req, args)
 }
 
 func (w *incusAPIWrapper) GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *incus.InstanceFileResponse, error) {
