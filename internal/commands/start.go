@@ -7,21 +7,34 @@ import (
 
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
+	"github.com/rkoster/instant-bosh/internal/container"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/incus"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
-func StartAction(ui boshui.UI, logger boshlog.Logger, skipUpdate bool, skipStemcellUpload bool, customImage string) error {
+type StartOptions struct {
+	SkipUpdate         bool
+	SkipStemcellUpload bool
+	CustomImage        string
+	// CPI mode: "docker" or "incus"
+	CPI string
+	// Incus mode parameters
+	IncusRemote      string
+	IncusNetwork     string
+	IncusStoragePool string
+	IncusProject     string
+}
+
+func StartAction(ui boshui.UI, logger boshlog.Logger, opts StartOptions) error {
 	return StartActionWithFactories(
 		ui,
 		logger,
 		&docker.DefaultClientFactory{},
 		&director.DefaultConfigProvider{},
 		&director.DefaultDirectorFactory{},
-		skipUpdate,
-		skipStemcellUpload,
-		customImage,
+		opts,
 	)
 }
 
@@ -31,9 +44,7 @@ func StartActionWithFactories(
 	clientFactory docker.ClientFactory,
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
-	skipUpdate bool,
-	skipStemcellUpload bool,
-	customImage string,
+	opts StartOptions,
 ) error {
 	if err := PrintLogo(); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
@@ -41,146 +52,11 @@ func StartActionWithFactories(
 
 	ctx := context.Background()
 
-	// =================================================================
-	// PHASE 1: IMAGE MANAGEMENT
-	// =================================================================
-
-	targetImage := docker.ImageName
-	if customImage != "" {
-		targetImage = customImage
+	if opts.CPI == "incus" {
+		return startIncusMode(ctx, ui, logger, configProvider, directorFactory, opts)
 	}
 
-	dockerClient, err := clientFactory.NewClient(logger, customImage)
-	if err != nil {
-		return fmt.Errorf("failed to create docker client: %w", err)
-	}
-	defer dockerClient.Close()
-
-	// --- Subphase 1A: Handle running container with different image ---
-	running, err := dockerClient.IsContainerRunning(ctx)
-	if err != nil {
-		return err
-	}
-
-	var proceedWithUpgrade bool
-
-	if running {
-		imageDifferent, err := dockerClient.IsContainerImageDifferent(ctx, docker.ContainerName)
-		if err != nil {
-			return fmt.Errorf("failed to check if container image is different: %w", err)
-		}
-
-		if imageDifferent {
-			if skipUpdate {
-				ui.PrintLinef("instant-bosh is already running")
-				ui.PrintLinef("")
-				ui.PrintLinef("To configure your BOSH CLI environment, run:")
-				ui.PrintLinef("  eval \"$(ibosh print-env)\"")
-				return nil
-			}
-
-			ui.PrintLinef("Checking for image updates for %s...", targetImage)
-
-			currentImageName, err := dockerClient.GetContainerImageName(ctx, docker.ContainerName)
-			if err != nil {
-				return fmt.Errorf("failed to get current container image: %w", err)
-			}
-
-			targetImageExists, err := dockerClient.ImageExists(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to check if target image exists: %w", err)
-			}
-
-			if !targetImageExists {
-				ui.PrintLinef("Pulling new image %s...", targetImage)
-				if err := dockerClient.PullImage(ctx); err != nil {
-					return fmt.Errorf("failed to pull new image: %w", err)
-				}
-			}
-
-			diff, err := dockerClient.ShowManifestDiff(ctx, currentImageName, targetImage)
-			if err != nil {
-				logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
-				ui.PrintLinef("Warning: Could not compare manifests: %v", err)
-			} else if diff != "" {
-				ui.PrintLinef("")
-				ui.PrintLinef("Manifest changes:")
-				ui.PrintLinef("")
-				ui.PrintLinef(diff)
-			} else {
-				ui.PrintLinef("No differences in BOSH manifest")
-			}
-
-			ui.PrintLinef("")
-			ui.PrintLinef("Continue with upgrade?")
-
-			err = ui.AskForConfirmation()
-			if err != nil {
-				ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
-				return nil
-			}
-
-			ui.PrintLinef("")
-			ui.PrintLinef("Upgrading to new image...")
-			proceedWithUpgrade = true
-		}
-	}
-
-	// --- Subphase 1B: Image management for non-running scenarios ---
-	// Skip this phase if we're proceeding with upgrade (image already pulled in 1A)
-	if !running && !proceedWithUpgrade {
-		imageExists, err := dockerClient.ImageExists(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to check if image exists: %w", err)
-		}
-
-		if !imageExists {
-			ui.PrintLinef("Image not found locally, pulling...")
-			if err := dockerClient.PullImage(ctx); err != nil {
-				return fmt.Errorf("failed to pull image: %w", err)
-			}
-		} else if !skipUpdate && customImage == "" {
-			ui.PrintLinef("Checking for image updates for %s...", targetImage)
-			updateAvailable, err := dockerClient.CheckForImageUpdate(ctx)
-			if err != nil {
-				logger.Debug("startCommand", "Failed to check for updates: %v", err)
-				ui.PrintLinef("Warning: Failed to check for updates, continuing with existing image")
-			} else if updateAvailable {
-				ui.PrintLinef("Image %s has a newer revision available! Updating...", targetImage)
-
-				currentImageName := dockerClient.GetImageName()
-
-				if err := dockerClient.PullImage(ctx); err != nil {
-					return fmt.Errorf("failed to pull updated image: %w", err)
-				}
-
-				diff, err := dockerClient.ShowManifestDiff(ctx, currentImageName, targetImage)
-				if err != nil {
-					logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
-					ui.PrintLinef("Warning: Could not compare manifests: %v", err)
-				} else if diff != "" {
-					ui.PrintLinef("")
-					ui.PrintLinef("Manifest changes:")
-					ui.PrintLinef("")
-					ui.PrintLinef(diff)
-				} else {
-					ui.PrintLinef("No differences in BOSH manifest")
-				}
-			} else {
-				ui.PrintLinef("Image %s is at the latest version", targetImage)
-			}
-		} else if skipUpdate {
-			ui.PrintLinef("Skipping update check (--skip-update flag set)")
-		} else if customImage != "" {
-			ui.PrintLinef("Using custom image: %s", customImage)
-		}
-	}
-
-	// =================================================================
-	// PHASE 2: CONTAINER LIFECYCLE
-	// =================================================================
-
-	return startContainer(ctx, dockerClient, ui, logger, configProvider, directorFactory, skipStemcellUpload)
+	return startDockerMode(ctx, ui, logger, clientFactory, configProvider, directorFactory, opts)
 }
 
 // startContainer idempotently ensures a container is running with the target image.
@@ -335,15 +211,13 @@ func startContainer(
 	ui.PrintLinef("instant-bosh is ready!")
 
 	ui.PrintLinef("Applying cloud-config...")
-	if err := applyCloudConfig(ctx, dockerClient, logger, configProvider, directorFactory); err != nil {
+	if err := applyCloudConfig(ctx, dockerClient, docker.ContainerName, logger, configProvider, directorFactory); err != nil {
 		return fmt.Errorf("failed to apply cloud-config: %w", err)
 	}
 
-	// Upload default light stemcells (unless skipped)
 	if !skipStemcellUpload {
 		ui.PrintLinef("Uploading light stemcells...")
 		if err := uploadLightStemcells(ctx, dockerClient, ui, logger, configProvider, directorFactory); err != nil {
-			// Non-fatal: Log warning and continue
 			ui.PrintLinef("Warning: Failed to upload light stemcells: %v", err)
 			ui.PrintLinef("You can manually upload stemcells with: ibosh upload-stemcell <image-ref>")
 		}
@@ -358,13 +232,13 @@ func startContainer(
 
 func applyCloudConfig(
 	ctx context.Context,
-	dockerClient *docker.Client,
+	containerClient container.Client,
+	containerName string,
 	logger boshlog.Logger,
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
 ) error {
-	// Get director configuration
-	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
+	config, err := configProvider.GetDirectorConfig(ctx, containerClient, containerName)
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}
@@ -399,8 +273,7 @@ func uploadLightStemcells(
 	configProvider director.ConfigProvider,
 	directorFactory director.DirectorFactory,
 ) error {
-	// Get director configuration
-	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
+	config, err := configProvider.GetDirectorConfig(ctx, dockerClient, docker.ContainerName)
 	if err != nil {
 		return fmt.Errorf("getting director config: %w", err)
 	}
@@ -444,6 +317,239 @@ func uploadLightStemcells(
 			}
 		}
 	}
+
+	return nil
+}
+
+func startDockerMode(
+	ctx context.Context,
+	ui UI,
+	logger boshlog.Logger,
+	clientFactory docker.ClientFactory,
+	configProvider director.ConfigProvider,
+	directorFactory director.DirectorFactory,
+	opts StartOptions,
+) error {
+	targetImage := docker.ImageName
+	if opts.CustomImage != "" {
+		targetImage = opts.CustomImage
+	}
+
+	dockerClient, err := clientFactory.NewClient(logger, opts.CustomImage)
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
+	}
+	defer dockerClient.Close()
+
+	running, err := dockerClient.IsContainerRunning(ctx)
+	if err != nil {
+		return err
+	}
+
+	var proceedWithUpgrade bool
+
+	if running {
+		imageDifferent, err := dockerClient.IsContainerImageDifferent(ctx, docker.ContainerName)
+		if err != nil {
+			return fmt.Errorf("failed to check if container image is different: %w", err)
+		}
+
+		if imageDifferent {
+			if opts.SkipUpdate {
+				ui.PrintLinef("instant-bosh is already running")
+				ui.PrintLinef("")
+				ui.PrintLinef("To configure your BOSH CLI environment, run:")
+				ui.PrintLinef("  eval \"$(ibosh print-env)\"")
+				return nil
+			}
+
+			ui.PrintLinef("Checking for image updates for %s...", targetImage)
+
+			currentImageName, err := dockerClient.GetContainerImageName(ctx, docker.ContainerName)
+			if err != nil {
+				return fmt.Errorf("failed to get current container image: %w", err)
+			}
+
+			targetImageExists, err := dockerClient.ImageExists(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to check if target image exists: %w", err)
+			}
+
+			if !targetImageExists {
+				ui.PrintLinef("Pulling new image %s...", targetImage)
+				if err := dockerClient.PullImage(ctx); err != nil {
+					return fmt.Errorf("failed to pull new image: %w", err)
+				}
+			}
+
+			diff, err := dockerClient.ShowManifestDiff(ctx, currentImageName, targetImage)
+			if err != nil {
+				logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
+				ui.PrintLinef("Warning: Could not compare manifests: %v", err)
+			} else if diff != "" {
+				ui.PrintLinef("")
+				ui.PrintLinef("Manifest changes:")
+				ui.PrintLinef("")
+				ui.PrintLinef(diff)
+			} else {
+				ui.PrintLinef("No differences in BOSH manifest")
+			}
+
+			ui.PrintLinef("")
+			ui.PrintLinef("Continue with upgrade?")
+
+			err = ui.AskForConfirmation()
+			if err != nil {
+				ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
+				return nil
+			}
+
+			ui.PrintLinef("")
+			ui.PrintLinef("Upgrading to new image...")
+			proceedWithUpgrade = true
+		}
+	}
+
+	if !running && !proceedWithUpgrade {
+		imageExists, err := dockerClient.ImageExists(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to check if image exists: %w", err)
+		}
+
+		if !imageExists {
+			ui.PrintLinef("Image not found locally, pulling...")
+			if err := dockerClient.PullImage(ctx); err != nil {
+				return fmt.Errorf("failed to pull image: %w", err)
+			}
+		} else if !opts.SkipUpdate && opts.CustomImage == "" {
+			ui.PrintLinef("Checking for image updates for %s...", targetImage)
+			updateAvailable, err := dockerClient.CheckForImageUpdate(ctx)
+			if err != nil {
+				logger.Debug("startCommand", "Failed to check for updates: %v", err)
+				ui.PrintLinef("Warning: Failed to check for updates, continuing with existing image")
+			} else if updateAvailable {
+				ui.PrintLinef("Image %s has a newer revision available! Updating...", targetImage)
+
+				currentImageName := dockerClient.GetImageName()
+
+				if err := dockerClient.PullImage(ctx); err != nil {
+					return fmt.Errorf("failed to pull updated image: %w", err)
+				}
+
+				diff, err := dockerClient.ShowManifestDiff(ctx, currentImageName, targetImage)
+				if err != nil {
+					logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
+					ui.PrintLinef("Warning: Could not compare manifests: %v", err)
+				} else if diff != "" {
+					ui.PrintLinef("")
+					ui.PrintLinef("Manifest changes:")
+					ui.PrintLinef("")
+					ui.PrintLinef(diff)
+				} else {
+					ui.PrintLinef("No differences in BOSH manifest")
+				}
+			} else {
+				ui.PrintLinef("Image %s is at the latest version", targetImage)
+			}
+		} else if opts.SkipUpdate {
+			ui.PrintLinef("Skipping update check (--skip-update flag set)")
+		} else if opts.CustomImage != "" {
+			ui.PrintLinef("Using custom image: %s", opts.CustomImage)
+		}
+	}
+
+	return startContainer(ctx, dockerClient, ui, logger, configProvider, directorFactory, opts.SkipStemcellUpload)
+}
+
+func startIncusMode(
+	ctx context.Context,
+	ui UI,
+	logger boshlog.Logger,
+	configProvider director.ConfigProvider,
+	directorFactory director.DirectorFactory,
+	opts StartOptions,
+) error {
+	incusFactory := &incus.DefaultClientFactory{}
+
+	incusClient, err := incusFactory.NewClient(logger, opts.IncusRemote, opts.IncusProject, opts.IncusNetwork, opts.IncusStoragePool, opts.CustomImage)
+	if err != nil {
+		return fmt.Errorf("failed to create incus client: %w", err)
+	}
+	defer incusClient.Close()
+
+	running, err := incusClient.IsContainerRunning(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check if container is running: %w", err)
+	}
+
+	if running {
+		ui.PrintLinef("instant-bosh is already running")
+		ui.PrintLinef("")
+		ui.PrintLinef("To configure your BOSH CLI environment, run:")
+		ui.PrintLinef("  eval \"$(ibosh print-env)\"")
+		return nil
+	}
+
+	exists, err := incusClient.ContainerExists(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check if container exists: %w", err)
+	}
+
+	if exists {
+		ui.PrintLinef("Removing stopped container...")
+		if err := incusClient.RemoveContainer(ctx, incus.ContainerName); err != nil {
+			return fmt.Errorf("failed to remove container: %w", err)
+		}
+	}
+
+	networkExists, err := incusClient.NetworkExists(ctx, incusClient.NetworkName())
+	if err != nil {
+		return fmt.Errorf("failed to check if network exists: %w", err)
+	}
+
+	if networkExists {
+		ui.PrintLinef("Using existing network...")
+	} else {
+		ui.PrintLinef("Creating network...")
+		if err := incusClient.CreateNetwork(ctx); err != nil {
+			return fmt.Errorf("failed to create network: %w", err)
+		}
+	}
+
+	ui.PrintLinef("Starting instant-bosh container...")
+	if err := incusClient.StartContainer(ctx); err != nil {
+		return fmt.Errorf("failed to start container: %w", err)
+	}
+
+	ui.PrintLinef("Waiting for BOSH to be ready...")
+	time.Sleep(60 * time.Second)
+
+	ui.PrintLinef("instant-bosh is ready!")
+
+	ui.PrintLinef("Applying cloud-config...")
+	config, err := configProvider.GetDirectorConfig(ctx, incusClient, incus.ContainerName)
+	if err != nil {
+		return fmt.Errorf("failed to get director config: %w", err)
+	}
+	defer config.Cleanup()
+
+	directorClient, err := directorFactory.NewDirector(config, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create director client: %w", err)
+	}
+
+	if err := directorClient.UpdateCloudConfig("default", incusCloudConfigYAMLBytes); err != nil {
+		return fmt.Errorf("failed to update cloud-config: %w", err)
+	}
+	logger.Debug("startCommand", "Cloud-config applied successfully")
+
+	if !opts.SkipStemcellUpload {
+		ui.PrintLinef("Note: Stemcell upload for Incus mode not yet implemented")
+	}
+
+	ui.PrintLinef("")
+	ui.PrintLinef("To configure your BOSH CLI environment, run:")
+	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
 
 	return nil
 }

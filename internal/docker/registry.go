@@ -29,6 +29,17 @@ func (c *Client) GetImageMetadata(ctx context.Context, imageRef string) (*ImageM
 	metadata, err := c.getImageMetadataFromRegistry(ctx, imageRef)
 	if err == nil {
 		c.logger.Debug(c.logTag, "Resolved from registry: %s -> %s", imageRef, metadata.FullReference)
+		
+		// If we got "latest" from registry, also try local to see if we can find a version tag there
+		if metadata.Tag == "latest" {
+			c.logger.Debug(c.logTag, "Registry returned 'latest', trying local Docker daemon for version resolution")
+			localMetadata, localErr := c.getImageMetadataFromLocal(ctx, imageRef)
+			if localErr == nil && localMetadata.Tag != "latest" {
+				c.logger.Debug(c.logTag, "Local resolved 'latest' to version: %s", localMetadata.Tag)
+				return localMetadata, nil
+			}
+		}
+		
 		return metadata, nil
 	}
 

@@ -8,16 +8,17 @@ import (
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/incus"
 )
 
 func PrintEnvAction(ui boshui.UI, logger boshlog.Logger) error {
-	return PrintEnvActionWithFactories(ui, logger, &docker.DefaultClientFactory{}, &director.DefaultConfigProvider{})
+	return PrintEnvActionWithFactories(ui, logger, &docker.DefaultClientFactory{}, &incus.DefaultClientFactory{}, &director.DefaultConfigProvider{})
 }
 
-func PrintEnvActionWithFactories(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory, configProvider director.ConfigProvider) error {
+func PrintEnvActionWithFactories(ui UI, logger boshlog.Logger, dockerClientFactory docker.ClientFactory, incusClientFactory incus.ClientFactory, configProvider director.ConfigProvider) error {
 	ctx := context.Background()
 
-	dockerClient, err := clientFactory.NewClient(logger, "")
+	dockerClient, err := dockerClientFactory.NewClient(logger, "")
 	if err != nil {
 		return fmt.Errorf("failed to create docker client: %w", err)
 	}
@@ -28,19 +29,40 @@ func PrintEnvActionWithFactories(ui UI, logger boshlog.Logger, clientFactory doc
 		return err
 	}
 
+	if running {
+		config, err := configProvider.GetDirectorConfig(ctx, dockerClient, docker.ContainerName)
+		if err != nil {
+			return fmt.Errorf("failed to get director config: %w", err)
+		}
+
+		ui.PrintLinef("export BOSH_CLIENT=%s", config.Client)
+		ui.PrintLinef("export BOSH_CLIENT_SECRET=%s", config.ClientSecret)
+		ui.PrintLinef("export BOSH_ENVIRONMENT=%s", config.Environment)
+		ui.PrintLinef("export BOSH_CA_CERT='%s'", config.CACert)
+		ui.PrintLinef("export BOSH_ALL_PROXY=%s", config.AllProxy)
+		return nil
+	}
+
+	incusClient, err := incusClientFactory.NewClient(logger, "", incus.DefaultProject, "", "", "")
+	if err != nil {
+		return fmt.Errorf("failed to create incus client: %w", err)
+	}
+	defer incusClient.Close()
+
+	running, err = incusClient.IsContainerRunning(ctx)
+	if err != nil {
+		return err
+	}
+
 	if !running {
 		return fmt.Errorf("instant-bosh container is not running. Please run 'ibosh start' first")
 	}
 
-	// Get director configuration
-	config, err := configProvider.GetDirectorConfig(ctx, dockerClient)
+	config, err := configProvider.GetDirectorConfig(ctx, incusClient, incus.ContainerName)
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}
-	// NOTE: We do NOT call config.Cleanup() here because the jumpbox key file
-	// needs to persist for the user's shell session to use with BOSH_ALL_PROXY
 
-	// Print environment variables to stdout (must use ui.PrintLinef which goes to outWriter/stdout)
 	ui.PrintLinef("export BOSH_CLIENT=%s", config.Client)
 	ui.PrintLinef("export BOSH_CLIENT_SECRET=%s", config.ClientSecret)
 	ui.PrintLinef("export BOSH_ENVIRONMENT=%s", config.Environment)

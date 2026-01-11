@@ -1,0 +1,12 @@
+---
+# Configure the director TLS certificate Subject Alternative Names (SANs).
+# This replaces the default alternative_names with a variable that can be set
+# at runtime, allowing different configurations for Docker vs Incus CPIs.
+#
+# Usage: Set director_alternative_names to a JSON array of IPs/hostnames, e.g.:
+#   ["10.245.0.10", "127.0.0.1"] for Docker
+#   ["10.246.0.10", "127.0.0.1", "192.168.2.145"] for Incus with remote host
+
+- type: replace
+  path: /variables/name=director_ssl/options/alternative_names
+  value: ((director_alternative_names))

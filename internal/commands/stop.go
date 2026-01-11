@@ -7,6 +7,7 @@ import (
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/incus"
 )
 
 func StopAction(ui boshui.UI, logger boshlog.Logger) error {
@@ -22,20 +23,43 @@ func StopActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.Cl
 	}
 	defer dockerClient.Close()
 
-	running, err := dockerClient.IsContainerRunning(ctx)
+	dockerRunning, err := dockerClient.IsContainerRunning(ctx)
 	if err != nil {
 		return err
 	}
-	if !running {
+
+	if dockerRunning {
+		ui.PrintLinef("Stopping instant-bosh container (Docker mode)...")
+		if err := dockerClient.StopContainer(ctx); err != nil {
+			return fmt.Errorf("failed to stop container: %w", err)
+		}
+		ui.PrintLinef("instant-bosh stopped successfully")
+		return nil
+	}
+
+	incusFactory := &incus.DefaultClientFactory{}
+	incusClient, err := incusFactory.NewClient(logger, "", "", "", "", "")
+	if err != nil {
+		ui.PrintLinef("instant-bosh is not running")
+		return nil
+	}
+	defer incusClient.Close()
+
+	incusRunning, err := incusClient.IsContainerRunning(ctx)
+	if err != nil {
 		ui.PrintLinef("instant-bosh is not running")
 		return nil
 	}
 
-	ui.PrintLinef("Stopping instant-bosh container...")
-	if err := dockerClient.StopContainer(ctx); err != nil {
-		return fmt.Errorf("failed to stop container: %w", err)
+	if incusRunning {
+		ui.PrintLinef("Stopping instant-bosh container (Incus mode)...")
+		if err := incusClient.StopContainer(ctx); err != nil {
+			return fmt.Errorf("failed to stop container: %w", err)
+		}
+		ui.PrintLinef("instant-bosh stopped successfully")
+		return nil
 	}
 
-	ui.PrintLinef("instant-bosh stopped successfully")
+	ui.PrintLinef("instant-bosh is not running")
 	return nil
 }

@@ -66,9 +66,20 @@ jobs:
       - name: Install bob (BOSH OCI Builder)
         env:
           GH_TOKEN: ${{ secrets.GIT_BOB_PULL_SECRET }}
+          # Disable devenv integration in nix which causes issues on cached runners
+          DEVENV_ROOT: ""
         run: |
-          # Clone the bob repository using the token
-          devbox run -- git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
+          # Clean stale devbox state
+          rm -rf .devbox
+          
+          # Install git via nix (the container doesn't have it)
+          nix profile install nixpkgs#git --extra-experimental-features "nix-command flakes"
+          
+          # Clone the bob repository using the token (without devbox shell)
+          git clone https://x-access-token:${GH_TOKEN}@github.com/rkoster/bosh-oci-builder.git /tmp/bosh-oci-builder
+          
+          # Create devenv.lock in bob repo to satisfy nix devenv integration
+          cp /tmp/bosh-oci-builder/flake.lock /tmp/bosh-oci-builder/devenv.lock || touch /tmp/bosh-oci-builder/devenv.lock
           
           # Add bob flake from the cloned repo to devbox
           devbox add path:/tmp/bosh-oci-builder#bob
