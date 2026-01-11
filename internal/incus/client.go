@@ -186,6 +186,42 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// GetHostAddress returns the IP address of the Incus host where proxy devices forward ports.
+// For remote Incus servers, this extracts the IP from the remote's URL.
+// For local connections, this returns "127.0.0.1".
+func (c *Client) GetHostAddress() string {
+	if c.remote == "local" || c.cliConfig == nil {
+		return "127.0.0.1"
+	}
+
+	remoteConfig, ok := c.cliConfig.Remotes[c.remote]
+	if !ok {
+		return "127.0.0.1"
+	}
+
+	// Extract host from URL like "https://192.168.2.145:8443"
+	addr := remoteConfig.Addr
+	addr = strings.TrimPrefix(addr, "https://")
+	addr = strings.TrimPrefix(addr, "http://")
+
+	// Remove port if present
+	if colonIdx := strings.LastIndex(addr, ":"); colonIdx != -1 {
+		// Make sure we're not cutting an IPv6 address
+		if !strings.Contains(addr[colonIdx:], "]") {
+			addr = addr[:colonIdx]
+		}
+	}
+
+	// Remove trailing slash
+	addr = strings.TrimSuffix(addr, "/")
+
+	if addr == "" {
+		return "127.0.0.1"
+	}
+
+	return addr
+}
+
 func (c *Client) NetworkName() string {
 	return c.networkName
 }
@@ -248,9 +284,10 @@ func (c *Client) IsContainerRunning(ctx context.Context) (bool, error) {
 func (c *Client) StartContainer(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Creating container %s", ContainerName)
 
-	imageFingerprint, err := c.EnsureImage(ctx, c.imageName)
+	// Read client certificate and key from incus config directory
+	clientCert, clientKey, err := c.readClientCredentials()
 	if err != nil {
-		return fmt.Errorf("ensuring image: %w", err)
+		return fmt.Errorf("reading client credentials: %w", err)
 	}
 
 	devices := map[string]map[string]string{
@@ -264,11 +301,43 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"path": "/",
 			"pool": c.storagePool,
 		},
+		// Proxy devices to expose BOSH director and jumpbox SSH on the Incus host
+		"bosh-director": {
+			"type":    "proxy",
+			"listen":  "tcp:0.0.0.0:25555",
+			"connect": "tcp:127.0.0.1:25555",
+		},
+		"bosh-jumpbox": {
+			"type":    "proxy",
+			"listen":  "tcp:0.0.0.0:2222",
+			"connect": "tcp:127.0.0.1:22",
+		},
 	}
 
+	// Pass BOSH configuration via environment variables
+	// BOB_VARS_ENV tells the entrypoint to read variables from env vars with the given prefix
+	// Note: The prefix must include the trailing underscore (IBOSH_ not IBOSH)
 	config := map[string]string{
-		"security.privileged": "true",
-		"raw.lxc":             "lxc.mount.auto = proc:rw sys:rw cgroup:rw\nlxc.apparmor.profile = unconfined",
+		"security.privileged":             "true",
+		"raw.lxc":                         "lxc.mount.auto = proc:rw sys:rw cgroup:rw\nlxc.apparmor.profile = unconfined",
+		"environment.BOB_VARS_ENV":        "IBOSH_",
+		"environment.IBOSH_internal_ip":   ContainerIP,
+		"environment.IBOSH_internal_cidr": NetworkSubnet,
+		"environment.IBOSH_internal_gw":   NetworkGateway,
+		"environment.IBOSH_director_name": "instant-bosh",
+		"environment.IBOSH_network":       c.networkName,
+		"environment.IBOSH_cpi_job":       "lxd_cpi",
+		// LXD CPI configuration - the director will connect to the Incus server via gateway
+		"environment.IBOSH_lxd_server_url":             "https://" + NetworkGateway + ":8443",
+		"environment.IBOSH_lxd_server_type":            "lxd",
+		"environment.IBOSH_lxd_server_insecure":        "true",
+		"environment.IBOSH_lxd_network_name":           c.networkName,
+		"environment.IBOSH_lxd_profile_name":           DefaultProfile,
+		"environment.IBOSH_lxd_project_name":           c.project,
+		"environment.IBOSH_lxd_storage_pool_name":      c.storagePool,
+		"environment.IBOSH_lxd_client_cert":            clientCert,
+		"environment.IBOSH_lxd_client_key":             clientKey,
+		"environment.IBOSH_director_alternative_names": fmt.Sprintf(`["%s","127.0.0.1","%s"]`, ContainerIP, c.GetHostAddress()),
 	}
 
 	req := api.InstancesPost{
@@ -278,20 +347,24 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			Config:  config,
 			Devices: devices,
 		},
-		Source: api.InstanceSource{
-			Type:        "image",
-			Fingerprint: imageFingerprint,
-		},
 	}
 
-	op, err := c.cli.CreateInstance(req)
-	if err != nil {
-		return fmt.Errorf("creating instance: %w", err)
+	// Create instance from image - either from OCI remote or local fingerprint
+	if err := c.createInstanceFromImage(ctx, req); err != nil {
+		return err
 	}
 
-	err = op.Wait()
-	if err != nil {
-		return fmt.Errorf("waiting for instance creation: %w", err)
+	// OCI images may have files/directories that prevent Incus from setting up the container:
+	// 1. /run directory - Incus needs to mount tmpfs here, fails if directory exists
+	// 2. /etc/resolv.conf symlink - Incus needs to bind-mount its own resolv.conf
+	// Delete these before starting so Incus can create them properly.
+	// See: https://github.com/rkoster/bosh-oci-builder/issues/96
+	c.logger.Debug(c.logTag, "Removing /run and /etc/resolv.conf from container for Incus compatibility")
+	if err := c.cli.DeleteInstanceFile(ContainerName, "/run"); err != nil {
+		c.logger.Debug(c.logTag, "Could not remove /run (may not exist): %v", err)
+	}
+	if err := c.cli.DeleteInstanceFile(ContainerName, "/etc/resolv.conf"); err != nil {
+		c.logger.Debug(c.logTag, "Could not remove /etc/resolv.conf (may not exist): %v", err)
 	}
 
 	c.logger.Debug(c.logTag, "Starting container %s", ContainerName)
@@ -301,7 +374,7 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		Timeout: -1,
 	}
 
-	op, err = c.cli.UpdateInstanceState(ContainerName, state, "")
+	op, err := c.cli.UpdateInstanceState(ContainerName, state, "")
 	if err != nil {
 		return fmt.Errorf("starting container: %w", err)
 	}
@@ -309,6 +382,109 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	err = op.Wait()
 	if err != nil {
 		return fmt.Errorf("waiting for container to start: %w", err)
+	}
+
+	return nil
+}
+
+// createInstanceFromImage creates an instance from an OCI image.
+// It mimics "incus launch oci-remote:image" by using CreateInstanceFromImage
+// which lets the server pull the image directly from the OCI registry.
+func (c *Client) createInstanceFromImage(ctx context.Context, req api.InstancesPost) error {
+	imageRef := c.imageName
+
+	// Check if imageRef is a fingerprint (no colons, hex string)
+	if !strings.Contains(imageRef, ":") && !strings.Contains(imageRef, "/") {
+		// Use local image by fingerprint
+		_, _, err := c.cli.GetImage(imageRef)
+		if err != nil {
+			return fmt.Errorf("image not found by fingerprint: %s", imageRef)
+		}
+		req.Source = api.InstanceSource{
+			Type:        "image",
+			Fingerprint: imageRef,
+		}
+		op, err := c.cli.CreateInstance(req)
+		if err != nil {
+			return fmt.Errorf("creating instance: %w", err)
+		}
+		return op.Wait()
+	}
+
+	// Parse image reference: ghcr.io/rkoster/instant-bosh:latest
+	imageParts := strings.Split(imageRef, ":")
+	if len(imageParts) != 2 {
+		return fmt.Errorf("invalid image reference format: %s (expected repository:tag)", imageRef)
+	}
+	registryAndRepo := imageParts[0]
+	tag := imageParts[1]
+
+	parts := strings.SplitN(registryAndRepo, "/", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid image reference format: %s (expected registry/repository:tag)", imageRef)
+	}
+	registry := parts[0]
+	repository := parts[1]
+
+	// Find OCI remote for this registry, or create one if it doesn't exist
+	if c.cliConfig == nil {
+		return fmt.Errorf("no CLI config available, cannot find OCI remote for %s", registry)
+	}
+
+	var ociRemoteName string
+	registryURL := "https://" + registry
+	for name, remote := range c.cliConfig.Remotes {
+		if remote.Protocol == "oci" && remote.Addr == registryURL {
+			ociRemoteName = name
+			c.logger.Debug(c.logTag, "Found OCI remote '%s' for registry %s", name, registry)
+			break
+		}
+	}
+
+	if ociRemoteName == "" {
+		// Auto-create OCI remote for this registry
+		ociRemoteName = "oci-" + strings.ReplaceAll(registry, ".", "-")
+		c.logger.Info(c.logTag, "Adding OCI remote '%s' for registry %s", ociRemoteName, registry)
+
+		c.cliConfig.Remotes[ociRemoteName] = cliconfig.Remote{
+			Addr:     registryURL,
+			Protocol: "oci",
+			Public:   true,
+		}
+
+		// Save the updated config
+		if err := c.cliConfig.SaveConfig(c.cliConfig.ConfigPath()); err != nil {
+			return fmt.Errorf("saving CLI config after adding OCI remote: %w", err)
+		}
+	}
+
+	// Connect to the OCI remote
+	ociImageServer, err := c.cliConfig.GetImageServer(ociRemoteName)
+	if err != nil {
+		return fmt.Errorf("connecting to OCI remote '%s': %w", ociRemoteName, err)
+	}
+
+	// For OCI remotes, we don't call GetImageAlias/GetImage like we would for incus remotes.
+	// Instead, we create a minimal image info with just the alias set.
+	// This matches how the incus CLI handles OCI remotes (see getImgInfo in utils.go).
+	ociAlias := fmt.Sprintf("%s:%s", repository, tag)
+	imgInfo := &api.Image{}
+	imgInfo.Fingerprint = ociAlias
+	imgInfo.Public = true
+	req.Source.Alias = ociAlias
+
+	c.logger.Info(c.logTag, "Creating instance from OCI image %s", imageRef)
+
+	// Use CreateInstanceFromImage - this is what "incus launch oci-remote:image" uses
+	// The server will pull the image directly from the OCI registry
+	remoteOp, err := c.cli.CreateInstanceFromImage(ociImageServer, *imgInfo, req)
+	if err != nil {
+		return fmt.Errorf("creating instance from image: %w", err)
+	}
+
+	err = remoteOp.Wait()
+	if err != nil {
+		return fmt.Errorf("waiting for instance creation: %w", err)
 	}
 
 	return nil
@@ -362,10 +538,14 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 		Environment: map[string]string{},
 	}
 
+	// Create a channel to signal when all data has been received
+	dataDone := make(chan bool)
+
 	args := incus.InstanceExecArgs{
-		Stdin:  nil,
-		Stdout: &strings.Builder{},
-		Stderr: &strings.Builder{},
+		Stdin:    nil,
+		Stdout:   &strings.Builder{},
+		Stderr:   &strings.Builder{},
+		DataDone: dataDone,
 	}
 
 	op, err := c.cli.ExecInstance(containerName, req, &args)
@@ -373,6 +553,7 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 		return "", fmt.Errorf("executing command: %w", err)
 	}
 
+	// Wait for the operation to complete
 	err = op.Wait()
 	if err != nil {
 		stderrOutput := args.Stderr.(*strings.Builder).String()
@@ -381,6 +562,9 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 		}
 		return "", fmt.Errorf("command failed: %w", err)
 	}
+
+	// Wait for all data to be received (important for large outputs)
+	<-dataDone
 
 	opAPI := op.Get()
 	if opAPI.StatusCode != api.Success {
@@ -393,94 +577,6 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 
 func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tail string) (string, error) {
 	return "", fmt.Errorf("GetContainerLogs not yet implemented for Incus")
-}
-
-func (c *Client) EnsureImage(ctx context.Context, imageRef string) (string, error) {
-	c.logger.Debug(c.logTag, "Ensuring OCI image %s is available", imageRef)
-
-	// Parse image reference to determine registry and image path
-	// Format: ghcr.io/rkoster/instant-bosh:latest or docker.io/library/ubuntu:22.04
-	imageParts := strings.Split(imageRef, ":")
-	if len(imageParts) != 2 {
-		return "", fmt.Errorf("invalid image reference format: %s (expected repository:tag)", imageRef)
-	}
-
-	registryAndRepo := imageParts[0]
-	tag := imageParts[1]
-
-	// Split registry from repository path
-	parts := strings.SplitN(registryAndRepo, "/", 2)
-	if len(parts) != 2 {
-		return "", fmt.Errorf("invalid image reference format: %s (expected registry/repository:tag)", imageRef)
-	}
-	registry := parts[0]
-	repository := parts[1]
-
-	// Map registry to OCI remote name (as configured in incus CLI)
-	ociRemoteName := ""
-	if c.cliConfig != nil {
-		registryURL := "https://" + registry
-		for name, remote := range c.cliConfig.Remotes {
-			if remote.Protocol == "oci" && remote.Addr == registryURL {
-				ociRemoteName = name
-				c.logger.Debug(c.logTag, "Found OCI remote '%s' for registry %s", name, registry)
-				break
-			}
-		}
-	}
-
-	if ociRemoteName != "" && c.cliConfig != nil {
-		// Use the OCI remote via cliconfig to pull the image
-		c.logger.Debug(c.logTag, "Using OCI remote '%s' to pull image", ociRemoteName)
-
-		ociImageServer, err := c.cliConfig.GetImageServer(ociRemoteName)
-		if err != nil {
-			return "", fmt.Errorf("connecting to OCI remote '%s': %w", ociRemoteName, err)
-		}
-
-		// For OCI, the alias format is: repository:tag (without leading /)
-		ociAlias := fmt.Sprintf("%s:%s", repository, tag)
-
-		// Get the image alias from the OCI registry
-		aliasEntry, _, err := ociImageServer.GetImageAlias(ociAlias)
-		if err != nil {
-			return "", fmt.Errorf("getting image alias '%s' from OCI remote: %w", ociAlias, err)
-		}
-
-		// Get the full image info
-		image, _, err := ociImageServer.GetImage(aliasEntry.Target)
-		if err != nil {
-			return "", fmt.Errorf("getting image info from OCI remote: %w", err)
-		}
-
-		// Check if the image already exists on the Incus server
-		_, _, err = c.cli.GetImage(image.Fingerprint)
-		if err == nil {
-			c.logger.Debug(c.logTag, "Image already exists on server, fingerprint=%s", image.Fingerprint)
-			return image.Fingerprint, nil
-		}
-
-		// Copy the image from OCI registry to the Incus server
-		c.logger.Info(c.logTag, "Copying OCI image from %s to Incus server", imageRef)
-		copyOp, err := c.cli.CopyImage(ociImageServer, *image, &incus.ImageCopyArgs{
-			CopyAliases: false,
-			Public:      false,
-		})
-		if err != nil {
-			return "", fmt.Errorf("copying image from OCI registry: %w", err)
-		}
-
-		err = copyOp.Wait()
-		if err != nil {
-			return "", fmt.Errorf("waiting for image copy: %w", err)
-		}
-		c.logger.Info(c.logTag, "Image copied successfully, fingerprint=%s", image.Fingerprint)
-
-		return image.Fingerprint, nil
-	}
-
-	// No OCI remote configured - this is an error for remote Incus servers
-	return "", fmt.Errorf("no OCI remote configured for registry %s. Please add it first using 'incus remote add <name> https://%s --protocol=oci'", registry, registry)
 }
 
 type incusAPIWrapper struct {
@@ -597,4 +693,38 @@ func (w *incusAPIWrapper) GetInstanceLogfile(instanceName string, filename strin
 
 func (w *incusAPIWrapper) Disconnect() {
 	w.server.Disconnect()
+}
+
+// readClientCredentials reads the client certificate and key from the incus config directory.
+// These credentials are used by the LXD CPI inside the container to connect back to the Incus server.
+func (c *Client) readClientCredentials() (string, string, error) {
+	// Determine the config directory
+	configDir := os.Getenv("INCUS_CONF")
+	if configDir == "" {
+		if c.cliConfig != nil {
+			// ConfigPath() returns the config directory (not the config file path)
+			configDir = c.cliConfig.ConfigPath()
+		} else {
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				return "", "", fmt.Errorf("getting home directory: %w", err)
+			}
+			configDir = filepath.Join(homeDir, ".config", "incus")
+		}
+	}
+
+	certPath := filepath.Join(configDir, "client.crt")
+	keyPath := filepath.Join(configDir, "client.key")
+
+	certData, err := os.ReadFile(certPath)
+	if err != nil {
+		return "", "", fmt.Errorf("reading client certificate from %s: %w", certPath, err)
+	}
+
+	keyData, err := os.ReadFile(keyPath)
+	if err != nil {
+		return "", "", fmt.Errorf("reading client key from %s: %w", keyPath, err)
+	}
+
+	return string(certData), string(keyData), nil
 }

@@ -224,6 +224,12 @@ func (c *Client) Close() error {
 	return c.cli.Close()
 }
 
+// GetHostAddress returns the address where BOSH director ports are exposed.
+// For Docker, this is always "127.0.0.1" since Docker forwards ports locally.
+func (c *Client) GetHostAddress() string {
+	return "127.0.0.1"
+}
+
 func (c *Client) VolumeExists(ctx context.Context, name string) (bool, error) {
 	c.logger.Debug(c.logTag, "Checking if volume %s exists", name)
 	_, err := c.cli.VolumeInspect(ctx, name)
@@ -288,6 +294,7 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"-v", "internal_gw=" + NetworkGateway,
 			"-v", "director_name=instant-bosh",
 			"-v", "network=" + NetworkName,
+			"-v", fmt.Sprintf(`director_alternative_names=["%s","127.0.0.1"]`, ContainerIP),
 		},
 		ExposedPorts: nat.PortSet{
 			"25555/tcp": struct{}{},

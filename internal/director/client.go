@@ -160,12 +160,16 @@ func GetDirectorConfig(ctx context.Context, containerClient container.Client, co
 		return nil, fmt.Errorf("failed to set permissions on jumpbox key: %w", err)
 	}
 
+	// Get the host address where ports are exposed
+	// For Docker this is 127.0.0.1, for remote Incus this is the Incus server IP
+	hostAddress := containerClient.GetHostAddress()
+
 	return &Config{
-		Environment:    "https://127.0.0.1:25555",
+		Environment:    fmt.Sprintf("https://%s:25555", hostAddress),
 		Client:         "admin",
 		ClientSecret:   adminPasswordStr,
 		CACert:         directorCertStr,
-		AllProxy:       fmt.Sprintf("ssh+socks5://jumpbox@localhost:2222?private-key=%s", keyFile),
+		AllProxy:       fmt.Sprintf("ssh+socks5://jumpbox@%s:2222?private-key=%s", hostAddress, keyFile),
 		JumpboxKeyPath: keyFile,
 	}, nil
 }

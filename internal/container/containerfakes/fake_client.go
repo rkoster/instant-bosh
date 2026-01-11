@@ -34,6 +34,16 @@ type FakeClient struct {
 		result1 string
 		result2 error
 	}
+	GetHostAddressStub        func() string
+	getHostAddressMutex       sync.RWMutex
+	getHostAddressArgsForCall []struct {
+	}
+	getHostAddressReturns struct {
+		result1 string
+	}
+	getHostAddressReturnsOnCall map[int]struct {
+		result1 string
+	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
 }
@@ -160,6 +170,59 @@ func (fake *FakeClient) ExecCommandReturnsOnCall(i int, result1 string, result2 
 		result1 string
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeClient) GetHostAddress() string {
+	fake.getHostAddressMutex.Lock()
+	ret, specificReturn := fake.getHostAddressReturnsOnCall[len(fake.getHostAddressArgsForCall)]
+	fake.getHostAddressArgsForCall = append(fake.getHostAddressArgsForCall, struct {
+	}{})
+	stub := fake.GetHostAddressStub
+	fakeReturns := fake.getHostAddressReturns
+	fake.recordInvocation("GetHostAddress", []interface{}{})
+	fake.getHostAddressMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeClient) GetHostAddressCallCount() int {
+	fake.getHostAddressMutex.RLock()
+	defer fake.getHostAddressMutex.RUnlock()
+	return len(fake.getHostAddressArgsForCall)
+}
+
+func (fake *FakeClient) GetHostAddressCalls(stub func() string) {
+	fake.getHostAddressMutex.Lock()
+	defer fake.getHostAddressMutex.Unlock()
+	fake.GetHostAddressStub = stub
+}
+
+func (fake *FakeClient) GetHostAddressReturns(result1 string) {
+	fake.getHostAddressMutex.Lock()
+	defer fake.getHostAddressMutex.Unlock()
+	fake.GetHostAddressStub = nil
+	fake.getHostAddressReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeClient) GetHostAddressReturnsOnCall(i int, result1 string) {
+	fake.getHostAddressMutex.Lock()
+	defer fake.getHostAddressMutex.Unlock()
+	fake.GetHostAddressStub = nil
+	if fake.getHostAddressReturnsOnCall == nil {
+		fake.getHostAddressReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.getHostAddressReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *FakeClient) Invocations() map[string][][]interface{} {
