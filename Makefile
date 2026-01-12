@@ -1,5 +1,6 @@
 .PHONY: help build build-ibosh dev-bob-build run stop logs sync clean reset print-env
 
+# Rebuild trigger: bob JSON array fix (issue #98)
 help:
 	@echo "Available targets:"
 	@echo "  sync           - Sync vendored dependencies using vendir"
