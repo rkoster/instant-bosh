@@ -1,6 +1,6 @@
 .PHONY: help build build-ibosh dev-bob-build run stop logs sync clean reset print-env
 
-# Rebuild trigger: bob underscore prefix fix (issue #100)
+# Rebuild trigger: bob underscore prefix fix (issue #100) - attempt 2
 help:
 	@echo "Available targets:"
 	@echo "  sync           - Sync vendored dependencies using vendir"
