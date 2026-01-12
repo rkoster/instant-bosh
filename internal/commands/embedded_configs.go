@@ -81,3 +81,11 @@ var (
 	cloudConfigYAMLBytes      = []byte(cloudConfigYAML)
 	incusCloudConfigYAMLBytes = []byte(incusCloudConfigYAML)
 )
+
+func GetDockerCloudConfigBytes() []byte {
+	return cloudConfigYAMLBytes
+}
+
+func GetIncusCloudConfigBytes() []byte {
+	return incusCloudConfigYAMLBytes
+}
