@@ -28,20 +28,20 @@ Each command needs to be refactored to:
 3. Simplify logic by delegating to CPI methods
 
 #### Commands to Refactor:
-- [ ] `stop.go` - Remove Docker/Incus detection, use `cpiInstance.Stop(ctx)`
-- [ ] `destroy.go` - Remove mode-specific cleanup, use `cpiInstance.Destroy(ctx)`
-- [ ] `env.go` - Remove Docker-specific client/container listing logic
-- [ ] `print_env.go` - Remove Docker/Incus detection and mode-specific config retrieval
-- [ ] `logs.go` - Use `cpiInstance.GetLogs()` and `cpiInstance.FollowLogs()`
+- [x] `stop.go` ✅ - Removed Docker/Incus detection, uses `cpiInstance.Stop(ctx)` (Commit: bb9f6fb)
+- [x] `destroy.go` ✅ - Removed mode-specific cleanup, uses `cpiInstance.Destroy(ctx)` (Commit: 8065978)
+- [ ] `env.go` - Remove Docker-specific client/container listing logic, needs CPI methods for network containers
+- [ ] `print_env.go` - Remove Docker/Incus detection, use director.ConfigProvider with CPI
+- [ ] `logs.go` - Use `cpiInstance.GetLogs()` and `cpiInstance.FollowLogs()` (CPI methods already exist)
 - [ ] `start.go` - **Most Complex** - Needs comprehensive refactoring (~555 lines → ~180 lines estimated)
 
 Expected simplifications:
-- `stop.go`: 66 lines → ~20 lines
-- `destroy.go`: 122 lines → ~30 lines
-- `env.go`: ~192 lines → ~60 lines
-- `print_env.go`: 74 lines → ~35 lines
-- `logs.go`: 111 lines → ~70 lines
-- `start.go`: 555 lines → ~180 lines
+- `stop.go`: 66 lines → 31 lines ✅ (53% reduction)
+- `destroy.go`: 122 lines → 43 lines ✅ (65% reduction)
+- `env.go`: ~192 lines → ~80 lines (needs GetContainersOnNetwork CPI method)
+- `print_env.go`: 74 lines → ~35 lines (straightforward refactoring)
+- `logs.go`: 111 lines → ~45 lines (CPI methods already exist)
+- `start.go`: 555 lines → ~180 lines (most complex)
 
 ### Phase 3: Main.go Updates
 Update `cmd/ibosh/main.go` to:
