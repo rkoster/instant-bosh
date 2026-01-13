@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync"
 	"time"
 
 	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
@@ -297,11 +298,14 @@ var _ = Describe("StartAction", func() {
 	Describe("log streaming", func() {
 		Context("when FollowLogsWithOptions is called", func() {
 			var logStreamCalled bool
+			var logStreamMutex sync.Mutex
 
 			BeforeEach(func() {
 				logStreamCalled = false
 				fakeCPI.FollowLogsWithOptionsStub = func(ctx context.Context, follow bool, tail string, stdout, stderr io.Writer) error {
+					logStreamMutex.Lock()
 					logStreamCalled = true
+					logStreamMutex.Unlock()
 					Expect(follow).To(BeTrue())
 					Expect(tail).To(Equal("0"))
 					return nil
@@ -312,7 +316,11 @@ var _ = Describe("StartAction", func() {
 				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
 				Expect(err).NotTo(HaveOccurred())
 
-				Eventually(func() bool { return logStreamCalled }, "1s").Should(BeTrue())
+				Eventually(func() bool {
+					logStreamMutex.Lock()
+					defer logStreamMutex.Unlock()
+					return logStreamCalled
+				}, "1s").Should(BeTrue())
 			})
 		})
 	})

@@ -185,10 +185,10 @@ func handleDockerImageManagement(
 			ui.PrintLinef("")
 			ui.PrintLinef("Continue with upgrade?")
 
-			if err := ui.AskForConfirmation(); err != nil {
-				ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
-				return fmt.Errorf("upgrade cancelled by user")
-			}
+		if err := ui.AskForConfirmation(); err != nil {
+			ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
+			return nil
+		}
 
 			ui.PrintLinef("")
 			ui.PrintLinef("Upgrading to new image...")

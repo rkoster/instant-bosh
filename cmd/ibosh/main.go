@@ -36,7 +36,11 @@ func detectAndCreateCPI(ctx context.Context, logger boshlog.Logger) (cpi.CPI, er
 	dockerClient, err := docker.NewClient(logger, "")
 	if err == nil {
 		dockerCPI := cpi.NewDockerCPI(dockerClient)
+		// Check if container is running OR exists (to support destroy on stopped containers)
 		if running, _ := dockerCPI.IsRunning(ctx); running {
+			return dockerCPI, nil
+		}
+		if exists, _ := dockerCPI.Exists(ctx); exists {
 			return dockerCPI, nil
 		}
 		dockerClient.Close()
@@ -45,13 +49,17 @@ func detectAndCreateCPI(ctx context.Context, logger boshlog.Logger) (cpi.CPI, er
 	incusClient, err := incus.NewClient(logger, "", "default", "", "default", "")
 	if err == nil {
 		incusCPI := cpi.NewIncusCPI(incusClient)
+		// Check if container is running OR exists (to support destroy on stopped containers)
 		if running, _ := incusCPI.IsRunning(ctx); running {
+			return incusCPI, nil
+		}
+		if exists, _ := incusCPI.Exists(ctx); exists {
 			return incusCPI, nil
 		}
 		incusClient.Close()
 	}
 
-	return nil, fmt.Errorf("no running instant-bosh director found")
+	return nil, fmt.Errorf("no instant-bosh director found (neither running nor stopped)")
 }
 
 func createCPIForStart(ctx context.Context, logger boshlog.Logger, cpiMode string, incusRemote, incusNetwork, incusStoragePool, incusProject, customImage string) (cpi.CPI, error) {

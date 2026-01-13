@@ -7,7 +7,6 @@ import (
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/cpi"
-	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/logparser"
 	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"golang.org/x/term"
@@ -79,13 +78,6 @@ func StreamMainComponentLogs(ctx context.Context, cpiInstance cpi.CPI, ui UI) er
 	writer := logwriter.New(&uiWriter{ui: ui}, config)
 
 	return cpiInstance.FollowLogsWithOptions(ctx, true, "all", writer, writer)
-}
-
-// StreamMainComponentLogsFromDocker is a temporary shim for start.go compatibility
-// TODO: Remove this when start.go is refactored to use CPI
-func StreamMainComponentLogsFromDocker(ctx context.Context, dockerClient *docker.Client, ui UI) error {
-	dockerCPI := cpi.NewDockerCPI(dockerClient)
-	return StreamMainComponentLogs(ctx, dockerCPI, ui)
 }
 
 // uiWriter wraps UI to implement io.Writer
