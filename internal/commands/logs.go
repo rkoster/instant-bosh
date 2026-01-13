@@ -5,27 +5,17 @@ import (
 	"os"
 	"strings"
 
-	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
-	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/cpi"
 	"github.com/rkoster/instant-bosh/internal/logparser"
 	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"golang.org/x/term"
 )
 
-func LogsAction(ui boshui.UI, logger boshlog.Logger, listComponents bool, components []string, follow bool, tail string) error {
-	return LogsActionWithFactory(ui, logger, &docker.DefaultClientFactory{}, listComponents, components, follow, tail)
-}
-
-func LogsActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.ClientFactory, listComponents bool, components []string, follow bool, tail string) error {
+func LogsAction(ui UI, logger boshlog.Logger, cpiInstance cpi.CPI, listComponents bool, components []string, follow bool, tail string) error {
 	ctx := context.Background()
-	dockerClient, err := clientFactory.NewClient(logger, "")
-	if err != nil {
-		return err
-	}
-	defer dockerClient.Close()
 
-	running, err := dockerClient.IsContainerRunning(ctx)
+	running, err := cpiInstance.IsRunning(ctx)
 	if err != nil {
 		return err
 	}
@@ -38,7 +28,7 @@ func LogsActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.Cl
 	// If listing components, fetch logs and extract components
 	if listComponents {
 		// Get all logs to find components from the beginning
-		logContent, err := dockerClient.GetContainerLogs(ctx, docker.ContainerName, "all")
+		logContent, err := cpiInstance.GetLogs(ctx, "all")
 		if err != nil {
 			return err
 		}
@@ -70,7 +60,7 @@ func LogsActionWithFactory(ui UI, logger boshlog.Logger, clientFactory docker.Cl
 	stdoutWriter := logwriter.New(os.Stdout, config)
 	stderrWriter := logwriter.New(os.Stderr, config)
 
-	return dockerClient.FollowContainerLogs(ctx, docker.ContainerName, follow, tail, stdoutWriter, stderrWriter)
+	return cpiInstance.FollowLogsWithOptions(ctx, follow, tail, stdoutWriter, stderrWriter)
 }
 
 // isTerminal checks if the file descriptor is a terminal
@@ -80,19 +70,14 @@ func isTerminal(fd uintptr) bool {
 
 // StreamMainComponentLogs streams logs from the main component, showing only messages
 // This is used during startup to show progress without cluttering the output
-func StreamMainComponentLogs(ctx context.Context, dockerClient *docker.Client, ui UI) error {
-	// Use the UI to write messages directly - use same writer for both stdout and stderr
-	// since we want all logs from the main component
+func StreamMainComponentLogs(ctx context.Context, cpiInstance cpi.CPI, ui UI) error {
 	config := logwriter.Config{
 		MessageOnly: true,
 		Components:  []string{"main"},
 	}
 	writer := logwriter.New(&uiWriter{ui: ui}, config)
 
-	// Follow logs from the container starting from the beginning
-	// tail="all" gets all existing logs and then follows for new ones
-	// Use the same writer for both stdout and stderr streams
-	return dockerClient.FollowContainerLogs(ctx, docker.ContainerName, true, "all", writer, writer)
+	return cpiInstance.FollowLogsWithOptions(ctx, true, "all", writer, writer)
 }
 
 // uiWriter wraps UI to implement io.Writer
