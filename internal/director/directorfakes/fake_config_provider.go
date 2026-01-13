@@ -5,16 +5,17 @@ import (
 	"context"
 	"sync"
 
+	"github.com/rkoster/instant-bosh/internal/container"
 	"github.com/rkoster/instant-bosh/internal/director"
-	"github.com/rkoster/instant-bosh/internal/docker"
 )
 
 type FakeConfigProvider struct {
-	GetDirectorConfigStub        func(context.Context, *docker.Client) (*director.Config, error)
+	GetDirectorConfigStub        func(context.Context, container.Client, string) (*director.Config, error)
 	getDirectorConfigMutex       sync.RWMutex
 	getDirectorConfigArgsForCall []struct {
 		arg1 context.Context
-		arg2 *docker.Client
+		arg2 container.Client
+		arg3 string
 	}
 	getDirectorConfigReturns struct {
 		result1 *director.Config
@@ -28,19 +29,20 @@ type FakeConfigProvider struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *FakeConfigProvider) GetDirectorConfig(arg1 context.Context, arg2 *docker.Client) (*director.Config, error) {
+func (fake *FakeConfigProvider) GetDirectorConfig(arg1 context.Context, arg2 container.Client, arg3 string) (*director.Config, error) {
 	fake.getDirectorConfigMutex.Lock()
 	ret, specificReturn := fake.getDirectorConfigReturnsOnCall[len(fake.getDirectorConfigArgsForCall)]
 	fake.getDirectorConfigArgsForCall = append(fake.getDirectorConfigArgsForCall, struct {
 		arg1 context.Context
-		arg2 *docker.Client
-	}{arg1, arg2})
+		arg2 container.Client
+		arg3 string
+	}{arg1, arg2, arg3})
 	stub := fake.GetDirectorConfigStub
 	fakeReturns := fake.getDirectorConfigReturns
-	fake.recordInvocation("GetDirectorConfig", []interface{}{arg1, arg2})
+	fake.recordInvocation("GetDirectorConfig", []interface{}{arg1, arg2, arg3})
 	fake.getDirectorConfigMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -54,17 +56,17 @@ func (fake *FakeConfigProvider) GetDirectorConfigCallCount() int {
 	return len(fake.getDirectorConfigArgsForCall)
 }
 
-func (fake *FakeConfigProvider) GetDirectorConfigCalls(stub func(context.Context, *docker.Client) (*director.Config, error)) {
+func (fake *FakeConfigProvider) GetDirectorConfigCalls(stub func(context.Context, container.Client, string) (*director.Config, error)) {
 	fake.getDirectorConfigMutex.Lock()
 	defer fake.getDirectorConfigMutex.Unlock()
 	fake.GetDirectorConfigStub = stub
 }
 
-func (fake *FakeConfigProvider) GetDirectorConfigArgsForCall(i int) (context.Context, *docker.Client) {
+func (fake *FakeConfigProvider) GetDirectorConfigArgsForCall(i int) (context.Context, container.Client, string) {
 	fake.getDirectorConfigMutex.RLock()
 	defer fake.getDirectorConfigMutex.RUnlock()
 	argsForCall := fake.getDirectorConfigArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeConfigProvider) GetDirectorConfigReturns(result1 *director.Config, result2 error) {

@@ -89,7 +89,7 @@ func UploadStemcellActionWithFactories(
 	}
 
 	// Get director configuration
-	dirConfig, err := configProvider.GetDirectorConfig(ctx, dockerClient)
+	dirConfig, err := configProvider.GetDirectorConfig(ctx, dockerClient, docker.ContainerName)
 	if err != nil {
 		return fmt.Errorf("failed to get director config: %w", err)
 	}

@@ -58,15 +58,58 @@ func main() {
 						Usage: "Custom image to use (e.g., ghcr.io/rkoster/instant-bosh:main-9e61f6f)",
 						Value: "",
 					},
+					&cli.StringFlag{
+						Name:    "cpi",
+						Usage:   "CPI to use: 'docker' or 'incus'",
+						Value:   "docker",
+						EnvVars: []string{"IBOSH_CPI"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-remote",
+						Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
+						EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-network",
+						Usage:   "Incus network name for VM connectivity (default: instant-bosh-incus)",
+						Value:   "",
+						EnvVars: []string{"IBOSH_INCUS_NETWORK"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-storage-pool",
+						Usage:   "Incus storage pool name",
+						Value:   "default",
+						EnvVars: []string{"IBOSH_INCUS_STORAGE_POOL"},
+					},
+					&cli.StringFlag{
+						Name:    "incus-project",
+						Usage:   "Incus project name",
+						Value:   "default",
+						EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+					},
 				},
 				Action: func(c *cli.Context) error {
-					// Validate mutually exclusive flags
 					if c.Bool("skip-update") && c.String("image") != "" {
 						return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
 					}
 
+					cpi := c.String("cpi")
+					if cpi != "docker" && cpi != "incus" {
+						return cli.Exit("Error: --cpi must be 'docker' or 'incus'", 1)
+					}
+
 					ui, logger := initUIAndLogger(c)
-					return commands.StartAction(ui, logger, c.Bool("skip-update"), c.Bool("skip-stemcell-upload"), c.String("image"))
+					opts := commands.StartOptions{
+						SkipUpdate:         c.Bool("skip-update"),
+						SkipStemcellUpload: c.Bool("skip-stemcell-upload"),
+						CustomImage:        c.String("image"),
+						CPI:                cpi,
+						IncusRemote:        c.String("incus-remote"),
+						IncusNetwork:       c.String("incus-network"),
+						IncusStoragePool:   c.String("incus-storage-pool"),
+						IncusProject:       c.String("incus-project"),
+					}
+					return commands.StartAction(ui, logger, opts)
 				},
 			},
 			{

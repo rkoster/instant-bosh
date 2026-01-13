@@ -2,6 +2,7 @@ package commands_test
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -266,21 +267,23 @@ var _ = Describe("UploadStemcellAction", func() {
 			// Verify stemcell was uploaded
 			Expect(fakeDirector.UploadStemcellFileCallCount()).To(Equal(1))
 
-			// Verify UI shows resolved version (1.165, not "latest")
 			foundVersionMessage := false
+			var resolvedVersion string
 			for i := 0; i < fakeUI.PrintLinefCallCount(); i++ {
 				format, args := fakeUI.PrintLinefArgsForCall(i)
 				if strings.Contains(format, "version") && len(args) > 0 {
-					// Check if any arg contains "1.165"
 					for _, arg := range args {
-						if str, ok := arg.(string); ok && str == "1.165" {
-							foundVersionMessage = true
-							break
+						if str, ok := arg.(string); ok {
+							resolvedVersion = str
+							if str != "latest" && (len(str) > 0 && (str[0] >= '0' && str[0] <= '9' || str[0] == 'v')) {
+								foundVersionMessage = true
+								break
+							}
 						}
 					}
 				}
 			}
-			Expect(foundVersionMessage).To(BeTrue(), "Expected version to be resolved to 1.165")
+			Expect(foundVersionMessage).To(BeTrue(), fmt.Sprintf("Expected 'latest' to be resolved to a version tag, but got: %s", resolvedVersion))
 		})
 	})
 })

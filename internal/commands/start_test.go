@@ -200,7 +200,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("displays checking for updates message and upgrades the container", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify UI messages
@@ -263,7 +263,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("cancels upgrade without making changes", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify container was NOT stopped
@@ -322,7 +322,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("pulls image and starts container", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify image was pulled
@@ -381,7 +381,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("checks for updates, pulls newer image, and starts container", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify update check was performed
@@ -452,7 +452,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("displays 'at latest version' message and starts container", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify update check was performed
@@ -509,7 +509,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("displays already running message without recreating container", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify container was NOT stopped or recreated
@@ -546,7 +546,7 @@ var _ = Describe("StartAction", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(client).NotTo(BeNil())
 
-			config, err := fakeConfigProvider.GetDirectorConfig(context.Background(), nil)
+			config, err := fakeConfigProvider.GetDirectorConfig(context.Background(), nil, "instant-bosh")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(config).NotTo(BeNil())
 
@@ -608,7 +608,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("displays 'Using existing' messages for volumes and network", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify volumes were NOT created
@@ -685,7 +685,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("displays 'Creating' messages and creates volumes and network", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify volumes were created
@@ -769,7 +769,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("displays 'Creating volumes' and creates only the missing volume", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify only one volume was created (the missing one)
@@ -816,7 +816,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("fails fast and returns the error", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to check if volume"))
 
@@ -853,7 +853,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("fails fast and returns the error", func() {
-				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, false, false, "")
+				err := commands.StartActionWithFactories(fakeUI, logger, fakeClientFactory, fakeConfigProvider, fakeDirectorFactory, commands.StartOptions{SkipUpdate: false, SkipStemcellUpload: false, CustomImage: ""})
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to check if network exists"))
 
@@ -889,9 +889,11 @@ var _ = Describe("StartAction", func() {
 					fakeClientFactory,
 					fakeConfigProvider,
 					fakeDirectorFactory,
-					false, // skipUpdate
-					true,  // skipStemcellUpload
-					"",    // customImage
+					commands.StartOptions{
+						SkipUpdate:         false,
+						SkipStemcellUpload: true,
+						CustomImage:        "",
+					},
 				)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -996,14 +998,16 @@ var _ = Describe("StartAction", func() {
 			It("uploads default stemcells", func() {
 				err := commands.StartActionWithFactories(
 					fakeUI,
-					logger,
-					fakeClientFactory,
-					fakeConfigProvider,
-					fakeDirectorFactory,
-					false, // skipUpdate
-					false, // skipStemcellUpload
-					"",    // customImage
-				)
+				logger,
+				fakeClientFactory,
+				fakeConfigProvider,
+				fakeDirectorFactory,
+				commands.StartOptions{
+					SkipUpdate:         false,
+					SkipStemcellUpload: false,
+					CustomImage:        "",
+				},
+			)
 				Expect(err).NotTo(HaveOccurred())
 
 				// Verify stemcells were checked and uploaded
