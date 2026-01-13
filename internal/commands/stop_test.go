@@ -1,11 +1,7 @@
 package commands_test
 
 import (
-	"context"
 	"errors"
-
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	. "github.com/onsi/ginkgo/v2"
@@ -13,94 +9,61 @@ import (
 
 	"github.com/rkoster/instant-bosh/internal/commands"
 	"github.com/rkoster/instant-bosh/internal/commands/commandsfakes"
-	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/rkoster/instant-bosh/internal/docker/dockerfakes"
+	"github.com/rkoster/instant-bosh/internal/cpi/cpifakes"
 )
 
 var _ = Describe("StopAction", func() {
 	var (
-		fakeDockerAPI     *dockerfakes.FakeDockerAPI
-		fakeClientFactory *dockerfakes.FakeClientFactory
-		fakeUI            *commandsfakes.FakeUI
-		logger            boshlog.Logger
+		fakeCPI *cpifakes.FakeCPI
+		fakeUI  *commandsfakes.FakeUI
+		logger  boshlog.Logger
 	)
 
 	BeforeEach(func() {
-		fakeDockerAPI = &dockerfakes.FakeDockerAPI{}
-		fakeClientFactory = &dockerfakes.FakeClientFactory{}
+		fakeCPI = &cpifakes.FakeCPI{}
 		fakeUI = &commandsfakes.FakeUI{}
-
 		logger = boshlog.NewLogger(boshlog.LevelNone)
-
-		// Configure fakeClientFactory to return a test client with fakeDockerAPI
-		fakeClientFactory.NewClientStub = func(logger boshlog.Logger, customImage string) (*docker.Client, error) {
-			return docker.NewTestClient(fakeDockerAPI, logger, docker.ImageName), nil
-		}
-
-		// Default: container stop succeeds
-		fakeDockerAPI.ContainerStopReturns(nil)
-
-		// Default: close succeeds
-		fakeDockerAPI.CloseReturns(nil)
 	})
 
 	Describe("stopping running container", func() {
 		Context("when container is running", func() {
 			BeforeEach(func() {
-				// Container is running
-				fakeDockerAPI.ContainerListStub = func(ctx context.Context, options container.ListOptions) ([]types.Container, error) {
-					// After stop: container is not running
-					if fakeDockerAPI.ContainerStopCallCount() > 0 {
-						return []types.Container{}, nil
-					}
-					// Initially: container is running
-					return []types.Container{
-						{
-							Names: []string{"/instant-bosh"},
-							State: "running",
-						},
-					}, nil
-				}
+				fakeCPI.IsRunningReturns(true, nil)
+				fakeCPI.StopReturns(nil)
 			})
 
 			It("should stop the container successfully", func() {
-				err := commands.StopActionWithFactory(fakeUI, logger, fakeClientFactory)
+				err := commands.StopAction(fakeUI, logger, fakeCPI)
 
 				Expect(err).NotTo(HaveOccurred())
 
 				// Should check if container is running
-				Expect(fakeDockerAPI.ContainerListCallCount()).To(BeNumerically(">", 0))
+				Expect(fakeCPI.IsRunningCallCount()).To(Equal(1))
 
 				// Should stop the container
-				Expect(fakeDockerAPI.ContainerStopCallCount()).To(Equal(1))
+				Expect(fakeCPI.StopCallCount()).To(Equal(1))
 
 				// Should print success message
-				Expect(fakeUI.PrintLinefCallCount()).To(BeNumerically(">", 0))
+				Expect(fakeUI.PrintLinefCallCount()).To(Equal(2))
+				Expect(fakeUI.PrintLinefArgsForCall(0)).To(Equal("Stopping instant-bosh container..."))
+				Expect(fakeUI.PrintLinefArgsForCall(1)).To(Equal("instant-bosh stopped successfully"))
 			})
 		})
 
 		Context("when stopping container fails", func() {
 			BeforeEach(func() {
-				// Container is running
-				fakeDockerAPI.ContainerListReturns([]types.Container{
-					{
-						Names: []string{"/instant-bosh"},
-						State: "running",
-					},
-				}, nil)
-
-				// Stop operation fails
-				fakeDockerAPI.ContainerStopReturns(errors.New("failed to stop container"))
+				fakeCPI.IsRunningReturns(true, nil)
+				fakeCPI.StopReturns(errors.New("failed to stop container"))
 			})
 
 			It("should return an error", func() {
-				err := commands.StopActionWithFactory(fakeUI, logger, fakeClientFactory)
+				err := commands.StopAction(fakeUI, logger, fakeCPI)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to stop container"))
 
 				// Should attempt to stop the container
-				Expect(fakeDockerAPI.ContainerStopCallCount()).To(Equal(1))
+				Expect(fakeCPI.StopCallCount()).To(Equal(1))
 			})
 		})
 	})
@@ -108,73 +71,60 @@ var _ = Describe("StopAction", func() {
 	Describe("when container is not running", func() {
 		Context("when container doesn't exist", func() {
 			BeforeEach(func() {
-				// No containers running
-				fakeDockerAPI.ContainerListReturns([]types.Container{}, nil)
+				fakeCPI.IsRunningReturns(false, nil)
 			})
 
 			It("should inform user and exit gracefully", func() {
-				err := commands.StopActionWithFactory(fakeUI, logger, fakeClientFactory)
+				err := commands.StopAction(fakeUI, logger, fakeCPI)
 
 				Expect(err).NotTo(HaveOccurred())
 
 				// Should check if container is running
-				Expect(fakeDockerAPI.ContainerListCallCount()).To(BeNumerically(">", 0))
+				Expect(fakeCPI.IsRunningCallCount()).To(Equal(1))
 
 				// Should NOT attempt to stop
-				Expect(fakeDockerAPI.ContainerStopCallCount()).To(Equal(0))
+				Expect(fakeCPI.StopCallCount()).To(Equal(0))
 
 				// Should print "not running" message
 				Expect(fakeUI.PrintLinefCallCount()).To(Equal(1))
+				Expect(fakeUI.PrintLinefArgsForCall(0)).To(Equal("instant-bosh is not running"))
 			})
 		})
 
 		Context("when container exists but is stopped", func() {
 			BeforeEach(func() {
-				// Container exists but not running (stopped state)
-				fakeDockerAPI.ContainerListReturns([]types.Container{}, nil)
+				fakeCPI.IsRunningReturns(false, nil)
 			})
 
 			It("should inform user and exit gracefully", func() {
-				err := commands.StopActionWithFactory(fakeUI, logger, fakeClientFactory)
+				err := commands.StopAction(fakeUI, logger, fakeCPI)
 
 				Expect(err).NotTo(HaveOccurred())
 
 				// Should NOT attempt to stop
-				Expect(fakeDockerAPI.ContainerStopCallCount()).To(Equal(0))
+				Expect(fakeCPI.StopCallCount()).To(Equal(0))
 
 				// Should print "not running" message
 				Expect(fakeUI.PrintLinefCallCount()).To(Equal(1))
+				Expect(fakeUI.PrintLinefArgsForCall(0)).To(Equal("instant-bosh is not running"))
 			})
 		})
 	})
 
 	Describe("error handling", func() {
-		Context("when docker client creation fails", func() {
-			BeforeEach(func() {
-				fakeClientFactory.NewClientReturns(nil, errors.New("docker connection failed"))
-			})
-
-			It("should return an error", func() {
-				err := commands.StopActionWithFactory(fakeUI, logger, fakeClientFactory)
-
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("failed to create docker client"))
-			})
-		})
-
 		Context("when checking container status fails", func() {
 			BeforeEach(func() {
-				fakeDockerAPI.ContainerListReturns(nil, errors.New("docker api error"))
+				fakeCPI.IsRunningReturns(false, errors.New("cpi error"))
 			})
 
 			It("should return an error", func() {
-				err := commands.StopActionWithFactory(fakeUI, logger, fakeClientFactory)
+				err := commands.StopAction(fakeUI, logger, fakeCPI)
 
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("docker api error"))
+				Expect(err.Error()).To(ContainSubstring("failed to check if container is running"))
 
 				// Should NOT attempt to stop if status check fails
-				Expect(fakeDockerAPI.ContainerStopCallCount()).To(Equal(0))
+				Expect(fakeCPI.StopCallCount()).To(Equal(0))
 			})
 		})
 	})
