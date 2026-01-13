@@ -71,6 +71,15 @@ func (d *DockerCPI) Stop(ctx context.Context) error {
 }
 
 func (d *DockerCPI) Destroy(ctx context.Context) error {
+	containers, err := d.client.GetContainersOnNetwork(ctx)
+	if err == nil {
+		for _, containerName := range containers {
+			if containerName != docker.ContainerName {
+				_ = d.client.RemoveContainer(ctx, containerName)
+			}
+		}
+	}
+
 	if err := d.client.RemoveContainer(ctx, docker.ContainerName); err != nil {
 		return err
 	}
@@ -128,6 +137,18 @@ func (d *DockerCPI) GetHostAddress() string {
 
 func (d *DockerCPI) GetCloudConfigBytes() []byte {
 	return dockerCloudConfigYAML
+}
+
+func (d *DockerCPI) GetContainerIP() string {
+	return docker.ContainerIP
+}
+
+func (d *DockerCPI) GetDirectorPort() string {
+	return docker.DirectorPort
+}
+
+func (d *DockerCPI) GetSSHPort() string {
+	return docker.SSHPort
 }
 
 func (d *DockerCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error) {

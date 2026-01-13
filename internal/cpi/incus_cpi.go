@@ -92,8 +92,28 @@ func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail 
 }
 
 func (i *IncusCPI) WaitForReady(ctx context.Context, maxWait time.Duration) error {
-	time.Sleep(60 * time.Second)
-	return nil
+	timer := time.NewTimer(maxWait)
+	defer timer.Stop()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return fmt.Errorf("timeout waiting for Incus container to be ready after %v", maxWait)
+		case <-ticker.C:
+			running, err := i.IsRunning(ctx)
+			if err != nil {
+				continue
+			}
+			if running {
+				return nil
+			}
+		}
+	}
 }
 
 func (i *IncusCPI) GetContainerName() string {
@@ -106,6 +126,18 @@ func (i *IncusCPI) GetHostAddress() string {
 
 func (i *IncusCPI) GetCloudConfigBytes() []byte {
 	return incusCloudConfigYAML
+}
+
+func (i *IncusCPI) GetContainerIP() string {
+	return incus.ContainerIP
+}
+
+func (i *IncusCPI) GetDirectorPort() string {
+	return incus.DirectorPort
+}
+
+func (i *IncusCPI) GetSSHPort() string {
+	return incus.SSHPort
 }
 
 func (i *IncusCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error) {

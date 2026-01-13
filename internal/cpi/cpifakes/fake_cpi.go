@@ -109,6 +109,16 @@ type FakeCPI struct {
 	getCloudConfigBytesReturnsOnCall map[int]struct {
 		result1 []byte
 	}
+	GetContainerIPStub        func() string
+	getContainerIPMutex       sync.RWMutex
+	getContainerIPArgsForCall []struct {
+	}
+	getContainerIPReturns struct {
+		result1 string
+	}
+	getContainerIPReturnsOnCall map[int]struct {
+		result1 string
+	}
 	GetContainerNameStub        func() string
 	getContainerNameMutex       sync.RWMutex
 	getContainerNameArgsForCall []struct {
@@ -131,6 +141,16 @@ type FakeCPI struct {
 	getContainersOnNetworkReturnsOnCall map[int]struct {
 		result1 []cpi.ContainerInfo
 		result2 error
+	}
+	GetDirectorPortStub        func() string
+	getDirectorPortMutex       sync.RWMutex
+	getDirectorPortArgsForCall []struct {
+	}
+	getDirectorPortReturns struct {
+		result1 string
+	}
+	getDirectorPortReturnsOnCall map[int]struct {
+		result1 string
 	}
 	GetHostAddressStub        func() string
 	getHostAddressMutex       sync.RWMutex
@@ -155,6 +175,16 @@ type FakeCPI struct {
 	getLogsReturnsOnCall map[int]struct {
 		result1 string
 		result2 error
+	}
+	GetSSHPortStub        func() string
+	getSSHPortMutex       sync.RWMutex
+	getSSHPortArgsForCall []struct {
+	}
+	getSSHPortReturns struct {
+		result1 string
+	}
+	getSSHPortReturnsOnCall map[int]struct {
+		result1 string
 	}
 	IsRunningStub        func(context.Context) (bool, error)
 	isRunningMutex       sync.RWMutex
@@ -698,6 +728,59 @@ func (fake *FakeCPI) GetCloudConfigBytesReturnsOnCall(i int, result1 []byte) {
 	}{result1}
 }
 
+func (fake *FakeCPI) GetContainerIP() string {
+	fake.getContainerIPMutex.Lock()
+	ret, specificReturn := fake.getContainerIPReturnsOnCall[len(fake.getContainerIPArgsForCall)]
+	fake.getContainerIPArgsForCall = append(fake.getContainerIPArgsForCall, struct {
+	}{})
+	stub := fake.GetContainerIPStub
+	fakeReturns := fake.getContainerIPReturns
+	fake.recordInvocation("GetContainerIP", []interface{}{})
+	fake.getContainerIPMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) GetContainerIPCallCount() int {
+	fake.getContainerIPMutex.RLock()
+	defer fake.getContainerIPMutex.RUnlock()
+	return len(fake.getContainerIPArgsForCall)
+}
+
+func (fake *FakeCPI) GetContainerIPCalls(stub func() string) {
+	fake.getContainerIPMutex.Lock()
+	defer fake.getContainerIPMutex.Unlock()
+	fake.GetContainerIPStub = stub
+}
+
+func (fake *FakeCPI) GetContainerIPReturns(result1 string) {
+	fake.getContainerIPMutex.Lock()
+	defer fake.getContainerIPMutex.Unlock()
+	fake.GetContainerIPStub = nil
+	fake.getContainerIPReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeCPI) GetContainerIPReturnsOnCall(i int, result1 string) {
+	fake.getContainerIPMutex.Lock()
+	defer fake.getContainerIPMutex.Unlock()
+	fake.GetContainerIPStub = nil
+	if fake.getContainerIPReturnsOnCall == nil {
+		fake.getContainerIPReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.getContainerIPReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
 func (fake *FakeCPI) GetContainerName() string {
 	fake.getContainerNameMutex.Lock()
 	ret, specificReturn := fake.getContainerNameReturnsOnCall[len(fake.getContainerNameArgsForCall)]
@@ -813,6 +896,59 @@ func (fake *FakeCPI) GetContainersOnNetworkReturnsOnCall(i int, result1 []cpi.Co
 		result1 []cpi.ContainerInfo
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeCPI) GetDirectorPort() string {
+	fake.getDirectorPortMutex.Lock()
+	ret, specificReturn := fake.getDirectorPortReturnsOnCall[len(fake.getDirectorPortArgsForCall)]
+	fake.getDirectorPortArgsForCall = append(fake.getDirectorPortArgsForCall, struct {
+	}{})
+	stub := fake.GetDirectorPortStub
+	fakeReturns := fake.getDirectorPortReturns
+	fake.recordInvocation("GetDirectorPort", []interface{}{})
+	fake.getDirectorPortMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) GetDirectorPortCallCount() int {
+	fake.getDirectorPortMutex.RLock()
+	defer fake.getDirectorPortMutex.RUnlock()
+	return len(fake.getDirectorPortArgsForCall)
+}
+
+func (fake *FakeCPI) GetDirectorPortCalls(stub func() string) {
+	fake.getDirectorPortMutex.Lock()
+	defer fake.getDirectorPortMutex.Unlock()
+	fake.GetDirectorPortStub = stub
+}
+
+func (fake *FakeCPI) GetDirectorPortReturns(result1 string) {
+	fake.getDirectorPortMutex.Lock()
+	defer fake.getDirectorPortMutex.Unlock()
+	fake.GetDirectorPortStub = nil
+	fake.getDirectorPortReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeCPI) GetDirectorPortReturnsOnCall(i int, result1 string) {
+	fake.getDirectorPortMutex.Lock()
+	defer fake.getDirectorPortMutex.Unlock()
+	fake.GetDirectorPortStub = nil
+	if fake.getDirectorPortReturnsOnCall == nil {
+		fake.getDirectorPortReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.getDirectorPortReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *FakeCPI) GetHostAddress() string {
@@ -931,6 +1067,59 @@ func (fake *FakeCPI) GetLogsReturnsOnCall(i int, result1 string, result2 error) 
 		result1 string
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeCPI) GetSSHPort() string {
+	fake.getSSHPortMutex.Lock()
+	ret, specificReturn := fake.getSSHPortReturnsOnCall[len(fake.getSSHPortArgsForCall)]
+	fake.getSSHPortArgsForCall = append(fake.getSSHPortArgsForCall, struct {
+	}{})
+	stub := fake.GetSSHPortStub
+	fakeReturns := fake.getSSHPortReturns
+	fake.recordInvocation("GetSSHPort", []interface{}{})
+	fake.getSSHPortMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) GetSSHPortCallCount() int {
+	fake.getSSHPortMutex.RLock()
+	defer fake.getSSHPortMutex.RUnlock()
+	return len(fake.getSSHPortArgsForCall)
+}
+
+func (fake *FakeCPI) GetSSHPortCalls(stub func() string) {
+	fake.getSSHPortMutex.Lock()
+	defer fake.getSSHPortMutex.Unlock()
+	fake.GetSSHPortStub = stub
+}
+
+func (fake *FakeCPI) GetSSHPortReturns(result1 string) {
+	fake.getSSHPortMutex.Lock()
+	defer fake.getSSHPortMutex.Unlock()
+	fake.GetSSHPortStub = nil
+	fake.getSSHPortReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeCPI) GetSSHPortReturnsOnCall(i int, result1 string) {
+	fake.getSSHPortMutex.Lock()
+	defer fake.getSSHPortMutex.Unlock()
+	fake.GetSSHPortStub = nil
+	if fake.getSSHPortReturnsOnCall == nil {
+		fake.getSSHPortReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.getSSHPortReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
 }
 
 func (fake *FakeCPI) IsRunning(arg1 context.Context) (bool, error) {

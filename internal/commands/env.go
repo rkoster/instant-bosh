@@ -9,7 +9,6 @@ import (
 	boshtbl "github.com/cloudfoundry/bosh-cli/v7/ui/table"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/cpi"
-	"github.com/rkoster/instant-bosh/internal/docker"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,9 +34,9 @@ func EnvAction(ui UI, logger boshlog.Logger, cpiInstance cpi.CPI) error {
 	ui.PrintLinef("%s %s", bold("Environment:"), cpiInstance.GetContainerName())
 	if running {
 		ui.PrintLinef("%s Running", bold("State:"))
-		ui.PrintLinef("%s %s", bold("IP:"), docker.ContainerIP)
-		ui.PrintLinef("%s %s", bold("Director Port:"), docker.DirectorPort)
-		ui.PrintLinef("%s %s", bold("SSH Port:"), docker.SSHPort)
+		ui.PrintLinef("%s %s", bold("IP:"), cpiInstance.GetContainerIP())
+		ui.PrintLinef("%s %s", bold("Director Port:"), cpiInstance.GetDirectorPort())
+		ui.PrintLinef("%s %s", bold("SSH Port:"), cpiInstance.GetSSHPort())
 
 		ui.PrintLinef("")
 		releases, err := fetchBoshReleases(ctx, cpiInstance)

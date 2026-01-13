@@ -42,6 +42,9 @@ type CPI interface {
 	GetContainerName() string
 	GetHostAddress() string
 	GetCloudConfigBytes() []byte
+	GetContainerIP() string
+	GetDirectorPort() string
+	GetSSHPort() string
 
 	// Container management
 	GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error)
