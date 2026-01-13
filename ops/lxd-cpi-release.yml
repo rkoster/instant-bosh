@@ -1,0 +1,35 @@
+---
+# Add lxd-bosh-cpi release
+- type: replace
+  path: /releases/-
+  value:
+    name: lxd-bosh-cpi
+    version: "6"
+    url: https://github.com/a2geek/bosh-lxd-cpi-release/releases/download/v6/bosh-lxd-cpi-release.tgz
+    sha1: 735fd3f106735b64f6129ee3b83a9987a6d93c8b
+
+# Add lxd_cpi job to bosh instance group with dummy config
+# The actual config will be set at runtime via lxd-cpi.yml ops-file
+- type: replace
+  path: /instance_groups/name=bosh/jobs/-
+  value:
+    name: lxd_cpi
+    release: lxd-bosh-cpi
+    properties:
+      lxd_cpi:
+        server:
+          type: lxd
+          url: https://localhost:8443
+          insecure_skip_verify: true
+          tls_client_cert: ""
+          tls_client_key: ""
+          project_name: default
+          profile_name: default
+          network_name: default
+          storage_pool_name: default
+        agent:
+          mbus: nats://((internal_ip)):4222
+        agent_config:
+          type: CDROM
+          label: "config-2"
+          filestore_path: "/var/vcap/store/agent-data"

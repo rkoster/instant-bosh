@@ -317,16 +317,17 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	// Pass BOSH configuration via environment variables
 	// BOB_VARS_ENV tells the entrypoint to read variables from env vars with the given prefix
 	// Note: The prefix must include the trailing underscore (IBOSH_ not IBOSH)
+	// BOB_OPS_FILES specifies which embedded ops-files to apply at runtime
 	config := map[string]string{
 		"security.privileged":             "true",
 		"raw.lxc":                         "lxc.mount.auto = proc:rw sys:rw cgroup:rw\nlxc.apparmor.profile = unconfined",
 		"environment.BOB_VARS_ENV":        "IBOSH_",
+		"environment.BOB_OPS_FILES":       "lxd-cpi.yml,director-alternative-names.yml",
 		"environment.IBOSH_internal_ip":   ContainerIP,
 		"environment.IBOSH_internal_cidr": NetworkSubnet,
 		"environment.IBOSH_internal_gw":   NetworkGateway,
 		"environment.IBOSH_director_name": "instant-bosh",
 		"environment.IBOSH_network":       c.networkName,
-		"environment.IBOSH_cpi_job":       "lxd_cpi",
 		// LXD CPI configuration - the director will connect to the Incus server via gateway
 		"environment.IBOSH_lxd_server_url":             "https://" + NetworkGateway + ":8443",
 		"environment.IBOSH_lxd_server_type":            "lxd",

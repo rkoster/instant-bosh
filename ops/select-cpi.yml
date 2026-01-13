@@ -1,5 +1,0 @@
----
-# Allow dynamic CPI selection via director.cpi_job property
-- type: replace
-  path: /instance_groups/name=bosh/properties/director/cpi_job?
-  value: ((cpi_job))

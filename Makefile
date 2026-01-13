@@ -28,14 +28,15 @@ build:
 		--manifest manifests/bosh-deployment/bosh.yml \
 		--ops-file manifests/bosh-deployment/docker/cpi.yml \
 		--ops-file manifests/bosh-deployment/docker/unix-sock.yml \
-		--ops-file ops/lxd-cpi.yml \
-		--ops-file ops/select-cpi.yml \
+		--ops-file ops/lxd-cpi-release.yml \
 		--ops-file ops/stemcell.yml \
-		--ops-file ops/director-alternative-names.yml \
-                --ops-file ops/fast-nats-sync.yml \
+		--ops-file ops/docker-localhost.yml \
+		--ops-file ops/fast-nats-sync.yml \
 		--ops-file ops/disable-short-lived-nats-credentials.yml \
 		--ops-file manifests/bosh-deployment/jumpbox-user.yml \
 		--ops-file ops/pre-start-setup.yml \
+		--embed-ops-file ops/director-alternative-names.yml \
+		--embed-ops-file ops/lxd-cpi.yml \
 		--license LICENSE \
 		--output ghcr.io/rkoster/instant-bosh:latest
 
@@ -45,14 +46,15 @@ dev-bob-build:
 		--manifest ../instant-bosh/manifests/bosh-deployment/bosh.yml \
 		--ops-file ../instant-bosh/manifests/bosh-deployment/docker/cpi.yml \
 		--ops-file ../instant-bosh/manifests/bosh-deployment/docker/unix-sock.yml \
-		--ops-file ../instant-bosh/ops/lxd-cpi.yml \
-		--ops-file ../instant-bosh/ops/select-cpi.yml \
+		--ops-file ../instant-bosh/ops/lxd-cpi-release.yml \
 		--ops-file ../instant-bosh/ops/stemcell.yml \
-		--ops-file ../instant-bosh/ops/director-alternative-names.yml \
-                --ops-file ../instant-bosh/ops/fast-nats-sync.yml \
+		--ops-file ../instant-bosh/ops/docker-localhost.yml \
+		--ops-file ../instant-bosh/ops/fast-nats-sync.yml \
 		--ops-file ../instant-bosh/ops/disable-short-lived-nats-credentials.yml \
 		--ops-file ../instant-bosh/manifests/bosh-deployment/jumpbox-user.yml \
 		--ops-file ../instant-bosh/ops/pre-start-setup.yml \
+		--embed-ops-file ../instant-bosh/ops/director-alternative-names.yml \
+		--embed-ops-file ../instant-bosh/ops/lxd-cpi.yml \
 		--license ../instant-bosh/LICENSE \
 		--output ghcr.io/rkoster/instant-bosh:latest
 

@@ -289,6 +289,9 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	config := &container.Config{
 		Image: c.imageName,
 		Cmd: []string{
+			// Runtime ops-file to configure director SSL SANs
+			"--ops-file", "director-alternative-names.yml",
+			// Variables
 			"-v", "internal_ip=" + ContainerIP,
 			"-v", "internal_cidr=" + NetworkSubnet,
 			"-v", "internal_gw=" + NetworkGateway,
