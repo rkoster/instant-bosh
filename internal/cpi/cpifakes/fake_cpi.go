@@ -84,6 +84,21 @@ type FakeCPI struct {
 	followLogsReturnsOnCall map[int]struct {
 		result1 error
 	}
+	FollowLogsWithOptionsStub        func(context.Context, bool, string, io.Writer, io.Writer) error
+	followLogsWithOptionsMutex       sync.RWMutex
+	followLogsWithOptionsArgsForCall []struct {
+		arg1 context.Context
+		arg2 bool
+		arg3 string
+		arg4 io.Writer
+		arg5 io.Writer
+	}
+	followLogsWithOptionsReturns struct {
+		result1 error
+	}
+	followLogsWithOptionsReturnsOnCall map[int]struct {
+		result1 error
+	}
 	GetCloudConfigBytesStub        func() []byte
 	getCloudConfigBytesMutex       sync.RWMutex
 	getCloudConfigBytesArgsForCall []struct {
@@ -548,6 +563,71 @@ func (fake *FakeCPI) FollowLogsReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.followLogsReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) FollowLogsWithOptions(arg1 context.Context, arg2 bool, arg3 string, arg4 io.Writer, arg5 io.Writer) error {
+	fake.followLogsWithOptionsMutex.Lock()
+	ret, specificReturn := fake.followLogsWithOptionsReturnsOnCall[len(fake.followLogsWithOptionsArgsForCall)]
+	fake.followLogsWithOptionsArgsForCall = append(fake.followLogsWithOptionsArgsForCall, struct {
+		arg1 context.Context
+		arg2 bool
+		arg3 string
+		arg4 io.Writer
+		arg5 io.Writer
+	}{arg1, arg2, arg3, arg4, arg5})
+	stub := fake.FollowLogsWithOptionsStub
+	fakeReturns := fake.followLogsWithOptionsReturns
+	fake.recordInvocation("FollowLogsWithOptions", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.followLogsWithOptionsMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) FollowLogsWithOptionsCallCount() int {
+	fake.followLogsWithOptionsMutex.RLock()
+	defer fake.followLogsWithOptionsMutex.RUnlock()
+	return len(fake.followLogsWithOptionsArgsForCall)
+}
+
+func (fake *FakeCPI) FollowLogsWithOptionsCalls(stub func(context.Context, bool, string, io.Writer, io.Writer) error) {
+	fake.followLogsWithOptionsMutex.Lock()
+	defer fake.followLogsWithOptionsMutex.Unlock()
+	fake.FollowLogsWithOptionsStub = stub
+}
+
+func (fake *FakeCPI) FollowLogsWithOptionsArgsForCall(i int) (context.Context, bool, string, io.Writer, io.Writer) {
+	fake.followLogsWithOptionsMutex.RLock()
+	defer fake.followLogsWithOptionsMutex.RUnlock()
+	argsForCall := fake.followLogsWithOptionsArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+}
+
+func (fake *FakeCPI) FollowLogsWithOptionsReturns(result1 error) {
+	fake.followLogsWithOptionsMutex.Lock()
+	defer fake.followLogsWithOptionsMutex.Unlock()
+	fake.FollowLogsWithOptionsStub = nil
+	fake.followLogsWithOptionsReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) FollowLogsWithOptionsReturnsOnCall(i int, result1 error) {
+	fake.followLogsWithOptionsMutex.Lock()
+	defer fake.followLogsWithOptionsMutex.Unlock()
+	fake.FollowLogsWithOptionsStub = nil
+	if fake.followLogsWithOptionsReturnsOnCall == nil {
+		fake.followLogsWithOptionsReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.followLogsWithOptionsReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

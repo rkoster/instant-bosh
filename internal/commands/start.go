@@ -197,7 +197,7 @@ func startContainer(
 	defer cancelLogs()
 
 	go func() {
-		StreamMainComponentLogs(logCtx, dockerClient, ui)
+		StreamMainComponentLogsFromDocker(logCtx, dockerClient, ui)
 	}()
 
 	// Wait for BOSH to be ready

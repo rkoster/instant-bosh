@@ -27,6 +27,7 @@ type CPI interface {
 	// Logs
 	GetLogs(ctx context.Context, tail string) (string, error)
 	FollowLogs(ctx context.Context, stdout, stderr io.Writer) error
+	FollowLogsWithOptions(ctx context.Context, follow bool, tail string, stdout, stderr io.Writer) error
 
 	// Readiness
 	WaitForReady(ctx context.Context, maxWait time.Duration) error

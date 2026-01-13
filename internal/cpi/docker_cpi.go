@@ -106,6 +106,10 @@ func (d *DockerCPI) FollowLogs(ctx context.Context, stdout, stderr io.Writer) er
 	return d.client.FollowContainerLogs(ctx, docker.ContainerName, true, "all", stdout, stderr)
 }
 
+func (d *DockerCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail string, stdout, stderr io.Writer) error {
+	return d.client.FollowContainerLogs(ctx, docker.ContainerName, follow, tail, stdout, stderr)
+}
+
 func (d *DockerCPI) WaitForReady(ctx context.Context, maxWait time.Duration) error {
 	return d.client.WaitForBoshReady(ctx, maxWait)
 }

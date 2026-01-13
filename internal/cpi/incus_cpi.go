@@ -87,6 +87,10 @@ func (i *IncusCPI) FollowLogs(ctx context.Context, stdout, stderr io.Writer) err
 	return fmt.Errorf("follow logs not yet implemented for Incus CPI")
 }
 
+func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail string, stdout, stderr io.Writer) error {
+	return fmt.Errorf("follow logs with options not yet implemented for Incus CPI")
+}
+
 func (i *IncusCPI) WaitForReady(ctx context.Context, maxWait time.Duration) error {
 	time.Sleep(60 * time.Second)
 	return nil
