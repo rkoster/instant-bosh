@@ -126,6 +126,23 @@ func (d *DockerCPI) GetCloudConfigBytes() []byte {
 	return dockerCloudConfigYAML
 }
 
+func (d *DockerCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error) {
+	dockerContainers, err := d.client.GetContainersOnNetworkDetailed(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	cpiContainers := make([]ContainerInfo, len(dockerContainers))
+	for i, dc := range dockerContainers {
+		cpiContainers[i] = ContainerInfo{
+			Name:    dc.Name,
+			Created: dc.Created,
+			Network: dc.Network,
+		}
+	}
+	return cpiContainers, nil
+}
+
 func (d *DockerCPI) EnsurePrerequisites(ctx context.Context) error {
 	storeExists, err := d.client.VolumeExists(ctx, docker.VolumeStore)
 	if err != nil {

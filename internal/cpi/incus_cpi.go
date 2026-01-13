@@ -108,6 +108,10 @@ func (i *IncusCPI) GetCloudConfigBytes() []byte {
 	return incusCloudConfigYAML
 }
 
+func (i *IncusCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error) {
+	return nil, fmt.Errorf("GetContainersOnNetwork not yet implemented for Incus CPI")
+}
+
 func (i *IncusCPI) EnsurePrerequisites(ctx context.Context) error {
 	networkExists, err := i.client.NetworkExists(ctx, i.client.NetworkName())
 	if err != nil {

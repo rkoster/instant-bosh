@@ -119,6 +119,19 @@ type FakeCPI struct {
 	getContainerNameReturnsOnCall map[int]struct {
 		result1 string
 	}
+	GetContainersOnNetworkStub        func(context.Context) ([]cpi.ContainerInfo, error)
+	getContainersOnNetworkMutex       sync.RWMutex
+	getContainersOnNetworkArgsForCall []struct {
+		arg1 context.Context
+	}
+	getContainersOnNetworkReturns struct {
+		result1 []cpi.ContainerInfo
+		result2 error
+	}
+	getContainersOnNetworkReturnsOnCall map[int]struct {
+		result1 []cpi.ContainerInfo
+		result2 error
+	}
 	GetHostAddressStub        func() string
 	getHostAddressMutex       sync.RWMutex
 	getHostAddressArgsForCall []struct {
@@ -736,6 +749,70 @@ func (fake *FakeCPI) GetContainerNameReturnsOnCall(i int, result1 string) {
 	fake.getContainerNameReturnsOnCall[i] = struct {
 		result1 string
 	}{result1}
+}
+
+func (fake *FakeCPI) GetContainersOnNetwork(arg1 context.Context) ([]cpi.ContainerInfo, error) {
+	fake.getContainersOnNetworkMutex.Lock()
+	ret, specificReturn := fake.getContainersOnNetworkReturnsOnCall[len(fake.getContainersOnNetworkArgsForCall)]
+	fake.getContainersOnNetworkArgsForCall = append(fake.getContainersOnNetworkArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.GetContainersOnNetworkStub
+	fakeReturns := fake.getContainersOnNetworkReturns
+	fake.recordInvocation("GetContainersOnNetwork", []interface{}{arg1})
+	fake.getContainersOnNetworkMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeCPI) GetContainersOnNetworkCallCount() int {
+	fake.getContainersOnNetworkMutex.RLock()
+	defer fake.getContainersOnNetworkMutex.RUnlock()
+	return len(fake.getContainersOnNetworkArgsForCall)
+}
+
+func (fake *FakeCPI) GetContainersOnNetworkCalls(stub func(context.Context) ([]cpi.ContainerInfo, error)) {
+	fake.getContainersOnNetworkMutex.Lock()
+	defer fake.getContainersOnNetworkMutex.Unlock()
+	fake.GetContainersOnNetworkStub = stub
+}
+
+func (fake *FakeCPI) GetContainersOnNetworkArgsForCall(i int) context.Context {
+	fake.getContainersOnNetworkMutex.RLock()
+	defer fake.getContainersOnNetworkMutex.RUnlock()
+	argsForCall := fake.getContainersOnNetworkArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeCPI) GetContainersOnNetworkReturns(result1 []cpi.ContainerInfo, result2 error) {
+	fake.getContainersOnNetworkMutex.Lock()
+	defer fake.getContainersOnNetworkMutex.Unlock()
+	fake.GetContainersOnNetworkStub = nil
+	fake.getContainersOnNetworkReturns = struct {
+		result1 []cpi.ContainerInfo
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeCPI) GetContainersOnNetworkReturnsOnCall(i int, result1 []cpi.ContainerInfo, result2 error) {
+	fake.getContainersOnNetworkMutex.Lock()
+	defer fake.getContainersOnNetworkMutex.Unlock()
+	fake.GetContainersOnNetworkStub = nil
+	if fake.getContainersOnNetworkReturnsOnCall == nil {
+		fake.getContainersOnNetworkReturnsOnCall = make(map[int]struct {
+			result1 []cpi.ContainerInfo
+			result2 error
+		})
+	}
+	fake.getContainersOnNetworkReturnsOnCall[i] = struct {
+		result1 []cpi.ContainerInfo
+		result2 error
+	}{result1, result2}
 }
 
 func (fake *FakeCPI) GetHostAddress() string {
