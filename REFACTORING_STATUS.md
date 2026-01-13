@@ -19,67 +19,40 @@ Refactor all command handlers to use the unified CPI interface instead of mode d
 
 **Impact**: CPI interface is now cleaner and ready for command refactoring. All tests pass.
 
-## Remaining Work
-
-### Phase 2: Command Refactoring (In Progress)
-Each command needs to be refactored to:
+### Phase 2: Command Refactoring ✅ (COMPLETED - Commits: bb9f6fb → d4a4167)
+All 6 commands successfully refactored to:
 1. Accept `cpi.CPI` parameter instead of using mode detection
 2. Use `commands.UI` interface instead of `boshui.UI` for testability
 3. Simplify logic by delegating to CPI methods
 
-#### Commands to Refactor:
-- [x] `stop.go` ✅ - Removed Docker/Incus detection, uses `cpiInstance.Stop(ctx)` (Commit: bb9f6fb)
-- [x] `destroy.go` ✅ - Removed mode-specific cleanup, uses `cpiInstance.Destroy(ctx)` (Commit: 8065978)
-- [ ] `env.go` - Remove Docker-specific client/container listing logic, needs CPI methods for network containers
-- [ ] `print_env.go` - Remove Docker/Incus detection, use director.ConfigProvider with CPI
-- [ ] `logs.go` - Use `cpiInstance.GetLogs()` and `cpiInstance.FollowLogs()` (CPI methods already exist)
-- [ ] `start.go` - **Most Complex** - Needs comprehensive refactoring (~555 lines → ~180 lines estimated)
+#### Refactored Commands:
+- [x] `stop.go` ✅ - 66 → 31 lines (53% reduction) (Commit: bb9f6fb)
+- [x] `destroy.go` ✅ - 122 → 43 lines (65% reduction) (Commit: 8065978)
+- [x] `logs.go` ✅ - 111 → 101 lines (9% reduction) (Commit: 886ef50)
+- [x] `print_env.go` ✅ - 74 → 36 lines (51% reduction) (Commit: 4d857e6)
+- [x] `env.go` ✅ - 192 → ~170 lines (11% reduction) (Commit: 97a4426)
+- [x] `start.go` ✅ - 556 → 375 lines (32.5% reduction) (Commit: d4a4167)
 
-Expected simplifications:
-- `stop.go`: 66 lines → 31 lines ✅ (53% reduction)
-- `destroy.go`: 122 lines → 43 lines ✅ (65% reduction)
-- `env.go`: ~192 lines → ~80 lines (needs GetContainersOnNetwork CPI method)
-- `print_env.go`: 74 lines → ~35 lines (straightforward refactoring)
-- `logs.go`: 111 lines → ~45 lines (CPI methods already exist)
-- `start.go`: 555 lines → ~180 lines (most complex)
+**Key Improvements**:
+- All mode detection logic removed from command layer
+- Docker-specific features accessed via `GetDockerClient()` on DockerCPI
+- Added `FollowLogsWithOptions()` to CPI interface for flexible log streaming
+- Added `GetContainersOnNetwork()` to CPI interface for env command
+- Commands now focus purely on business logic
 
-### Phase 3: Main.go Updates
-Update `cmd/ibosh/main.go` to:
-1. Create CPI instances based on `--cpi` flag (for start command)
-2. Detect running CPI for other commands (helper function needed)
-3. Pass CPI instances to refactored commands
+### Phase 3: Main.go Updates ✅ (COMPLETED - Commit: 8b5e744)
+Updated `cmd/ibosh/main.go` to integrate with CPI interface:
+1. ✅ Added `detectAndCreateCPI()` helper - detects which CPI is currently running
+2. ✅ Added `createCPIForStart()` helper - creates CPI based on `--cpi` flag
+3. ✅ Updated all 6 command actions to create/detect and pass CPI instances
+4. ✅ Removed obsolete StartOptions fields (CPI, IncusRemote, etc.)
+5. ✅ Build verified successful with no errors
 
-Example helper needed:
-```go
-// detectAndCreateCPI detects which CPI is currently running
-func detectAndCreateCPI(ctx context.Context, logger boshlog.Logger) (cpi.CPI, error) {
-    // Try Docker first
-    dockerClient, err := docker.NewClient(logger, "")
-    if err == nil {
-        defer dockerClient.Close()
-        dockerCPI := cpi.NewDockerCPI(dockerClient)
-        if running, _ := dockerCPI.IsRunning(ctx); running {
-            // Reopen for returned CPI
-            dockerClient, _ = docker.NewClient(logger, "")
-            return cpi.NewDockerCPI(dockerClient), nil
-        }
-    }
-    
-    // Try Incus
-    incusClient, err := incus.NewClient(logger, "", "default", "", "default", "")
-    if err == nil {
-        defer incusClient.Close()
-        incusCPI := cpi.NewIncusCPI(incusClient)
-        if running, _ := incusCPI.IsRunning(ctx); running {
-            // Reopen for returned CPI
-            incusClient, _ = incus.NewClient(logger, "", "default", "", "default", "")
-            return cpi.NewIncusCPI(incusClient), nil
-        }
-    }
-    
-    return nil, fmt.Errorf("no running instant-bosh director found")
-}
-```
+**CPI Detection Strategy**:
+- `start` command: Uses `--cpi` flag to explicitly choose Docker or Incus
+- Other commands: Auto-detect running CPI (Docker first, then Incus)
+
+## Remaining Work
 
 ### Phase 4: Test Updates
 Update test files to use `FakeCPI` from `cpifakes`:
