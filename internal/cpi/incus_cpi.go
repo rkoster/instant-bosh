@@ -23,19 +23,11 @@ func (i *IncusCPI) Start(ctx context.Context) error {
 }
 
 func (i *IncusCPI) Stop(ctx context.Context) error {
-	return i.client.StopContainer(ctx, incus.ContainerName)
+	return i.client.StopContainer(ctx)
 }
 
 func (i *IncusCPI) Destroy(ctx context.Context) error {
-	if err := i.client.RemoveContainer(ctx, incus.ContainerName); err != nil {
-		return err
-	}
-
-	if err := i.client.DeleteNetwork(ctx, i.client.NetworkName()); err != nil {
-		return err
-	}
-
-	return nil
+	return i.client.RemoveContainer(ctx, incus.ContainerName)
 }
 
 func (i *IncusCPI) IsRunning(ctx context.Context) (bool, error) {
