@@ -6,8 +6,48 @@ import (
 	"io"
 	"time"
 
-	"github.com/rkoster/instant-bosh/internal/commands"
 	"github.com/rkoster/instant-bosh/internal/docker"
+)
+
+var (
+	dockerCloudConfigYAML = []byte(`azs:
+- name: z1
+- name: z2
+- name: z3
+
+vm_types:
+- name: default
+
+disk_types:
+- name: default
+  disk_size: 1024
+
+networks:
+- name: default
+  type: manual
+  subnets:
+  - azs: [z1, z2, z3]
+    range: 10.245.0.0/16
+    dns: [8.8.8.8]
+    reserved: [10.245.0.2-10.245.0.10]
+    gateway: 10.245.0.1
+    static: [10.245.0.34]
+    cloud_properties:
+      name: instant-bosh
+
+vm_extensions:
+- name: all_ports
+  cloud_properties:
+    ports:
+    - 22/tcp
+
+compilation:
+  workers: 5
+  az: z1
+  reuse_compilation_vms: true
+  vm_type: default
+  network: default
+`)
 )
 
 type DockerCPI struct {
@@ -54,8 +94,8 @@ func (d *DockerCPI) Exists(ctx context.Context) (bool, error) {
 	return d.client.ContainerExists(ctx)
 }
 
-func (d *DockerCPI) ExecCommand(ctx context.Context, command []string) (string, error) {
-	return d.client.ExecCommand(ctx, docker.ContainerName, command)
+func (d *DockerCPI) ExecCommand(ctx context.Context, containerName string, command []string) (string, error) {
+	return d.client.ExecCommand(ctx, containerName, command)
 }
 
 func (d *DockerCPI) GetLogs(ctx context.Context, tail string) (string, error) {
@@ -79,7 +119,7 @@ func (d *DockerCPI) GetHostAddress() string {
 }
 
 func (d *DockerCPI) GetCloudConfigBytes() []byte {
-	return commands.GetDockerCloudConfigBytes()
+	return dockerCloudConfigYAML
 }
 
 func (d *DockerCPI) EnsurePrerequisites(ctx context.Context) error {

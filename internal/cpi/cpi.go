@@ -22,7 +22,7 @@ type CPI interface {
 	Exists(ctx context.Context) (bool, error)
 
 	// Command execution
-	ExecCommand(ctx context.Context, command []string) (string, error)
+	ExecCommand(ctx context.Context, containerName string, command []string) (string, error)
 
 	// Logs
 	GetLogs(ctx context.Context, tail string) (string, error)
@@ -41,7 +41,6 @@ type CPI interface {
 	Close() error
 }
 
-// StartOptions contains configuration for starting a BOSH director
 type StartOptions struct {
 	SkipUpdate         bool
 	SkipStemcellUpload bool

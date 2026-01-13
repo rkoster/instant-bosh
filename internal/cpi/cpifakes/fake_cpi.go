@@ -43,11 +43,12 @@ type FakeCPI struct {
 	ensurePrerequisitesReturnsOnCall map[int]struct {
 		result1 error
 	}
-	ExecCommandStub        func(context.Context, []string) (string, error)
+	ExecCommandStub        func(context.Context, string, []string) (string, error)
 	execCommandMutex       sync.RWMutex
 	execCommandArgsForCall []struct {
 		arg1 context.Context
-		arg2 []string
+		arg2 string
+		arg3 []string
 	}
 	execCommandReturns struct {
 		result1 string
@@ -353,24 +354,25 @@ func (fake *FakeCPI) EnsurePrerequisitesReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
-func (fake *FakeCPI) ExecCommand(arg1 context.Context, arg2 []string) (string, error) {
-	var arg2Copy []string
-	if arg2 != nil {
-		arg2Copy = make([]string, len(arg2))
-		copy(arg2Copy, arg2)
+func (fake *FakeCPI) ExecCommand(arg1 context.Context, arg2 string, arg3 []string) (string, error) {
+	var arg3Copy []string
+	if arg3 != nil {
+		arg3Copy = make([]string, len(arg3))
+		copy(arg3Copy, arg3)
 	}
 	fake.execCommandMutex.Lock()
 	ret, specificReturn := fake.execCommandReturnsOnCall[len(fake.execCommandArgsForCall)]
 	fake.execCommandArgsForCall = append(fake.execCommandArgsForCall, struct {
 		arg1 context.Context
-		arg2 []string
-	}{arg1, arg2Copy})
+		arg2 string
+		arg3 []string
+	}{arg1, arg2, arg3Copy})
 	stub := fake.ExecCommandStub
 	fakeReturns := fake.execCommandReturns
-	fake.recordInvocation("ExecCommand", []interface{}{arg1, arg2Copy})
+	fake.recordInvocation("ExecCommand", []interface{}{arg1, arg2, arg3Copy})
 	fake.execCommandMutex.Unlock()
 	if stub != nil {
-		return stub(arg1, arg2)
+		return stub(arg1, arg2, arg3)
 	}
 	if specificReturn {
 		return ret.result1, ret.result2
@@ -384,17 +386,17 @@ func (fake *FakeCPI) ExecCommandCallCount() int {
 	return len(fake.execCommandArgsForCall)
 }
 
-func (fake *FakeCPI) ExecCommandCalls(stub func(context.Context, []string) (string, error)) {
+func (fake *FakeCPI) ExecCommandCalls(stub func(context.Context, string, []string) (string, error)) {
 	fake.execCommandMutex.Lock()
 	defer fake.execCommandMutex.Unlock()
 	fake.ExecCommandStub = stub
 }
 
-func (fake *FakeCPI) ExecCommandArgsForCall(i int) (context.Context, []string) {
+func (fake *FakeCPI) ExecCommandArgsForCall(i int) (context.Context, string, []string) {
 	fake.execCommandMutex.RLock()
 	defer fake.execCommandMutex.RUnlock()
 	argsForCall := fake.execCommandArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *FakeCPI) ExecCommandReturns(result1 string, result2 error) {
