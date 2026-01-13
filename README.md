@@ -4,8 +4,9 @@ A containerized BOSH director for local development and testing.
 
 ## Features
 
-- BOSH director running in a Docker container
-- Docker CPI for deploying VMs as containers
+- BOSH director running in a container
+- **Docker CPI**: Deploy VMs as Docker containers  
+- **Incus CPI**: Deploy VMs as Incus virtual machines
 - Automatic cloud-config setup
 - SSH support for VMs (via runtime-config)
 - Jumpbox user for proxying SSH connections
@@ -64,29 +65,49 @@ If you want to build from source, see [CONTRIBUTING.md](CONTRIBUTING.md) for dev
 
 ## Quick Start
 
+### Docker Backend (Default)
+
 ```bash
-# Start the director using ibosh CLI
-ibosh start
+# Start the director using Docker backend
+ibosh docker start
 
 # Set BOSH CLI environment variables
-eval "$(ibosh print-env)"
+eval "$(ibosh docker print-env)"
 
 # Verify BOSH is running
 bosh env
 
-# Check instant-bosh status
-ibosh status
-
 # Stop the director
-ibosh stop
+ibosh docker stop
 
 # Completely destroy instant-bosh and all resources
-ibosh destroy
+ibosh docker destroy
+```
+
+### Incus Backend
+
+```bash
+# Start the director using Incus backend
+ibosh incus start
+
+# Set BOSH CLI environment variables
+eval "$(ibosh incus print-env)"
+
+# Verify BOSH is running
+bosh env
+
+# Stop the director
+ibosh incus stop
+
+# Completely destroy instant-bosh and all resources
+ibosh incus destroy
 ```
 
 ## Usage
 
 ### ibosh CLI Commands
+
+The CLI is organized into backend-specific subcommands:
 
 ```
 NAME:
@@ -96,22 +117,53 @@ USAGE:
    ibosh [global options] command [command options]
 
 COMMANDS:
-   start      Start instant-bosh director
-   stop       Stop instant-bosh director
-   destroy    Destroy instant-bosh director and all data
-   status     Show status of instant-bosh and containers on the network
-   print-env  Print environment variables for BOSH CLI
-   logs       Show logs from the instant-bosh container
-   help, h    Shows a list of commands or help for one command
+   docker   Docker backend commands
+   incus    Incus backend commands
+   help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --debug, -d  Enable debug logging (default: false)
-   --help, -h   show help
+   --debug, -d    Enable debug logging (default: false)
+   --help, -h     show help
+   --version, -v  print the version
 ```
+
+### Docker Backend Commands
+
+```bash
+ibosh docker start           # Start instant-bosh director
+ibosh docker stop            # Stop instant-bosh director
+ibosh docker destroy [-f]    # Destroy instant-bosh and all data
+ibosh docker logs [-f]       # Show logs from the container
+ibosh docker env             # Show environment info
+ibosh docker print-env       # Print BOSH CLI environment variables
+ibosh docker upload-stemcell <image>  # Upload a light stemcell
+```
+
+**Docker Start Options:**
+- `--skip-update`: Skip checking for image updates
+- `--skip-stemcell-upload`: Skip automatic stemcell upload
+- `--image`: Use a custom image (e.g., `ghcr.io/rkoster/instant-bosh:main-9e61f6f`)
+
+### Incus Backend Commands
+
+```bash
+ibosh incus start            # Start instant-bosh director
+ibosh incus stop             # Stop instant-bosh director
+ibosh incus destroy [-f]     # Destroy instant-bosh and all data
+ibosh incus env              # Show environment info
+ibosh incus print-env        # Print BOSH CLI environment variables
+```
+
+**Incus Start Options:**
+- `--remote`: Incus remote name (env: `IBOSH_INCUS_REMOTE`)
+- `--network`: Incus network name (env: `IBOSH_INCUS_NETWORK`)
+- `--storage-pool`: Incus storage pool name (env: `IBOSH_INCUS_STORAGE_POOL`, default: `default`)
+- `--project`: Incus project name (env: `IBOSH_INCUS_PROJECT`, default: `default`)
+- `--image`: Use a custom image
 
 ### Deploying Workloads
 
-After starting instant-bosh with `ibosh start` and setting the environment with `eval "$(ibosh print-env)"`, you can deploy BOSH releases:
+After starting instant-bosh with `ibosh docker start` (or `ibosh incus start`) and setting the environment with `eval "$(ibosh docker print-env)"` (or `eval "$(ibosh incus print-env)"`), you can deploy BOSH releases:
 
 ```bash
 # Deploy a sample zookeeper cluster
@@ -128,8 +180,9 @@ bosh -d zookeeper instances
 
 ### Components
 
-- **Director**: BOSH director running in a Docker container
+- **Director**: BOSH director running in a container
 - **Docker CPI**: Cloud Provider Interface for creating VMs as Docker containers
+- **Incus CPI**: Cloud Provider Interface for creating VMs as Incus virtual machines
 - **Jumpbox**: SSH gateway running on the director (port 2222)
 - **Runtime Config**: Automatically enables SSH on all VMs
 
@@ -140,7 +193,7 @@ Since systemd services don't auto-start in Docker containers, SSH must be explic
 1. **os-conf-release**: Provides the `pre-start-script` job
 2. **Runtime Config** (`runtime-config-enable-vm-ssh.yml`): Applies the SSH startup script to all VMs
 
-The `ibosh start` command automatically:
+The `ibosh docker start` and `ibosh incus start` commands automatically:
 - Uploads the `os-conf-release`
 - Applies the runtime config
 - Configures cloud-config
