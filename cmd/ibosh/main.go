@@ -1,11 +1,17 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/commands"
+	"github.com/rkoster/instant-bosh/internal/cpi"
+	"github.com/rkoster/instant-bosh/internal/director"
+	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/incus"
 	"github.com/urfave/cli/v2"
 )
 
@@ -24,6 +30,44 @@ func initUIAndLogger(c *cli.Context) (boshui.UI, boshlog.Logger) {
 	writerUI := boshui.NewWriterUI(os.Stdout, os.Stderr, logger)
 	ui := boshui.NewColorUI(writerUI)
 	return ui, logger
+}
+
+func detectAndCreateCPI(ctx context.Context, logger boshlog.Logger) (cpi.CPI, error) {
+	dockerClient, err := docker.NewClient(logger, "")
+	if err == nil {
+		dockerCPI := cpi.NewDockerCPI(dockerClient)
+		if running, _ := dockerCPI.IsRunning(ctx); running {
+			return dockerCPI, nil
+		}
+		dockerClient.Close()
+	}
+
+	incusClient, err := incus.NewClient(logger, "", "default", "", "default", "")
+	if err == nil {
+		incusCPI := cpi.NewIncusCPI(incusClient)
+		if running, _ := incusCPI.IsRunning(ctx); running {
+			return incusCPI, nil
+		}
+		incusClient.Close()
+	}
+
+	return nil, fmt.Errorf("no running instant-bosh director found")
+}
+
+func createCPIForStart(ctx context.Context, logger boshlog.Logger, cpiMode string, incusRemote, incusNetwork, incusStoragePool, incusProject, customImage string) (cpi.CPI, error) {
+	if cpiMode == "incus" {
+		incusClient, err := incus.NewClient(logger, incusRemote, incusProject, incusNetwork, incusStoragePool, customImage)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create incus client: %w", err)
+		}
+		return cpi.NewIncusCPI(incusClient), nil
+	}
+
+	dockerClient, err := docker.NewClient(logger, customImage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create docker client: %w", err)
+	}
+	return cpi.NewDockerCPI(dockerClient), nil
 }
 
 func main() {
@@ -93,31 +137,59 @@ func main() {
 						return cli.Exit("Error: --skip-update and --image flags are mutually exclusive", 1)
 					}
 
-					cpi := c.String("cpi")
-					if cpi != "docker" && cpi != "incus" {
+					cpiMode := c.String("cpi")
+					if cpiMode != "docker" && cpiMode != "incus" {
 						return cli.Exit("Error: --cpi must be 'docker' or 'incus'", 1)
 					}
 
+					ctx := context.Background()
 					ui, logger := initUIAndLogger(c)
+
+					cpiInstance, err := createCPIForStart(
+						ctx,
+						logger,
+						cpiMode,
+						c.String("incus-remote"),
+						c.String("incus-network"),
+						c.String("incus-storage-pool"),
+						c.String("incus-project"),
+						c.String("image"),
+					)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("Error creating CPI: %v", err), 1)
+					}
+					defer cpiInstance.Close()
+
 					opts := commands.StartOptions{
 						SkipUpdate:         c.Bool("skip-update"),
 						SkipStemcellUpload: c.Bool("skip-stemcell-upload"),
 						CustomImage:        c.String("image"),
-						CPI:                cpi,
-						IncusRemote:        c.String("incus-remote"),
-						IncusNetwork:       c.String("incus-network"),
-						IncusStoragePool:   c.String("incus-storage-pool"),
-						IncusProject:       c.String("incus-project"),
 					}
-					return commands.StartAction(ui, logger, opts)
+
+					return commands.StartAction(
+						ui,
+						logger,
+						cpiInstance,
+						&director.DefaultConfigProvider{},
+						&director.DefaultDirectorFactory{},
+						opts,
+					)
 				},
 			},
 			{
 				Name:  "stop",
 				Usage: "Stop instant-bosh director",
 				Action: func(c *cli.Context) error {
+					ctx := context.Background()
 					ui, logger := initUIAndLogger(c)
-					return commands.StopAction(ui, logger)
+
+					cpiInstance, err := detectAndCreateCPI(ctx, logger)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
+					}
+					defer cpiInstance.Close()
+
+					return commands.StopAction(ui, logger, cpiInstance)
 				},
 			},
 			{
@@ -131,24 +203,48 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
+					ctx := context.Background()
 					ui, logger := initUIAndLogger(c)
-					return commands.DestroyAction(ui, logger, c.Bool("force"))
+
+					cpiInstance, err := detectAndCreateCPI(ctx, logger)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
+					}
+					defer cpiInstance.Close()
+
+					return commands.DestroyAction(ui, logger, cpiInstance, c.Bool("force"))
 				},
 			},
 			{
 				Name:  "env",
 				Usage: "Show environment info of instant-bosh including deployed releases",
 				Action: func(c *cli.Context) error {
+					ctx := context.Background()
 					ui, logger := initUIAndLogger(c)
-					return commands.EnvAction(ui, logger)
+
+					cpiInstance, err := detectAndCreateCPI(ctx, logger)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
+					}
+					defer cpiInstance.Close()
+
+					return commands.EnvAction(ui, logger, cpiInstance)
 				},
 			},
 			{
 				Name:  "print-env",
 				Usage: "Print environment variables for BOSH CLI",
 				Action: func(c *cli.Context) error {
+					ctx := context.Background()
 					ui, logger := initUIAndLogger(c)
-					return commands.PrintEnvAction(ui, logger)
+
+					cpiInstance, err := detectAndCreateCPI(ctx, logger)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
+					}
+					defer cpiInstance.Close()
+
+					return commands.PrintEnvAction(ui, logger, cpiInstance, &director.DefaultConfigProvider{})
 				},
 			},
 			{
@@ -178,10 +274,19 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
+					ctx := context.Background()
 					ui, logger := initUIAndLogger(c)
+
+					cpiInstance, err := detectAndCreateCPI(ctx, logger)
+					if err != nil {
+						return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
+					}
+					defer cpiInstance.Close()
+
 					return commands.LogsAction(
 						ui,
 						logger,
+						cpiInstance,
 						c.Bool("list-components"),
 						c.StringSlice("component"),
 						c.Bool("follow"),
