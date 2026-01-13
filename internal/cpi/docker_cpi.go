@@ -58,6 +58,10 @@ func NewDockerCPI(client *docker.Client) *DockerCPI {
 	return &DockerCPI{client: client}
 }
 
+func (d *DockerCPI) GetDockerClient() *docker.Client {
+	return d.client
+}
+
 func (d *DockerCPI) Start(ctx context.Context) error {
 	return d.client.StartContainer(ctx)
 }
