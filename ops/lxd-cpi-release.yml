@@ -33,8 +33,3 @@
           type: CDROM
           label: "config-2"
           filestore_path: "/var/vcap/store/agent-data"
-        throttle_config:
-          enabled: false
-          path: "/var/vcap/sys/run/lxd_cpi/throttle.sock"
-          limit: 4
-          hold: "2m"

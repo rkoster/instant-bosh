@@ -307,7 +307,7 @@ var _ = Describe("StartAction", func() {
 					logStreamCalled = true
 					logStreamMutex.Unlock()
 					Expect(follow).To(BeTrue())
-					Expect(tail).To(Equal("0"))
+					Expect(tail).To(Equal("all"))
 					return nil
 				}
 			})

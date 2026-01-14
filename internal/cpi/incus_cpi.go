@@ -115,21 +115,30 @@ func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail 
 		} else if tail != "all" && tail != "" {
 			// Show last N lines, then continue following
 			lines := strings.Split(string(output), "\n")
-			tailNum := 10 // default
-			if _, err := fmt.Sscanf(tail, "%d", &tailNum); err == nil && tailNum < len(lines) {
-				// Calculate offset to show last N lines
-				recentLines := lines[len(lines)-tailNum:]
-				recentOutput := strings.Join(recentLines, "\n")
-				if _, err := stdout.Write([]byte(recentOutput)); err != nil {
-					return fmt.Errorf("writing to stdout: %w", err)
+			tailNum := -1
+			if _, err := fmt.Sscanf(tail, "%d", &tailNum); err == nil {
+				if tailNum > 0 && tailNum < len(lines) {
+					// Calculate offset to show last N lines
+					recentLines := lines[len(lines)-tailNum:]
+					recentOutput := strings.Join(recentLines, "\n")
+					if _, err := stdout.Write([]byte(recentOutput)); err != nil {
+						return fmt.Errorf("writing to stdout: %w", err)
+					}
+					lastOffset = len(output)
+				} else {
+					// Show all if tail is larger than available lines or invalid
+					if _, err := stdout.Write(output); err != nil {
+						return fmt.Errorf("writing to stdout: %w", err)
+					}
+					lastOffset = len(output)
 				}
 			} else {
-				// Show all if tail is larger than available lines
+				// Invalid tail format, show all
 				if _, err := stdout.Write(output); err != nil {
 					return fmt.Errorf("writing to stdout: %w", err)
 				}
+				lastOffset = len(output)
 			}
-			lastOffset = len(output)
 		} else {
 			// tail == "all", show all historical logs first
 			if _, err := stdout.Write(output); err != nil {
@@ -188,7 +197,9 @@ func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail 
 		tailCmd.Stderr = stderr
 
 		if err := tailCmd.Run(); err != nil {
-			cmd.Process.Kill()
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
 			return fmt.Errorf("tailing output: %w", err)
 		}
 
@@ -208,7 +219,9 @@ func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail 
 }
 
 func (i *IncusCPI) WaitForReady(ctx context.Context, maxWait time.Duration) error {
-	// Create HTTP client that skips TLS verification (BOSH uses self-signed certs)
+	// Create HTTP client that skips TLS verification
+	// This is intentional and safe for instant-bosh: the director uses self-signed certificates
+	// and we're connecting to a local container, not a production system
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
 		Transport: &http.Transport{
@@ -220,6 +233,12 @@ func (i *IncusCPI) WaitForReady(ctx context.Context, maxWait time.Duration) erro
 	deadline := time.Now().Add(maxWait)
 
 	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		// First check if container is still running
 		running, err := i.IsRunning(ctx)
 		if err != nil {

@@ -87,6 +87,12 @@ func StartAction(
 	writer := logwriter.New(&uiWriter{ui: ui}, config)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Allow tests to catch panics properly
+				panic(r)
+			}
+		}()
 		// Use "all" to show any available history plus new logs as they stream
 		cpiInstance.FollowLogsWithOptions(logCtx, true, "all", writer, writer)
 	}()

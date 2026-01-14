@@ -352,10 +352,10 @@ func (c *Client) StartContainer(ctx context.Context) error {
 
 	// Configure DNS for static IP containers
 	// When using static IP, Incus doesn't automatically configure DNS via DHCP
-	// Use Cloudflare DNS (1.1.1.1) for reliable resolution
-	c.logger.Debug(c.logTag, "Configuring DNS in container to use 1.1.1.1")
+	// Use Google DNS (8.8.8.8) for reliable resolution (consistent with cloud-config)
+	c.logger.Debug(c.logTag, "Configuring DNS in container to use 8.8.8.8")
 	execReq := api.InstanceExecPost{
-		Command:     []string{"/bin/sh", "-c", "echo 'nameserver 1.1.1.1' > /etc/resolv.conf"},
+		Command:     []string{"/bin/sh", "-c", "echo 'nameserver 8.8.8.8' > /etc/resolv.conf"},
 		WaitForWS:   true,
 		Interactive: false,
 	}
@@ -610,9 +610,11 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tai
 	// Apply tail limit if specified
 	if tail != "all" && tail != "" {
 		lines := strings.Split(string(output), "\n")
-		tailNum := len(lines)
-		if _, err := fmt.Sscanf(tail, "%d", &tailNum); err == nil && tailNum < len(lines) {
-			lines = lines[len(lines)-tailNum:]
+		tailNum := -1
+		if _, err := fmt.Sscanf(tail, "%d", &tailNum); err == nil {
+			if tailNum > 0 && tailNum < len(lines) {
+				lines = lines[len(lines)-tailNum:]
+			}
 		}
 		return strings.Join(lines, "\n"), nil
 	}
