@@ -91,18 +91,40 @@ func (i *IncusCPI) FollowLogs(ctx context.Context, stdout, stderr io.Writer) err
 }
 
 func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail string, stdout, stderr io.Writer) error {
-	// For Incus, we'll use the console command to follow logs
-	// The incus console command shows the container's console output
+	// For Incus, we'll exec into the container and tail log files
 	fullName := fmt.Sprintf("%s:%s", i.client.GetRemote(), incus.ContainerName)
 
-	args := []string{"console", fullName, "--show-log"}
+	var args []string
+	if follow {
+		// Use tail -f to follow the pre-start log
+		args = []string{"exec", fullName, "--", "tail", "-f", "/var/log/bosh/pre-start.log"}
+	} else {
+		// Just show the log without following
+		if tail != "all" && tail != "" {
+			args = []string{"exec", fullName, "--", "tail", "-n", tail, "/var/log/bosh/pre-start.log"}
+		} else {
+			args = []string{"exec", fullName, "--", "cat", "/var/log/bosh/pre-start.log"}
+		}
+	}
+
 	cmd := exec.CommandContext(ctx, "incus", args...)
 
-	// Combine stdout and stderr since console output is mixed
+	// Combine stdout and stderr since we want all output
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
+		// If pre-start log doesn't exist, try console log as fallback
+		if !follow {
+			args = []string{"console", fullName, "--show-log"}
+			cmd = exec.CommandContext(ctx, "incus", args...)
+			cmd.Stdout = stdout
+			cmd.Stderr = stderr
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("getting container logs: %w", err)
+			}
+			return nil
+		}
 		return fmt.Errorf("following container logs: %w", err)
 	}
 
