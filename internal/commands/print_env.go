@@ -30,7 +30,9 @@ func PrintEnvAction(ui UI, logger boshlog.Logger, cpiInstance cpi.CPI, configPro
 	ui.PrintLinef("export BOSH_CLIENT_SECRET=%s", config.ClientSecret)
 	ui.PrintLinef("export BOSH_ENVIRONMENT=%s", config.Environment)
 	ui.PrintLinef("export BOSH_CA_CERT='%s'", config.CACert)
-	ui.PrintLinef("export BOSH_ALL_PROXY=%s", config.AllProxy)
+	if config.AllProxy != "" {
+		ui.PrintLinef("export BOSH_ALL_PROXY=%s", config.AllProxy)
+	}
 
 	return nil
 }

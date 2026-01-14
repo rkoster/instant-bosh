@@ -186,40 +186,10 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// GetHostAddress returns the IP address of the Incus host where proxy devices forward ports.
-// For remote Incus servers, this extracts the IP from the remote's URL.
-// For local connections, this returns "127.0.0.1".
+// GetHostAddress returns the IP address where the BOSH director is accessible.
+// With direct network access (static route configured), this returns the container's IP.
 func (c *Client) GetHostAddress() string {
-	if c.remote == "local" || c.cliConfig == nil {
-		return "127.0.0.1"
-	}
-
-	remoteConfig, ok := c.cliConfig.Remotes[c.remote]
-	if !ok {
-		return "127.0.0.1"
-	}
-
-	// Extract host from URL like "https://192.168.2.145:8443"
-	addr := remoteConfig.Addr
-	addr = strings.TrimPrefix(addr, "https://")
-	addr = strings.TrimPrefix(addr, "http://")
-
-	// Remove port if present
-	if colonIdx := strings.LastIndex(addr, ":"); colonIdx != -1 {
-		// Make sure we're not cutting an IPv6 address
-		if !strings.Contains(addr[colonIdx:], "]") {
-			addr = addr[:colonIdx]
-		}
-	}
-
-	// Remove trailing slash
-	addr = strings.TrimSuffix(addr, "/")
-
-	if addr == "" {
-		return "127.0.0.1"
-	}
-
-	return addr
+	return ContainerIP
 }
 
 func (c *Client) NetworkName() string {
@@ -292,25 +262,15 @@ func (c *Client) StartContainer(ctx context.Context) error {
 
 	devices := map[string]map[string]string{
 		"eth0": {
-			"type":    "nic",
-			"network": c.networkName,
-			"name":    "eth0",
+			"type":         "nic",
+			"network":      c.networkName,
+			"name":         "eth0",
+			"ipv4.address": ContainerIP,
 		},
 		"root": {
 			"type": "disk",
 			"path": "/",
 			"pool": c.storagePool,
-		},
-		// Proxy devices to expose BOSH director and jumpbox SSH on the Incus host
-		"bosh-director": {
-			"type":    "proxy",
-			"listen":  "tcp:0.0.0.0:25555",
-			"connect": "tcp:127.0.0.1:25555",
-		},
-		"bosh-jumpbox": {
-			"type":    "proxy",
-			"listen":  "tcp:0.0.0.0:2222",
-			"connect": "tcp:127.0.0.1:22",
 		},
 	}
 
@@ -515,6 +475,35 @@ func (c *Client) StopContainer(ctx context.Context) error {
 
 func (c *Client) RemoveContainer(ctx context.Context, containerName string) error {
 	c.logger.Debug(c.logTag, "Removing container %s", containerName)
+
+	// Check if container is running and stop it first if needed
+	instance, _, err := c.cli.GetInstance(containerName)
+	if err != nil {
+		if api.StatusErrorCheck(err, 404) {
+			// Container doesn't exist, nothing to remove
+			return nil
+		}
+		return fmt.Errorf("checking container state: %w", err)
+	}
+
+	if instance.Status == "Running" {
+		c.logger.Debug(c.logTag, "Container %s is running, stopping it first", containerName)
+		state := api.InstanceStatePut{
+			Action:  "stop",
+			Timeout: 30,
+			Force:   true, // Force stop if graceful shutdown fails
+		}
+
+		stopOp, err := c.cli.UpdateInstanceState(containerName, state, "")
+		if err != nil {
+			return fmt.Errorf("stopping container before removal: %w", err)
+		}
+
+		err = stopOp.Wait()
+		if err != nil {
+			return fmt.Errorf("waiting for container to stop: %w", err)
+		}
+	}
 
 	op, err := c.cli.DeleteInstance(containerName)
 	if err != nil {

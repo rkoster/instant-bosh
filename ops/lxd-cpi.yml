@@ -6,13 +6,14 @@
 # Required variables:
 #   lxd_server_type: Server type (lxd or incus)
 #   lxd_server_url: LXD/Incus server URL (e.g., https://10.246.0.1:8443)
-#   lxd_server_insecure: Skip TLS verification (true/false)
 #   lxd_client_cert: Client TLS certificate
 #   lxd_client_key: Client TLS key
 #   lxd_project_name: LXD/Incus project name
 #   lxd_profile_name: LXD/Incus profile name
 #   lxd_network_name: LXD/Incus network name
 #   lxd_storage_pool_name: LXD/Incus storage pool name
+#
+# Note: insecure_skip_verify is hardcoded to true since instant-bosh uses self-signed certs
 
 # Switch director to use LXD CPI
 - type: replace
@@ -25,7 +26,7 @@
   value:
     type: ((lxd_server_type))
     url: ((lxd_server_url))
-    insecure_skip_verify: ((lxd_server_insecure))
+    insecure_skip_verify: true
     tls_client_cert: ((lxd_client_cert))
     tls_client_key: ((lxd_client_key))
     project_name: ((lxd_project_name))

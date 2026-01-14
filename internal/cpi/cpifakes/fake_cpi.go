@@ -186,6 +186,16 @@ type FakeCPI struct {
 	getSSHPortReturnsOnCall map[int]struct {
 		result1 string
 	}
+	HasDirectNetworkAccessStub        func() bool
+	hasDirectNetworkAccessMutex       sync.RWMutex
+	hasDirectNetworkAccessArgsForCall []struct {
+	}
+	hasDirectNetworkAccessReturns struct {
+		result1 bool
+	}
+	hasDirectNetworkAccessReturnsOnCall map[int]struct {
+		result1 bool
+	}
 	IsRunningStub        func(context.Context) (bool, error)
 	isRunningMutex       sync.RWMutex
 	isRunningArgsForCall []struct {
@@ -1119,6 +1129,59 @@ func (fake *FakeCPI) GetSSHPortReturnsOnCall(i int, result1 string) {
 	}
 	fake.getSSHPortReturnsOnCall[i] = struct {
 		result1 string
+	}{result1}
+}
+
+func (fake *FakeCPI) HasDirectNetworkAccess() bool {
+	fake.hasDirectNetworkAccessMutex.Lock()
+	ret, specificReturn := fake.hasDirectNetworkAccessReturnsOnCall[len(fake.hasDirectNetworkAccessArgsForCall)]
+	fake.hasDirectNetworkAccessArgsForCall = append(fake.hasDirectNetworkAccessArgsForCall, struct {
+	}{})
+	stub := fake.HasDirectNetworkAccessStub
+	fakeReturns := fake.hasDirectNetworkAccessReturns
+	fake.recordInvocation("HasDirectNetworkAccess", []interface{}{})
+	fake.hasDirectNetworkAccessMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) HasDirectNetworkAccessCallCount() int {
+	fake.hasDirectNetworkAccessMutex.RLock()
+	defer fake.hasDirectNetworkAccessMutex.RUnlock()
+	return len(fake.hasDirectNetworkAccessArgsForCall)
+}
+
+func (fake *FakeCPI) HasDirectNetworkAccessCalls(stub func() bool) {
+	fake.hasDirectNetworkAccessMutex.Lock()
+	defer fake.hasDirectNetworkAccessMutex.Unlock()
+	fake.HasDirectNetworkAccessStub = stub
+}
+
+func (fake *FakeCPI) HasDirectNetworkAccessReturns(result1 bool) {
+	fake.hasDirectNetworkAccessMutex.Lock()
+	defer fake.hasDirectNetworkAccessMutex.Unlock()
+	fake.HasDirectNetworkAccessStub = nil
+	fake.hasDirectNetworkAccessReturns = struct {
+		result1 bool
+	}{result1}
+}
+
+func (fake *FakeCPI) HasDirectNetworkAccessReturnsOnCall(i int, result1 bool) {
+	fake.hasDirectNetworkAccessMutex.Lock()
+	defer fake.hasDirectNetworkAccessMutex.Unlock()
+	fake.HasDirectNetworkAccessStub = nil
+	if fake.hasDirectNetworkAccessReturnsOnCall == nil {
+		fake.hasDirectNetworkAccessReturnsOnCall = make(map[int]struct {
+			result1 bool
+		})
+	}
+	fake.hasDirectNetworkAccessReturnsOnCall[i] = struct {
+		result1 bool
 	}{result1}
 }
 

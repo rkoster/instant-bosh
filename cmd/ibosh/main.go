@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -32,36 +31,6 @@ func initUIAndLogger(c *cli.Context) (boshui.UI, boshlog.Logger) {
 	return ui, logger
 }
 
-func detectAndCreateCPI(ctx context.Context, logger boshlog.Logger) (cpi.CPI, error) {
-	dockerClient, err := docker.NewClient(logger, "")
-	if err == nil {
-		dockerCPI := cpi.NewDockerCPI(dockerClient)
-		// Check if container is running OR exists (to support destroy on stopped containers)
-		if running, _ := dockerCPI.IsRunning(ctx); running {
-			return dockerCPI, nil
-		}
-		if exists, _ := dockerCPI.Exists(ctx); exists {
-			return dockerCPI, nil
-		}
-		dockerClient.Close()
-	}
-
-	incusClient, err := incus.NewClient(logger, "", "default", "", "default", "")
-	if err == nil {
-		incusCPI := cpi.NewIncusCPI(incusClient)
-		// Check if container is running OR exists (to support destroy on stopped containers)
-		if running, _ := incusCPI.IsRunning(ctx); running {
-			return incusCPI, nil
-		}
-		if exists, _ := incusCPI.Exists(ctx); exists {
-			return incusCPI, nil
-		}
-		incusClient.Close()
-	}
-
-	return nil, fmt.Errorf("no instant-bosh director found (neither running nor stopped)")
-}
-
 func createDockerCPI(logger boshlog.Logger, customImage string) (cpi.CPI, error) {
 	dockerClient, err := docker.NewClient(logger, customImage)
 	if err != nil {
@@ -76,89 +45,6 @@ func createIncusCPI(logger boshlog.Logger, incusRemote, incusProject, incusNetwo
 		return nil, fmt.Errorf("failed to create incus client: %w", err)
 	}
 	return cpi.NewIncusCPI(incusClient), nil
-}
-
-func createStopCommand(name, usage string) *cli.Command {
-	return &cli.Command{
-		Name:  name,
-		Usage: usage,
-		Action: func(c *cli.Context) error {
-			ctx := context.Background()
-			ui, logger := initUIAndLogger(c)
-
-			cpiInstance, err := detectAndCreateCPI(ctx, logger)
-			if err != nil {
-				return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
-			}
-			defer cpiInstance.Close()
-
-			return commands.StopAction(ui, logger, cpiInstance)
-		},
-	}
-}
-
-func createDestroyCommand(name, usage string) *cli.Command {
-	return &cli.Command{
-		Name:  name,
-		Usage: usage,
-		Flags: []cli.Flag{
-			&cli.BoolFlag{
-				Name:    "force",
-				Aliases: []string{"f"},
-				Usage:   "Skip confirmation prompt",
-			},
-		},
-		Action: func(c *cli.Context) error {
-			ctx := context.Background()
-			ui, logger := initUIAndLogger(c)
-
-			cpiInstance, err := detectAndCreateCPI(ctx, logger)
-			if err != nil {
-				return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
-			}
-			defer cpiInstance.Close()
-
-			return commands.DestroyAction(ui, logger, cpiInstance, c.Bool("force"))
-		},
-	}
-}
-
-func createEnvCommand(name, usage string) *cli.Command {
-	return &cli.Command{
-		Name:  name,
-		Usage: usage,
-		Action: func(c *cli.Context) error {
-			ctx := context.Background()
-			ui, logger := initUIAndLogger(c)
-
-			cpiInstance, err := detectAndCreateCPI(ctx, logger)
-			if err != nil {
-				return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
-			}
-			defer cpiInstance.Close()
-
-			return commands.EnvAction(ui, logger, cpiInstance)
-		},
-	}
-}
-
-func createPrintEnvCommand(name, usage string) *cli.Command {
-	return &cli.Command{
-		Name:  name,
-		Usage: usage,
-		Action: func(c *cli.Context) error {
-			ctx := context.Background()
-			ui, logger := initUIAndLogger(c)
-
-			cpiInstance, err := detectAndCreateCPI(ctx, logger)
-			if err != nil {
-				return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
-			}
-			defer cpiInstance.Close()
-
-			return commands.PrintEnvAction(ui, logger, cpiInstance, &director.DefaultConfigProvider{})
-		},
-	}
 }
 
 func main() {
@@ -227,8 +113,41 @@ func main() {
 							)
 						},
 					},
-					createStopCommand("stop", "Stop instant-bosh director (Docker)"),
-					createDestroyCommand("destroy", "Destroy instant-bosh director and all data (Docker)"),
+					{
+						Name:  "stop",
+						Usage: "Stop instant-bosh director (Docker)",
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createDockerCPI(logger, "")
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Docker CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.StopAction(ui, logger, cpiInstance)
+						},
+					},
+					{
+						Name:  "destroy",
+						Usage: "Destroy instant-bosh director and all data (Docker)",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name:    "force",
+								Aliases: []string{"f"},
+								Usage:   "Skip confirmation prompt",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createDockerCPI(logger, "")
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Docker CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.DestroyAction(ui, logger, cpiInstance, c.Bool("force"))
+						},
+					},
 					{
 						Name:  "logs",
 						Usage: "Show logs from the instant-bosh container (Docker)",
@@ -256,12 +175,10 @@ func main() {
 							},
 						},
 						Action: func(c *cli.Context) error {
-							ctx := context.Background()
 							ui, logger := initUIAndLogger(c)
-
-							cpiInstance, err := detectAndCreateCPI(ctx, logger)
+							cpiInstance, err := createDockerCPI(logger, "")
 							if err != nil {
-								return cli.Exit(fmt.Sprintf("Error: %v", err), 1)
+								return cli.Exit(fmt.Sprintf("Error creating Docker CPI: %v", err), 1)
 							}
 							defer cpiInstance.Close()
 
@@ -276,8 +193,34 @@ func main() {
 							)
 						},
 					},
-					createEnvCommand("env", "Show environment info of instant-bosh including deployed releases (Docker)"),
-					createPrintEnvCommand("print-env", "Print environment variables for BOSH CLI (Docker)"),
+					{
+						Name:  "env",
+						Usage: "Show environment info of instant-bosh including deployed releases (Docker)",
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createDockerCPI(logger, "")
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Docker CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.EnvAction(ui, logger, cpiInstance)
+						},
+					},
+					{
+						Name:  "print-env",
+						Usage: "Print environment variables for BOSH CLI (Docker)",
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createDockerCPI(logger, "")
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Docker CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.PrintEnvAction(ui, logger, cpiInstance, &director.DefaultConfigProvider{})
+						},
+					},
 					{
 						Name:      "upload-stemcell",
 						Usage:     "Upload a light stemcell from a container image (Docker only)",
@@ -376,10 +319,147 @@ Works offline if the image is already pulled locally.`,
 							)
 						},
 					},
-					createStopCommand("stop", "Stop instant-bosh director (Incus)"),
-					createDestroyCommand("destroy", "Destroy instant-bosh director and all data (Incus)"),
-					createEnvCommand("env", "Show environment info of instant-bosh including deployed releases (Incus)"),
-					createPrintEnvCommand("print-env", "Print environment variables for BOSH CLI (Incus)"),
+					{
+						Name:  "stop",
+						Usage: "Stop instant-bosh director (Incus)",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "remote",
+								Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
+								EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+							},
+							&cli.StringFlag{
+								Name:    "project",
+								Usage:   "Incus project name",
+								Value:   "default",
+								EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createIncusCPI(
+								logger,
+								c.String("remote"),
+								c.String("project"),
+								"", // network not needed for stop
+								"", // storage-pool not needed for stop
+								"", // image not needed for stop
+							)
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Incus CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.StopAction(ui, logger, cpiInstance)
+						},
+					},
+					{
+						Name:  "destroy",
+						Usage: "Destroy instant-bosh director and all data (Incus)",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name:    "force",
+								Aliases: []string{"f"},
+								Usage:   "Skip confirmation prompt",
+							},
+							&cli.StringFlag{
+								Name:    "remote",
+								Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
+								EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+							},
+							&cli.StringFlag{
+								Name:    "project",
+								Usage:   "Incus project name",
+								Value:   "default",
+								EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createIncusCPI(
+								logger,
+								c.String("remote"),
+								c.String("project"),
+								"", // network not needed for destroy
+								"", // storage-pool not needed for destroy
+								"", // image not needed for destroy
+							)
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Incus CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.DestroyAction(ui, logger, cpiInstance, c.Bool("force"))
+						},
+					},
+					{
+						Name:  "env",
+						Usage: "Show environment info of instant-bosh including deployed releases (Incus)",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "remote",
+								Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
+								EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+							},
+							&cli.StringFlag{
+								Name:    "project",
+								Usage:   "Incus project name",
+								Value:   "default",
+								EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createIncusCPI(
+								logger,
+								c.String("remote"),
+								c.String("project"),
+								"", // network not needed for env
+								"", // storage-pool not needed for env
+								"", // image not needed for env
+							)
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Incus CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.EnvAction(ui, logger, cpiInstance)
+						},
+					},
+					{
+						Name:  "print-env",
+						Usage: "Print environment variables for BOSH CLI (Incus)",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "remote",
+								Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
+								EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+							},
+							&cli.StringFlag{
+								Name:    "project",
+								Usage:   "Incus project name",
+								Value:   "default",
+								EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createIncusCPI(
+								logger,
+								c.String("remote"),
+								c.String("project"),
+								"", // network not needed for print-env
+								"", // storage-pool not needed for print-env
+								"", // image not needed for print-env
+							)
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Incus CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.PrintEnvAction(ui, logger, cpiInstance, &director.DefaultConfigProvider{})
+						},
+					},
 				},
 			},
 			// Deprecated commands with helpful error messages

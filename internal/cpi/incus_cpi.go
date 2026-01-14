@@ -2,8 +2,10 @@ package cpi
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/rkoster/instant-bosh/internal/incus"
@@ -92,28 +94,40 @@ func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail 
 }
 
 func (i *IncusCPI) WaitForReady(ctx context.Context, maxWait time.Duration) error {
-	timer := time.NewTimer(maxWait)
-	defer timer.Stop()
+	// Create HTTP client that skips TLS verification (BOSH uses self-signed certs)
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	boshURL := fmt.Sprintf("https://%s:%s/info", i.GetContainerIP(), i.GetDirectorPort())
+	deadline := time.Now().Add(maxWait)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-			return fmt.Errorf("timeout waiting for Incus container to be ready after %v", maxWait)
-		case <-ticker.C:
-			running, err := i.IsRunning(ctx)
-			if err != nil {
-				continue
-			}
-			if running {
+	for time.Now().Before(deadline) {
+		// First check if container is still running
+		running, err := i.IsRunning(ctx)
+		if err != nil {
+			return err
+		}
+		if !running {
+			return fmt.Errorf("container stopped unexpectedly")
+		}
+
+		// Try to connect to BOSH /info endpoint
+		resp, err := httpClient.Get(boshURL)
+		if err == nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
 				return nil
 			}
 		}
+
+		time.Sleep(2 * time.Second)
 	}
+
+	return fmt.Errorf("timeout waiting for BOSH to start after %v", maxWait)
 }
 
 func (i *IncusCPI) GetContainerName() string {
@@ -138,6 +152,12 @@ func (i *IncusCPI) GetDirectorPort() string {
 
 func (i *IncusCPI) GetSSHPort() string {
 	return incus.SSHPort
+}
+
+func (i *IncusCPI) HasDirectNetworkAccess() bool {
+	// Incus containers have direct network access via static routing
+	// No jumpbox proxy needed
+	return true
 }
 
 func (i *IncusCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error) {

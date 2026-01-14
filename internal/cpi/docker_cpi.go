@@ -151,6 +151,12 @@ func (d *DockerCPI) GetSSHPort() string {
 	return docker.SSHPort
 }
 
+func (d *DockerCPI) HasDirectNetworkAccess() bool {
+	// Docker requires SOCKS5 proxy through jumpbox
+	// since we access via localhost port forwarding
+	return false
+}
+
 func (d *DockerCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error) {
 	dockerContainers, err := d.client.GetContainersOnNetworkDetailed(ctx)
 	if err != nil {
