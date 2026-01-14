@@ -91,41 +91,78 @@ func (i *IncusCPI) FollowLogs(ctx context.Context, stdout, stderr io.Writer) err
 }
 
 func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail string, stdout, stderr io.Writer) error {
-	// For Incus, we'll exec into the container and tail log files
+	// For Incus, we use the console log which captures the entrypoint binary's stdout/stderr
+	// This gives us structured output with process tags like [process], [director/sync_dns.stdout], etc.
 	fullName := fmt.Sprintf("%s:%s", i.client.GetRemote(), incus.ContainerName)
 
-	var args []string
 	if follow {
-		// Use tail -f to follow the pre-start log
-		args = []string{"exec", fullName, "--", "tail", "-f", "/var/log/bosh/pre-start.log"}
-	} else {
-		// Just show the log without following
-		if tail != "all" && tail != "" {
-			args = []string{"exec", fullName, "--", "tail", "-n", tail, "/var/log/bosh/pre-start.log"}
-		} else {
-			args = []string{"exec", fullName, "--", "cat", "/var/log/bosh/pre-start.log"}
+		// For follow mode, we poll the console log since Incus doesn't support streaming the console log
+		// We track the byte offset and only show new content on each poll
+		lastOffset := 0
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				// Get the full console log
+				cmd := exec.CommandContext(ctx, "incus", "console", fullName, "--show-log")
+				output, err := cmd.CombinedOutput()
+				if err != nil {
+					// Container might be stopped, return error
+					return fmt.Errorf("getting container console log: %w", err)
+				}
+
+				// Only show new content since last poll
+				if len(output) > lastOffset {
+					newContent := output[lastOffset:]
+					if _, err := stdout.Write(newContent); err != nil {
+						return fmt.Errorf("writing to stdout: %w", err)
+					}
+					lastOffset = len(output)
+				}
+			}
 		}
 	}
 
-	cmd := exec.CommandContext(ctx, "incus", args...)
+	// For non-follow mode, just show the console log
+	args := []string{"console", fullName, "--show-log"}
 
-	// Combine stdout and stderr since we want all output
+	// If tail is specified, we'll pipe through tail
+	if tail != "all" && tail != "" {
+		cmd := exec.CommandContext(ctx, "incus", args...)
+		cmdOut, err := cmd.StdoutPipe()
+		if err != nil {
+			return fmt.Errorf("creating stdout pipe: %w", err)
+		}
+
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("starting console command: %w", err)
+		}
+
+		// Tail the output
+		tailCmd := exec.CommandContext(ctx, "tail", "-n", tail)
+		tailCmd.Stdin = cmdOut
+		tailCmd.Stdout = stdout
+		tailCmd.Stderr = stderr
+
+		if err := tailCmd.Run(); err != nil {
+			cmd.Process.Kill()
+			return fmt.Errorf("tailing output: %w", err)
+		}
+
+		return cmd.Wait()
+	}
+
+	// Show all logs
+	cmd := exec.CommandContext(ctx, "incus", args...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
-		// If pre-start log doesn't exist, try console log as fallback
-		if !follow {
-			args = []string{"console", fullName, "--show-log"}
-			cmd = exec.CommandContext(ctx, "incus", args...)
-			cmd.Stdout = stdout
-			cmd.Stderr = stderr
-			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("getting container logs: %w", err)
-			}
-			return nil
-		}
-		return fmt.Errorf("following container logs: %w", err)
+		return fmt.Errorf("getting container console log: %w", err)
 	}
 
 	return nil
