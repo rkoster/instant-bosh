@@ -338,6 +338,7 @@ var _ = Describe("StartAction", func() {
 				}
 
 			Expect(messages).To(ContainElement(ContainSubstring("Starting instant-bosh container")))
+			Expect(messages).To(ContainElement(ContainSubstring("Waiting for BOSH to be ready")))
 			Expect(messages).To(ContainElement(ContainSubstring("instant-bosh is ready")))
 			Expect(messages).To(ContainElement(ContainSubstring("Applying cloud-config")))
 			})

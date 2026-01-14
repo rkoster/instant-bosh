@@ -97,6 +97,7 @@ func StartAction(
 		cpiInstance.FollowLogsWithOptions(logCtx, true, "all", writer, writer)
 	}()
 
+	ui.PrintLinef("Waiting for BOSH to be ready...")
 	if err := cpiInstance.WaitForReady(ctx, 5*time.Minute); err != nil {
 		return fmt.Errorf("BOSH failed to become ready: %w", err)
 	}
