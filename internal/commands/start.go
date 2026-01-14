@@ -9,7 +9,6 @@ import (
 	"github.com/rkoster/instant-bosh/internal/cpi"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
@@ -73,28 +72,9 @@ func StartAction(
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 
-	logCtx, cancelLogs := context.WithCancel(ctx)
-	defer cancelLogs()
-
-	// Show only important startup components during container start
-	// Filter to main process and supervisor logs, skip verbose component logs
-	config := logwriter.Config{
-		MessageOnly: true,
-		Components:  []string{"main", "process", "supervisor", "ParallelScript", "config"},
-	}
-	writer := logwriter.New(&uiWriter{ui: ui}, config)
-
-	go func() {
-		cpiInstance.FollowLogsWithOptions(logCtx, true, "0", writer, writer)
-	}()
-
-	ui.PrintLinef("Waiting for BOSH to be ready...")
 	if err := cpiInstance.WaitForReady(ctx, 5*time.Minute); err != nil {
 		return fmt.Errorf("BOSH failed to become ready: %w", err)
 	}
-
-	cancelLogs()
-	time.Sleep(100 * time.Millisecond)
 
 	ui.PrintLinef("instant-bosh is ready!")
 
