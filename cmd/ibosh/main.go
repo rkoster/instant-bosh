@@ -460,6 +460,52 @@ Works offline if the image is already pulled locally.`,
 							return commands.PrintEnvAction(ui, logger, cpiInstance, &director.DefaultConfigProvider{})
 						},
 					},
+					{
+						Name:  "logs",
+						Usage: "Show logs from the instant-bosh container (Incus)",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name:    "follow",
+								Aliases: []string{"f"},
+								Usage:   "Follow log output",
+								Value:   false,
+							},
+							&cli.StringFlag{
+								Name:    "tail",
+								Aliases: []string{"n"},
+								Usage:   "Number of lines to show from the end of the logs",
+								Value:   "all",
+							},
+							&cli.StringFlag{
+								Name:    "remote",
+								Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
+								EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+							},
+							&cli.StringFlag{
+								Name:    "project",
+								Usage:   "Incus project name",
+								Value:   "default",
+								EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, logger := initUIAndLogger(c)
+							cpiInstance, err := createIncusCPI(
+								logger,
+								c.String("remote"),
+								c.String("project"),
+								"", // network not needed for logs
+								"", // storage-pool not needed for logs
+								"", // image not needed for logs
+							)
+							if err != nil {
+								return cli.Exit(fmt.Sprintf("Error creating Incus CPI: %v", err), 1)
+							}
+							defer cpiInstance.Close()
+
+							return commands.LogsAction(ui, logger, cpiInstance, false, []string{}, c.Bool("follow"), c.String("tail"))
+						},
+					},
 				},
 			},
 			// Deprecated commands with helpful error messages
