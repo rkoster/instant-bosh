@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -190,6 +191,10 @@ func (c *Client) Close() error {
 // With direct network access (static route configured), this returns the container's IP.
 func (c *Client) GetHostAddress() string {
 	return ContainerIP
+}
+
+func (c *Client) GetRemote() string {
+	return c.remote
 }
 
 func (c *Client) NetworkName() string {
@@ -584,7 +589,35 @@ func (c *Client) ExecCommand(ctx context.Context, containerName string, cmd []st
 }
 
 func (c *Client) GetContainerLogs(ctx context.Context, containerName string, tail string) (string, error) {
-	return "", fmt.Errorf("GetContainerLogs not yet implemented for Incus")
+	// Use incus CLI to get logs from the console log file
+	fullName := fmt.Sprintf("%s:%s", c.remote, containerName)
+
+	// Build the command to get logs
+	args := []string{"file", "pull", fmt.Sprintf("%s/var/log/bosh/pre-start.log", fullName), "-"}
+
+	cmd := exec.CommandContext(ctx, "incus", args...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// If pre-start log doesn't exist, try the console log
+		args = []string{"console", fullName, "--show-log"}
+		cmd = exec.CommandContext(ctx, "incus", args...)
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			return "", fmt.Errorf("getting container logs: %w (output: %s)", err, string(output))
+		}
+	}
+
+	// Apply tail limit if specified
+	if tail != "all" && tail != "" {
+		lines := strings.Split(string(output), "\n")
+		tailNum := len(lines)
+		if _, err := fmt.Sscanf(tail, "%d", &tailNum); err == nil && tailNum < len(lines) {
+			lines = lines[len(lines)-tailNum:]
+		}
+		return strings.Join(lines, "\n"), nil
+	}
+
+	return string(output), nil
 }
 
 type incusAPIWrapper struct {

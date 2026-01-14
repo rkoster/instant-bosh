@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"time"
 
 	"github.com/rkoster/instant-bosh/internal/incus"
@@ -82,15 +83,30 @@ func (i *IncusCPI) ExecCommand(ctx context.Context, containerName string, comman
 }
 
 func (i *IncusCPI) GetLogs(ctx context.Context, tail string) (string, error) {
-	return "", fmt.Errorf("logs not yet implemented for Incus CPI")
+	return i.client.GetContainerLogs(ctx, incus.ContainerName, tail)
 }
 
 func (i *IncusCPI) FollowLogs(ctx context.Context, stdout, stderr io.Writer) error {
-	return fmt.Errorf("follow logs not yet implemented for Incus CPI")
+	return i.FollowLogsWithOptions(ctx, true, "all", stdout, stderr)
 }
 
 func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail string, stdout, stderr io.Writer) error {
-	return fmt.Errorf("follow logs with options not yet implemented for Incus CPI")
+	// For Incus, we'll use the console command to follow logs
+	// The incus console command shows the container's console output
+	fullName := fmt.Sprintf("%s:%s", i.client.GetRemote(), incus.ContainerName)
+
+	args := []string{"console", fullName, "--show-log"}
+	cmd := exec.CommandContext(ctx, "incus", args...)
+
+	// Combine stdout and stderr since console output is mixed
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("following container logs: %w", err)
+	}
+
+	return nil
 }
 
 func (i *IncusCPI) WaitForReady(ctx context.Context, maxWait time.Duration) error {
