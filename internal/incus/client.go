@@ -345,6 +345,24 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		return fmt.Errorf("waiting for container to start: %w", err)
 	}
 
+	// Configure DNS for static IP containers
+	// When using static IP, Incus doesn't automatically configure DNS via DHCP
+	// Use Cloudflare DNS (1.1.1.1) for reliable resolution
+	c.logger.Debug(c.logTag, "Configuring DNS in container to use 1.1.1.1")
+	execReq := api.InstanceExecPost{
+		Command:     []string{"/bin/sh", "-c", "echo 'nameserver 1.1.1.1' > /etc/resolv.conf"},
+		WaitForWS:   true,
+		Interactive: false,
+	}
+	execOp, err := c.cli.ExecInstance(ContainerName, execReq, nil)
+	if err != nil {
+		c.logger.Warn(c.logTag, "Could not configure DNS: %v (DNS may not work)", err)
+	} else {
+		if err := execOp.Wait(); err != nil {
+			c.logger.Warn(c.logTag, "DNS configuration command failed: %v (DNS may not work)", err)
+		}
+	}
+
 	return nil
 }
 
