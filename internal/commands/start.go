@@ -9,6 +9,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/cpi"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
@@ -72,9 +73,31 @@ func StartAction(
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 
+	// Follow logs during startup to show progress
+	logCtx, cancelLogs := context.WithCancel(ctx)
+	defer cancelLogs()
+
+	// Show startup components - filter noise but keep important progress messages
+	// Note: Incus console logs are ephemeral, so we may miss early [main] component logs
+	// We show supervisor and process logs which are available during the wait period
+	config := logwriter.Config{
+		MessageOnly: true,
+		Components:  []string{"main", "supervisor", "process"},
+	}
+	writer := logwriter.New(&uiWriter{ui: ui}, config)
+
+	go func() {
+		// Use "all" to show any available history plus new logs as they stream
+		cpiInstance.FollowLogsWithOptions(logCtx, true, "all", writer, writer)
+	}()
+
 	if err := cpiInstance.WaitForReady(ctx, 5*time.Minute); err != nil {
 		return fmt.Errorf("BOSH failed to become ready: %w", err)
 	}
+
+	// Stop log following
+	cancelLogs()
+	time.Sleep(100 * time.Millisecond) // Give goroutine time to finish
 
 	ui.PrintLinef("instant-bosh is ready!")
 
