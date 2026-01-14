@@ -34,6 +34,14 @@
         #!/bin/bash
         set -e
         
+        # Fix LXD CPI throttle config - the release has a bug where Enabled is a string instead of boolean
+        if [ -f /var/vcap/jobs/lxd_cpi/config/cpi.json ]; then
+          echo "Fixing LXD CPI throttle config..."
+          sed -i 's/"Enabled":"false"/"Enabled":false/' /var/vcap/jobs/lxd_cpi/config/cpi.json
+          sed -i 's/"Enabled":"true"/"Enabled":true/' /var/vcap/jobs/lxd_cpi/config/cpi.json
+          echo "LXD CPI throttle config fixed"
+        fi
+        
         # Fix Docker socket permissions so vcap user can access it
         echo "Fixing Docker socket permissions..."
         if [ -S /var/run/docker.sock ]; then
