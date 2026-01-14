@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.1016
-      sha: 5f502b2974cb677e66119356f695e0d534392e66
+      commitTitle: Bumping syslog to version 12.3.14
+      sha: 45f2da1e0d2bde02522e143c0789cb8f48cb5725
       tags:
-      - last-xenial-4326-g5f502b29
+      - last-xenial-4327-g45f2da1e
     path: bosh-deployment
   path: manifests
 - contents:
