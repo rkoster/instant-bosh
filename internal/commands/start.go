@@ -3,13 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/cpi"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
@@ -76,7 +76,14 @@ func StartAction(
 	logCtx, cancelLogs := context.WithCancel(ctx)
 	defer cancelLogs()
 
-	writer := &uiLogWriter{ui: ui}
+	// Show only important startup components during container start
+	// Filter to main process and supervisor logs, skip verbose component logs
+	config := logwriter.Config{
+		MessageOnly: true,
+		Components:  []string{"main", "process", "supervisor", "ParallelScript", "config"},
+	}
+	writer := logwriter.New(&uiWriter{ui: ui}, config)
+
 	go func() {
 		cpiInstance.FollowLogsWithOptions(logCtx, true, "0", writer, writer)
 	}()
@@ -185,10 +192,10 @@ func handleDockerImageManagement(
 			ui.PrintLinef("")
 			ui.PrintLinef("Continue with upgrade?")
 
-		if err := ui.AskForConfirmation(); err != nil {
-			ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
-			return nil
-		}
+			if err := ui.AskForConfirmation(); err != nil {
+				ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
+				return nil
+			}
 
 			ui.PrintLinef("")
 			ui.PrintLinef("Upgrading to new image...")
@@ -360,16 +367,4 @@ func uploadLightStemcells(
 	}
 
 	return nil
-}
-
-type uiLogWriter struct {
-	ui UI
-}
-
-func (w *uiLogWriter) Write(p []byte) (n int, err error) {
-	msg := strings.TrimSuffix(string(p), "\n")
-	if msg != "" {
-		w.ui.PrintLinef("%s", msg)
-	}
-	return len(p), nil
 }

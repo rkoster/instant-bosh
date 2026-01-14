@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/rkoster/instant-bosh/internal/incus"
@@ -98,7 +99,45 @@ func (i *IncusCPI) FollowLogsWithOptions(ctx context.Context, follow bool, tail 
 	if follow {
 		// For follow mode, we poll the console log since Incus doesn't support streaming the console log
 		// We track the byte offset and only show new content on each poll
+
+		// Get the current log size to use as starting offset
+		// If tail is specified and not "0", show that many lines first
+		cmd := exec.CommandContext(ctx, "incus", "console", fullName, "--show-log")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("getting container console log: %w", err)
+		}
+
 		lastOffset := 0
+		if tail == "0" {
+			// Skip all historical logs, only show new ones from now on
+			lastOffset = len(output)
+		} else if tail != "all" && tail != "" {
+			// Show last N lines, then continue following
+			lines := strings.Split(string(output), "\n")
+			tailNum := 10 // default
+			if _, err := fmt.Sscanf(tail, "%d", &tailNum); err == nil && tailNum < len(lines) {
+				// Calculate offset to show last N lines
+				recentLines := lines[len(lines)-tailNum:]
+				recentOutput := strings.Join(recentLines, "\n")
+				if _, err := stdout.Write([]byte(recentOutput)); err != nil {
+					return fmt.Errorf("writing to stdout: %w", err)
+				}
+			} else {
+				// Show all if tail is larger than available lines
+				if _, err := stdout.Write(output); err != nil {
+					return fmt.Errorf("writing to stdout: %w", err)
+				}
+			}
+			lastOffset = len(output)
+		} else {
+			// tail == "all", show all historical logs first
+			if _, err := stdout.Write(output); err != nil {
+				return fmt.Errorf("writing to stdout: %w", err)
+			}
+			lastOffset = len(output)
+		}
+
 		ticker := time.NewTicker(1 * time.Second)
 		defer ticker.Stop()
 
