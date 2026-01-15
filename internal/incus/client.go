@@ -1,6 +1,7 @@
 package incus
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -335,10 +336,10 @@ func (c *Client) StartContainer(ctx context.Context) error {
 
 	// Write vars file to container
 	fileArgs := incus.InstanceFileArgs{
-		Content: strings.NewReader(string(lxdVarsYAML)),
+		Content: bytes.NewReader(lxdVarsYAML),
 		UID:     0,
 		GID:     0,
-		Mode:    0644,
+		Mode:    0600,
 		Type:    "file",
 	}
 	if err := c.cli.CreateInstanceFile(ContainerName, "/var/vcap/bosh/lxd-vars.yml", fileArgs); err != nil {
