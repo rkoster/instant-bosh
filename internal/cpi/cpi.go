@@ -46,6 +46,11 @@ type CPI interface {
 	GetDirectorPort() string
 	GetSSHPort() string
 
+	// Network access method
+	// Returns true if direct network access is available to the container
+	// Returns false if BOSH_ALL_PROXY (jumpbox) is needed
+	HasDirectNetworkAccess() bool
+
 	// Container management
 	GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo, error)
 

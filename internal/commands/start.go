@@ -3,13 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/cpi"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/logwriter"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
@@ -73,12 +73,28 @@ func StartAction(
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 
+	// Follow logs during startup to show progress
 	logCtx, cancelLogs := context.WithCancel(ctx)
 	defer cancelLogs()
 
-	writer := &uiLogWriter{ui: ui}
+	// Show startup components - filter noise but keep important progress messages
+	// Note: Incus console logs are ephemeral, so we may miss early [main] component logs
+	// We show supervisor and process logs which are available during the wait period
+	config := logwriter.Config{
+		MessageOnly: true,
+		Components:  []string{"main", "supervisor", "process"},
+	}
+	writer := logwriter.New(&uiWriter{ui: ui}, config)
+
 	go func() {
-		cpiInstance.FollowLogsWithOptions(logCtx, true, "0", writer, writer)
+		defer func() {
+			if r := recover(); r != nil {
+				// Allow tests to catch panics properly
+				panic(r)
+			}
+		}()
+		// Use "all" to show any available history plus new logs as they stream
+		cpiInstance.FollowLogsWithOptions(logCtx, true, "all", writer, writer)
 	}()
 
 	ui.PrintLinef("Waiting for BOSH to be ready...")
@@ -86,8 +102,9 @@ func StartAction(
 		return fmt.Errorf("BOSH failed to become ready: %w", err)
 	}
 
+	// Stop log following
 	cancelLogs()
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond) // Give goroutine time to finish
 
 	ui.PrintLinef("instant-bosh is ready!")
 
@@ -185,10 +202,10 @@ func handleDockerImageManagement(
 			ui.PrintLinef("")
 			ui.PrintLinef("Continue with upgrade?")
 
-		if err := ui.AskForConfirmation(); err != nil {
-			ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
-			return nil
-		}
+			if err := ui.AskForConfirmation(); err != nil {
+				ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
+				return nil
+			}
 
 			ui.PrintLinef("")
 			ui.PrintLinef("Upgrading to new image...")
@@ -360,16 +377,4 @@ func uploadLightStemcells(
 	}
 
 	return nil
-}
-
-type uiLogWriter struct {
-	ui UI
-}
-
-func (w *uiLogWriter) Write(p []byte) (n int, err error) {
-	msg := strings.TrimSuffix(string(p), "\n")
-	if msg != "" {
-		w.ui.PrintLinef("%s", msg)
-	}
-	return len(p), nil
 }

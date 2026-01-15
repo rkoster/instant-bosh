@@ -307,7 +307,7 @@ var _ = Describe("StartAction", func() {
 					logStreamCalled = true
 					logStreamMutex.Unlock()
 					Expect(follow).To(BeTrue())
-					Expect(tail).To(Equal("0"))
+					Expect(tail).To(Equal("all"))
 					return nil
 				}
 			})
@@ -337,10 +337,10 @@ var _ = Describe("StartAction", func() {
 					messages = append(messages, format)
 				}
 
-				Expect(messages).To(ContainElement(ContainSubstring("Starting instant-bosh container")))
-				Expect(messages).To(ContainElement(ContainSubstring("Waiting for BOSH to be ready")))
-				Expect(messages).To(ContainElement(ContainSubstring("instant-bosh is ready")))
-				Expect(messages).To(ContainElement(ContainSubstring("Applying cloud-config")))
+			Expect(messages).To(ContainElement(ContainSubstring("Starting instant-bosh container")))
+			Expect(messages).To(ContainElement(ContainSubstring("Waiting for BOSH to be ready")))
+			Expect(messages).To(ContainElement(ContainSubstring("instant-bosh is ready")))
+			Expect(messages).To(ContainElement(ContainSubstring("Applying cloud-config")))
 			})
 		})
 	})

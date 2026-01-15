@@ -164,12 +164,30 @@ func GetDirectorConfig(ctx context.Context, containerClient container.Client, co
 	// For Docker this is 127.0.0.1, for remote Incus this is the Incus server IP
 	hostAddress := containerClient.GetHostAddress()
 
+	// Determine if we need BOSH_ALL_PROXY based on network access method
+	// Try to cast to CPI interface to check if direct network access is available
+	var allProxy string
+	type networkAccessChecker interface {
+		HasDirectNetworkAccess() bool
+	}
+	if checker, ok := containerClient.(networkAccessChecker); ok {
+		// Use CPI's explicit declaration of network access method
+		if !checker.HasDirectNetworkAccess() {
+			allProxy = fmt.Sprintf("ssh+socks5://jumpbox@%s:2222?private-key=%s", hostAddress, keyFile)
+		}
+	} else {
+		// Fallback: check if localhost (Docker-like setup that needs proxy)
+		if hostAddress == "127.0.0.1" || hostAddress == "localhost" {
+			allProxy = fmt.Sprintf("ssh+socks5://jumpbox@%s:2222?private-key=%s", hostAddress, keyFile)
+		}
+	}
+
 	return &Config{
 		Environment:    fmt.Sprintf("https://%s:25555", hostAddress),
 		Client:         "admin",
 		ClientSecret:   adminPasswordStr,
 		CACert:         directorCertStr,
-		AllProxy:       fmt.Sprintf("ssh+socks5://jumpbox@%s:2222?private-key=%s", hostAddress, keyFile),
+		AllProxy:       allProxy,
 		JumpboxKeyPath: keyFile,
 	}, nil
 }
