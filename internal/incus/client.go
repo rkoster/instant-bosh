@@ -13,6 +13,7 @@ import (
 	incus "github.com/lxc/incus/v6/client"
 	"github.com/lxc/incus/v6/shared/api"
 	"github.com/lxc/incus/v6/shared/cliconfig"
+	"gopkg.in/yaml.v3"
 )
 
 //go:generate go run github.com/maxbrunsfeld/counterfeiter/v6 -generate
@@ -283,11 +284,13 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	// BOB_VARS_ENV tells the entrypoint to read variables from env vars with the given prefix
 	// Note: The prefix must include the trailing underscore (IBOSH_ not IBOSH)
 	// BOB_OPS_FILES specifies which embedded ops-files to apply at runtime
+	// BOB_VARS_FILES specifies YAML files containing variables (used for multi-line values like certs)
 	config := map[string]string{
 		"security.privileged":             "true",
 		"raw.lxc":                         "lxc.mount.auto = proc:rw sys:rw cgroup:rw\nlxc.apparmor.profile = unconfined",
 		"environment.BOB_VARS_ENV":        "IBOSH_",
 		"environment.BOB_OPS_FILES":       "lxd-cpi.yml,director-alternative-names.yml",
+		"environment.BOB_VARS_FILES":      "/var/vcap/bosh/lxd-vars.yml",
 		"environment.IBOSH_internal_ip":   ContainerIP,
 		"environment.IBOSH_internal_cidr": NetworkSubnet,
 		"environment.IBOSH_internal_gw":   NetworkGateway,
@@ -301,8 +304,6 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		"environment.IBOSH_lxd_profile_name":           DefaultProfile,
 		"environment.IBOSH_lxd_project_name":           c.project,
 		"environment.IBOSH_lxd_storage_pool_name":      c.storagePool,
-		"environment.IBOSH_lxd_client_cert":            clientCert,
-		"environment.IBOSH_lxd_client_key":             clientKey,
 		"environment.IBOSH_director_alternative_names": fmt.Sprintf(`["%s","127.0.0.1","%s"]`, ContainerIP, c.GetHostAddress()),
 	}
 
@@ -318,6 +319,30 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	// Create instance from image - either from OCI remote or local fingerprint
 	if err := c.createInstanceFromImage(ctx, req); err != nil {
 		return err
+	}
+
+	// Create vars file with multi-line values (certificates) that can't be passed via environment variables
+	// due to Incus/LXD limitations with multi-line env vars
+	c.logger.Debug(c.logTag, "Creating LXD vars file with certificates")
+	lxdVars := map[string]string{
+		"lxd_client_cert": clientCert,
+		"lxd_client_key":  clientKey,
+	}
+	lxdVarsYAML, err := yaml.Marshal(lxdVars)
+	if err != nil {
+		return fmt.Errorf("marshaling LXD vars to YAML: %w", err)
+	}
+
+	// Write vars file to container
+	fileArgs := incus.InstanceFileArgs{
+		Content: strings.NewReader(string(lxdVarsYAML)),
+		UID:     0,
+		GID:     0,
+		Mode:    0644,
+		Type:    "file",
+	}
+	if err := c.cli.CreateInstanceFile(ContainerName, "/var/vcap/bosh/lxd-vars.yml", fileArgs); err != nil {
+		return fmt.Errorf("writing LXD vars file to container: %w", err)
 	}
 
 	// OCI images may have files/directories that prevent Incus from setting up the container:
@@ -656,6 +681,10 @@ func (w *incusAPIWrapper) ExecInstance(name string, req api.InstanceExecPost, ar
 
 func (w *incusAPIWrapper) GetInstanceFile(instanceName string, filePath string) (io.ReadCloser, *incus.InstanceFileResponse, error) {
 	return w.server.GetInstanceFile(instanceName, filePath)
+}
+
+func (w *incusAPIWrapper) CreateInstanceFile(instanceName string, filePath string, args incus.InstanceFileArgs) error {
+	return w.server.CreateInstanceFile(instanceName, filePath, args)
 }
 
 func (w *incusAPIWrapper) DeleteInstanceFile(instanceName string, filePath string) error {
