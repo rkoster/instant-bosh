@@ -288,7 +288,8 @@ func (c *Client) StartContainer(ctx context.Context) error {
 	// BOB_VARS_FILES specifies YAML files containing variables (used for multi-line values like certs)
 	config := map[string]string{
 		"security.privileged":             "true",
-		"raw.lxc":                         "lxc.mount.auto = proc:rw sys:rw cgroup:rw\nlxc.apparmor.profile = unconfined",
+		"security.nesting":                "true",
+		"raw.lxc":                         "lxc.mount.auto = proc:rw sys:rw cgroup:rw\nlxc.apparmor.profile = unconfined\nlxc.cap.drop =",
 		"environment.BOB_VARS_ENV":        "IBOSH_",
 		"environment.BOB_OPS_FILES":       "lxd-cpi.yml,director-alternative-names.yml",
 		"environment.BOB_VARS_FILES":      "/var/vcap/bosh/lxd-vars.yml",
