@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.14
-      sha: 45f2da1e0d2bde02522e143c0789cb8f48cb5725
+      commitTitle: Bumping bpm to version 1.4.24
+      sha: 8c0b298e46715e8ef38507aefbe4fe94b44e144f
       tags:
-      - last-xenial-4327-g45f2da1e
+      - last-xenial-4330-g8c0b298e
     path: bosh-deployment
   path: manifests
 - contents:
