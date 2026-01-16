@@ -300,7 +300,7 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		"environment.IBOSH_network":       c.networkName,
 		// LXD CPI configuration - the director will connect to the Incus server via gateway
 		"environment.IBOSH_lxd_server_url":             "https://" + NetworkGateway + ":8443",
-		"environment.IBOSH_lxd_server_type":            "lxd",
+		"environment.IBOSH_lxd_server_type":            "incus",
 		"environment.IBOSH_lxd_server_insecure":        "true",
 		"environment.IBOSH_lxd_network_name":           c.networkName,
 		"environment.IBOSH_lxd_profile_name":           DefaultProfile,

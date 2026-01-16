@@ -17,8 +17,10 @@
     release: lxd-bosh-cpi
     properties:
       lxd_cpi:
+        # Only minimal set, will be overwritten using lxd-cpi.yml ops file
+        # This file exists so that when running in docker mode
+        # there are no missing variables
         server:
-          type: incus
           url: https://localhost:8443
           insecure_skip_verify: true
           tls_client_cert: ""
@@ -27,9 +29,3 @@
           profile_name: default
           network_name: default
           storage_pool_name: default
-        agent:
-          mbus: nats://((internal_ip)):4222
-        agent_config:
-          type: CDROM
-          label: "config-2"
-          filestore_path: "/var/vcap/store/agent-data"
