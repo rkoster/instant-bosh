@@ -18,7 +18,7 @@
     properties:
       lxd_cpi:
         server:
-          type: lxd
+          type: incus
           url: https://localhost:8443
           insecure_skip_verify: true
           tls_client_cert: ""
