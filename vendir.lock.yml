@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bpm to version 1.4.24
-      sha: 8c0b298e46715e8ef38507aefbe4fe94b44e144f
+      commitTitle: Bumping bosh to version 282.1.2
+      sha: e4bead2e85be9d53670c7eb1924277e8964543de
       tags:
-      - last-xenial-4330-g8c0b298e
+      - last-xenial-4362-ge4bead2e
     path: bosh-deployment
   path: manifests
 - contents:
