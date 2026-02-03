@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh to version 282.1.2
-      sha: 3a77b58da382856fb9208a4de64d0b5900a820b5
+      commitTitle: Bumping Stemcell alicloud-ubuntu-noble-stemcell to version 1.204
+      sha: 6fd6d8d02c65c0099c6b30b65c794999b1cf09a2
       tags:
-      - last-xenial-4392-g3a77b58d
+      - last-xenial-4394-g6fd6d8d0
     path: bosh-deployment
   path: manifests
 - contents:
