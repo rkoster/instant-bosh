@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -73,18 +75,24 @@ func StartAction(
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 
-	// Follow logs during startup to show progress
+	// Follow logs during startup to show progress and capture for error reporting
 	logCtx, cancelLogs := context.WithCancel(ctx)
 	defer cancelLogs()
+
+	// Create a buffer to capture logs for error reporting (last 100 lines)
+	logBuffer := logwriter.NewLogBuffer(100)
 
 	// Show startup components - filter noise but keep important progress messages
 	// Note: Incus console logs are ephemeral, so we may miss early [main] component logs
 	// We show supervisor and process logs which are available during the wait period
-	config := logwriter.Config{
+	uiConfig := logwriter.Config{
 		MessageOnly: true,
 		Components:  []string{"main", "supervisor", "process"},
 	}
-	writer := logwriter.New(&uiWriter{ui: ui}, config)
+	uiLogWriter := logwriter.New(&uiWriter{ui: ui}, uiConfig)
+
+	// MultiWriter to write to both UI (filtered) and buffer (all logs)
+	multiWriter := io.MultiWriter(uiLogWriter, logBuffer)
 
 	go func() {
 		defer func() {
@@ -94,11 +102,24 @@ func StartAction(
 			}
 		}()
 		// Use "all" to show any available history plus new logs as they stream
-		cpiInstance.FollowLogsWithOptions(logCtx, true, "all", writer, writer)
+		cpiInstance.FollowLogsWithOptions(logCtx, true, "all", multiWriter, multiWriter)
 	}()
 
 	ui.PrintLinef("Waiting for BOSH to be ready...")
 	if err := cpiInstance.WaitForReady(ctx, 5*time.Minute); err != nil {
+		cancelLogs()
+		time.Sleep(100 * time.Millisecond) // Give goroutine time to finish
+
+		// Print buffered logs on failure with full formatting
+		ui.PrintLinef("")
+		ui.PrintLinef("--- Container logs (last %d lines) ---", logBuffer.Len())
+		colorize := isTerminal(os.Stdout.Fd())
+		for _, line := range logBuffer.FormattedLines(colorize) {
+			ui.PrintLinef("%s", line)
+		}
+		ui.PrintLinef("--- End of container logs ---")
+		ui.PrintLinef("")
+
 		return fmt.Errorf("BOSH failed to become ready: %w", err)
 	}
 

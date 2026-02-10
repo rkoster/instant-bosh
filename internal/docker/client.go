@@ -84,8 +84,7 @@ func (h *HTTPReadinessChecker) WaitForReady(ctx context.Context, maxWait time.Du
 			return err
 		}
 		if !running {
-			logs, _ := h.client.GetContainerLogs(ctx, ContainerName, "100")
-			return fmt.Errorf("container stopped unexpectedly. Last logs:\n%s", logs)
+			return fmt.Errorf("container stopped unexpectedly")
 		}
 
 		// Try to connect to BOSH /info endpoint
@@ -101,9 +100,7 @@ func (h *HTTPReadinessChecker) WaitForReady(ctx context.Context, maxWait time.Du
 		time.Sleep(2 * time.Second)
 	}
 
-	// Timeout - get logs for debugging
-	logs, _ := h.client.GetContainerLogs(ctx, ContainerName, "100")
-	return fmt.Errorf("timeout waiting for BOSH to start after %v. Last logs:\n%s", maxWait, logs)
+	return fmt.Errorf("timeout waiting for BOSH to start after %v", maxWait)
 }
 
 type Client struct {
