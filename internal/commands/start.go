@@ -82,12 +82,11 @@ func StartAction(
 	// Create a buffer to capture logs for error reporting (last 100 lines)
 	logBuffer := logwriter.NewLogBuffer(100)
 
-	// Show startup components - filter noise but keep important progress messages
-	// Note: Incus console logs are ephemeral, so we may miss early [main] component logs
-	// We show supervisor and process logs which are available during the wait period
+	// Show only main component logs during startup for clean progress output
+	// Note: All logs are still captured in logBuffer for error reporting
 	uiConfig := logwriter.Config{
 		MessageOnly: true,
-		Components:  []string{"main", "supervisor", "process"},
+		Components:  []string{"main"},
 	}
 	uiLogWriter := logwriter.New(&uiWriter{ui: ui}, uiConfig)
 
