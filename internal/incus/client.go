@@ -299,14 +299,13 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		"environment.IBOSH_director_name": "instant-bosh",
 		"environment.IBOSH_network":       c.networkName,
 		// LXD CPI configuration - the director will connect to the Incus server via gateway
-		"environment.IBOSH_lxd_server_url":             "https://" + NetworkGateway + ":8443",
-		"environment.IBOSH_lxd_server_type":            "incus",
-		"environment.IBOSH_lxd_server_insecure":        "true",
-		"environment.IBOSH_lxd_network_name":           c.networkName,
-		"environment.IBOSH_lxd_profile_name":           DefaultProfile,
-		"environment.IBOSH_lxd_project_name":           c.project,
-		"environment.IBOSH_lxd_storage_pool_name":      c.storagePool,
-		"environment.IBOSH_director_alternative_names": fmt.Sprintf(`["%s","127.0.0.1","%s"]`, ContainerIP, c.GetHostAddress()),
+		"environment.IBOSH_lxd_server_url":        "https://" + NetworkGateway + ":8443",
+		"environment.IBOSH_lxd_server_type":       "incus",
+		"environment.IBOSH_lxd_server_insecure":   "true",
+		"environment.IBOSH_lxd_network_name":      c.networkName,
+		"environment.IBOSH_lxd_profile_name":      DefaultProfile,
+		"environment.IBOSH_lxd_project_name":      c.project,
+		"environment.IBOSH_lxd_storage_pool_name": c.storagePool,
 	}
 
 	req := api.InstancesPost{
@@ -323,12 +322,14 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		return err
 	}
 
-	// Create vars file with multi-line values (certificates) that can't be passed via environment variables
-	// due to Incus/LXD limitations with multi-line env vars
-	c.logger.Debug(c.logTag, "Creating LXD vars file with certificates")
-	lxdVars := map[string]string{
-		"lxd_client_cert": clientCert,
-		"lxd_client_key":  clientKey,
+	// Create vars file with values that can't be passed via environment variables:
+	// - Multi-line values (certificates) due to Incus/LXD limitations
+	// - Array values (director_alternative_names) that would be interpreted as strings
+	c.logger.Debug(c.logTag, "Creating LXD vars file")
+	lxdVars := map[string]interface{}{
+		"lxd_client_cert":            clientCert,
+		"lxd_client_key":             clientKey,
+		"director_alternative_names": []string{ContainerIP, "127.0.0.1", c.GetHostAddress()},
 	}
 	lxdVarsYAML, err := yaml.Marshal(lxdVars)
 	if err != nil {

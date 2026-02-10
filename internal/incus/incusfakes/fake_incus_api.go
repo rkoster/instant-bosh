@@ -64,6 +64,19 @@ type FakeIncusAPI struct {
 		result1 incusa.Operation
 		result2 error
 	}
+	CreateInstanceFileStub        func(string, string, incusa.InstanceFileArgs) error
+	createInstanceFileMutex       sync.RWMutex
+	createInstanceFileArgsForCall []struct {
+		arg1 string
+		arg2 string
+		arg3 incusa.InstanceFileArgs
+	}
+	createInstanceFileReturns struct {
+		result1 error
+	}
+	createInstanceFileReturnsOnCall map[int]struct {
+		result1 error
+	}
 	CreateInstanceFromImageStub        func(incusa.ImageServer, api.Image, api.InstancesPost) (incusa.RemoteOperation, error)
 	createInstanceFromImageMutex       sync.RWMutex
 	createInstanceFromImageArgsForCall []struct {
@@ -634,6 +647,69 @@ func (fake *FakeIncusAPI) CreateInstanceReturnsOnCall(i int, result1 incusa.Oper
 		result1 incusa.Operation
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeIncusAPI) CreateInstanceFile(arg1 string, arg2 string, arg3 incusa.InstanceFileArgs) error {
+	fake.createInstanceFileMutex.Lock()
+	ret, specificReturn := fake.createInstanceFileReturnsOnCall[len(fake.createInstanceFileArgsForCall)]
+	fake.createInstanceFileArgsForCall = append(fake.createInstanceFileArgsForCall, struct {
+		arg1 string
+		arg2 string
+		arg3 incusa.InstanceFileArgs
+	}{arg1, arg2, arg3})
+	stub := fake.CreateInstanceFileStub
+	fakeReturns := fake.createInstanceFileReturns
+	fake.recordInvocation("CreateInstanceFile", []interface{}{arg1, arg2, arg3})
+	fake.createInstanceFileMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeIncusAPI) CreateInstanceFileCallCount() int {
+	fake.createInstanceFileMutex.RLock()
+	defer fake.createInstanceFileMutex.RUnlock()
+	return len(fake.createInstanceFileArgsForCall)
+}
+
+func (fake *FakeIncusAPI) CreateInstanceFileCalls(stub func(string, string, incusa.InstanceFileArgs) error) {
+	fake.createInstanceFileMutex.Lock()
+	defer fake.createInstanceFileMutex.Unlock()
+	fake.CreateInstanceFileStub = stub
+}
+
+func (fake *FakeIncusAPI) CreateInstanceFileArgsForCall(i int) (string, string, incusa.InstanceFileArgs) {
+	fake.createInstanceFileMutex.RLock()
+	defer fake.createInstanceFileMutex.RUnlock()
+	argsForCall := fake.createInstanceFileArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeIncusAPI) CreateInstanceFileReturns(result1 error) {
+	fake.createInstanceFileMutex.Lock()
+	defer fake.createInstanceFileMutex.Unlock()
+	fake.CreateInstanceFileStub = nil
+	fake.createInstanceFileReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeIncusAPI) CreateInstanceFileReturnsOnCall(i int, result1 error) {
+	fake.createInstanceFileMutex.Lock()
+	defer fake.createInstanceFileMutex.Unlock()
+	fake.CreateInstanceFileStub = nil
+	if fake.createInstanceFileReturnsOnCall == nil {
+		fake.createInstanceFileReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.createInstanceFileReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeIncusAPI) CreateInstanceFromImage(arg1 incusa.ImageServer, arg2 api.Image, arg3 api.InstancesPost) (incusa.RemoteOperation, error) {

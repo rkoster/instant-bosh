@@ -171,6 +171,21 @@ type FakeDockerAPI struct {
 	containerStopReturnsOnCall map[int]struct {
 		result1 error
 	}
+	CopyToContainerStub        func(context.Context, string, string, io.Reader, container.CopyToContainerOptions) error
+	copyToContainerMutex       sync.RWMutex
+	copyToContainerArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 io.Reader
+		arg5 container.CopyToContainerOptions
+	}
+	copyToContainerReturns struct {
+		result1 error
+	}
+	copyToContainerReturnsOnCall map[int]struct {
+		result1 error
+	}
 	DaemonHostStub        func() string
 	daemonHostMutex       sync.RWMutex
 	daemonHostArgsForCall []struct {
@@ -1014,6 +1029,71 @@ func (fake *FakeDockerAPI) ContainerStopReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.containerStopReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeDockerAPI) CopyToContainer(arg1 context.Context, arg2 string, arg3 string, arg4 io.Reader, arg5 container.CopyToContainerOptions) error {
+	fake.copyToContainerMutex.Lock()
+	ret, specificReturn := fake.copyToContainerReturnsOnCall[len(fake.copyToContainerArgsForCall)]
+	fake.copyToContainerArgsForCall = append(fake.copyToContainerArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+		arg4 io.Reader
+		arg5 container.CopyToContainerOptions
+	}{arg1, arg2, arg3, arg4, arg5})
+	stub := fake.CopyToContainerStub
+	fakeReturns := fake.copyToContainerReturns
+	fake.recordInvocation("CopyToContainer", []interface{}{arg1, arg2, arg3, arg4, arg5})
+	fake.copyToContainerMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4, arg5)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeDockerAPI) CopyToContainerCallCount() int {
+	fake.copyToContainerMutex.RLock()
+	defer fake.copyToContainerMutex.RUnlock()
+	return len(fake.copyToContainerArgsForCall)
+}
+
+func (fake *FakeDockerAPI) CopyToContainerCalls(stub func(context.Context, string, string, io.Reader, container.CopyToContainerOptions) error) {
+	fake.copyToContainerMutex.Lock()
+	defer fake.copyToContainerMutex.Unlock()
+	fake.CopyToContainerStub = stub
+}
+
+func (fake *FakeDockerAPI) CopyToContainerArgsForCall(i int) (context.Context, string, string, io.Reader, container.CopyToContainerOptions) {
+	fake.copyToContainerMutex.RLock()
+	defer fake.copyToContainerMutex.RUnlock()
+	argsForCall := fake.copyToContainerArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4, argsForCall.arg5
+}
+
+func (fake *FakeDockerAPI) CopyToContainerReturns(result1 error) {
+	fake.copyToContainerMutex.Lock()
+	defer fake.copyToContainerMutex.Unlock()
+	fake.CopyToContainerStub = nil
+	fake.copyToContainerReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeDockerAPI) CopyToContainerReturnsOnCall(i int, result1 error) {
+	fake.copyToContainerMutex.Lock()
+	defer fake.copyToContainerMutex.Unlock()
+	fake.CopyToContainerStub = nil
+	if fake.copyToContainerReturnsOnCall == nil {
+		fake.copyToContainerReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.copyToContainerReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

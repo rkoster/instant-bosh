@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -21,6 +22,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -283,18 +285,21 @@ func (c *Client) CreateNetwork(ctx context.Context) error {
 func (c *Client) StartContainer(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Creating container %s", ContainerName)
 
+	// Use environment variables for BOSH configuration (same approach as Incus)
+	// BOB_VARS_ENV tells the entrypoint to read variables from env vars with the given prefix
+	// BOB_OPS_FILES specifies which embedded ops-files to apply at runtime
+	// BOB_VARS_FILES specifies YAML files containing variables (used for array values)
 	config := &container.Config{
 		Image: c.imageName,
-		Cmd: []string{
-			// Runtime ops-file to configure director SSL SANs
-			"--ops-file", "director-alternative-names.yml",
-			// Variables
-			"-v", "internal_ip=" + ContainerIP,
-			"-v", "internal_cidr=" + NetworkSubnet,
-			"-v", "internal_gw=" + NetworkGateway,
-			"-v", "director_name=instant-bosh",
-			"-v", "network=" + NetworkName,
-			"-v", fmt.Sprintf(`director_alternative_names=["%s","127.0.0.1"]`, ContainerIP),
+		Env: []string{
+			"BOB_VARS_ENV=IBOSH_",
+			"BOB_OPS_FILES=director-alternative-names.yml",
+			"BOB_VARS_FILES=/var/vcap/bosh/docker-vars.yml",
+			"IBOSH_internal_ip=" + ContainerIP,
+			"IBOSH_internal_cidr=" + NetworkSubnet,
+			"IBOSH_internal_gw=" + NetworkGateway,
+			"IBOSH_director_name=instant-bosh",
+			"IBOSH_network=" + NetworkName,
 		},
 		ExposedPorts: nat.PortSet{
 			"25555/tcp": struct{}{},
@@ -336,12 +341,56 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		return fmt.Errorf("creating container: %w", err)
 	}
 
+	// Create vars file with array values that can't be passed via environment variables
+	// (BOSH interprets string values like '["ip1","ip2"]' as literals, not arrays)
+	c.logger.Debug(c.logTag, "Creating vars file with director_alternative_names")
+	dockerVars := map[string]interface{}{
+		"director_alternative_names": []string{ContainerIP, "127.0.0.1"},
+	}
+	dockerVarsYAML, err := yaml.Marshal(dockerVars)
+	if err != nil {
+		return fmt.Errorf("marshaling vars to YAML: %w", err)
+	}
+
+	// Copy vars file to container (must be a TAR archive)
+	if err := c.copyFileToContainer(ctx, resp.ID, "/var/vcap/bosh/docker-vars.yml", dockerVarsYAML, 0644); err != nil {
+		return fmt.Errorf("copying vars file to container: %w", err)
+	}
+
 	c.logger.Debug(c.logTag, "Starting container %s", resp.ID)
 	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return fmt.Errorf("starting container: %w", err)
 	}
 
 	return nil
+}
+
+// copyFileToContainer copies a file to the container filesystem using a TAR archive
+func (c *Client) copyFileToContainer(ctx context.Context, containerID, destPath string, content []byte, mode int64) error {
+	// Create a TAR archive containing the file
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	header := &tar.Header{
+		Name: destPath,
+		Mode: mode,
+		Size: int64(len(content)),
+	}
+
+	if err := tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("writing tar header: %w", err)
+	}
+
+	if _, err := tw.Write(content); err != nil {
+		return fmt.Errorf("writing tar content: %w", err)
+	}
+
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("closing tar writer: %w", err)
+	}
+
+	// Copy the TAR archive to the container root (the archive contains the full path)
+	return c.cli.CopyToContainer(ctx, containerID, "/", &buf, container.CopyToContainerOptions{})
 }
 
 func (c *Client) StopContainer(ctx context.Context) error {
