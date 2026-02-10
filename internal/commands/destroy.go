@@ -27,7 +27,13 @@ func DestroyAction(ui UI, logger boshlog.Logger, cpiInstance cpi.CPI, force bool
 		exists = false
 	}
 
-	if !exists {
+	resourcesExist, err := cpiInstance.ResourcesExist(ctx)
+	if err != nil {
+		logger.Debug("destroyCommand", "Failed to check resource existence: %v", err)
+		resourcesExist = false
+	}
+
+	if !exists && !resourcesExist {
 		ui.PrintLinef("No instant-bosh resources found to destroy")
 		return nil
 	}

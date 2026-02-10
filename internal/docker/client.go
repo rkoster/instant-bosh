@@ -432,6 +432,9 @@ func (c *Client) RemoveContainer(ctx context.Context, containerName string) erro
 	if err := c.cli.ContainerRemove(ctx, containerName, container.RemoveOptions{
 		Force: true,
 	}); err != nil {
+		if client.IsErrNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("removing container: %w", err)
 	}
 	return nil
@@ -440,6 +443,9 @@ func (c *Client) RemoveContainer(ctx context.Context, containerName string) erro
 func (c *Client) RemoveVolume(ctx context.Context, name string) error {
 	c.logger.Debug(c.logTag, "Removing volume %s", name)
 	if err := c.cli.VolumeRemove(ctx, name, true); err != nil {
+		if client.IsErrNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("removing volume %s: %w", name, err)
 	}
 	return nil
@@ -448,6 +454,9 @@ func (c *Client) RemoveVolume(ctx context.Context, name string) error {
 func (c *Client) RemoveNetwork(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Removing network %s", NetworkName)
 	if err := c.cli.NetworkRemove(ctx, NetworkName); err != nil {
+		if client.IsErrNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("removing network: %w", err)
 	}
 	return nil

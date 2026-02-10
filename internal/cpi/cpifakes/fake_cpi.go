@@ -209,6 +209,19 @@ type FakeCPI struct {
 		result1 bool
 		result2 error
 	}
+	ResourcesExistStub        func(context.Context) (bool, error)
+	resourcesExistMutex       sync.RWMutex
+	resourcesExistArgsForCall []struct {
+		arg1 context.Context
+	}
+	resourcesExistReturns struct {
+		result1 bool
+		result2 error
+	}
+	resourcesExistReturnsOnCall map[int]struct {
+		result1 bool
+		result2 error
+	}
 	StartStub        func(context.Context) error
 	startMutex       sync.RWMutex
 	startArgsForCall []struct {
@@ -1244,6 +1257,70 @@ func (fake *FakeCPI) IsRunningReturnsOnCall(i int, result1 bool, result2 error) 
 		})
 	}
 	fake.isRunningReturnsOnCall[i] = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeCPI) ResourcesExist(arg1 context.Context) (bool, error) {
+	fake.resourcesExistMutex.Lock()
+	ret, specificReturn := fake.resourcesExistReturnsOnCall[len(fake.resourcesExistArgsForCall)]
+	fake.resourcesExistArgsForCall = append(fake.resourcesExistArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.ResourcesExistStub
+	fakeReturns := fake.resourcesExistReturns
+	fake.recordInvocation("ResourcesExist", []interface{}{arg1})
+	fake.resourcesExistMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeCPI) ResourcesExistCallCount() int {
+	fake.resourcesExistMutex.RLock()
+	defer fake.resourcesExistMutex.RUnlock()
+	return len(fake.resourcesExistArgsForCall)
+}
+
+func (fake *FakeCPI) ResourcesExistCalls(stub func(context.Context) (bool, error)) {
+	fake.resourcesExistMutex.Lock()
+	defer fake.resourcesExistMutex.Unlock()
+	fake.ResourcesExistStub = stub
+}
+
+func (fake *FakeCPI) ResourcesExistArgsForCall(i int) context.Context {
+	fake.resourcesExistMutex.RLock()
+	defer fake.resourcesExistMutex.RUnlock()
+	argsForCall := fake.resourcesExistArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeCPI) ResourcesExistReturns(result1 bool, result2 error) {
+	fake.resourcesExistMutex.Lock()
+	defer fake.resourcesExistMutex.Unlock()
+	fake.ResourcesExistStub = nil
+	fake.resourcesExistReturns = struct {
+		result1 bool
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeCPI) ResourcesExistReturnsOnCall(i int, result1 bool, result2 error) {
+	fake.resourcesExistMutex.Lock()
+	defer fake.resourcesExistMutex.Unlock()
+	fake.ResourcesExistStub = nil
+	if fake.resourcesExistReturnsOnCall == nil {
+		fake.resourcesExistReturnsOnCall = make(map[int]struct {
+			result1 bool
+			result2 error
+		})
+	}
+	fake.resourcesExistReturnsOnCall[i] = struct {
 		result1 bool
 		result2 error
 	}{result1, result2}

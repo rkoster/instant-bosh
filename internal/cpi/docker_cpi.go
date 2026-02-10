@@ -107,6 +107,30 @@ func (d *DockerCPI) Exists(ctx context.Context) (bool, error) {
 	return d.client.ContainerExists(ctx)
 }
 
+func (d *DockerCPI) ResourcesExist(ctx context.Context) (bool, error) {
+	storeExists, err := d.client.VolumeExists(ctx, docker.VolumeStore)
+	if err != nil {
+		return false, err
+	}
+	if storeExists {
+		return true, nil
+	}
+
+	dataExists, err := d.client.VolumeExists(ctx, docker.VolumeData)
+	if err != nil {
+		return false, err
+	}
+	if dataExists {
+		return true, nil
+	}
+
+	networkExists, err := d.client.NetworkExists(ctx, docker.NetworkName)
+	if err != nil {
+		return false, err
+	}
+	return networkExists, nil
+}
+
 func (d *DockerCPI) ExecCommand(ctx context.Context, containerName string, command []string) (string, error) {
 	return d.client.ExecCommand(ctx, containerName, command)
 }

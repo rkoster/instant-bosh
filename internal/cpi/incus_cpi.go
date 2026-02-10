@@ -79,6 +79,16 @@ func (i *IncusCPI) Exists(ctx context.Context) (bool, error) {
 	return i.client.ContainerExists(ctx)
 }
 
+func (i *IncusCPI) ResourcesExist(ctx context.Context) (bool, error) {
+	// For Incus, the main resource is the network
+	// The container is stateful and doesn't use separate volumes like Docker
+	networkExists, err := i.client.NetworkExists(ctx, i.client.NetworkName())
+	if err != nil {
+		return false, err
+	}
+	return networkExists, nil
+}
+
 func (i *IncusCPI) ExecCommand(ctx context.Context, containerName string, command []string) (string, error) {
 	return i.client.ExecCommand(ctx, containerName, command)
 }

@@ -26,6 +26,7 @@ type CPI interface {
 	// Status operations
 	IsRunning(ctx context.Context) (bool, error)
 	Exists(ctx context.Context) (bool, error)
+	ResourcesExist(ctx context.Context) (bool, error)
 
 	// Command execution
 	ExecCommand(ctx context.Context, containerName string, command []string) (string, error)
