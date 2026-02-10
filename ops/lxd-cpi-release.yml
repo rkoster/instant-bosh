@@ -29,3 +29,6 @@
           profile_name: default
           network_name: default
           storage_pool_name: default
+        agent:
+          blobstore: null
+          mbus: nats://((internal_ip)):4222
