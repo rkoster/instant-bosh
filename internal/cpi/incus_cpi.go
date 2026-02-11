@@ -317,11 +317,11 @@ func (i *IncusCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo,
 	return nil, fmt.Errorf("GetContainersOnNetwork not yet implemented for Incus CPI")
 }
 
-func (i *IncusCPI) EnsureVolumes(ctx context.Context) error {
-	return i.client.EnsureVolumes(ctx)
-}
+func (i *IncusCPI) EnsurePrerequisites(ctx context.Context) error {
+	if err := i.client.EnsureVolumes(ctx); err != nil {
+		return fmt.Errorf("ensuring volumes: %w", err)
+	}
 
-func (i *IncusCPI) EnsureNetwork(ctx context.Context) error {
 	networkExists, err := i.client.NetworkExists(ctx, i.client.NetworkName())
 	if err != nil {
 		return fmt.Errorf("checking network: %w", err)
