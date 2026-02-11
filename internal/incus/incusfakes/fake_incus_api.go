@@ -103,6 +103,18 @@ type FakeIncusAPI struct {
 	createNetworkReturnsOnCall map[int]struct {
 		result1 error
 	}
+	CreateStoragePoolVolumeStub        func(string, api.StorageVolumesPost) error
+	createStoragePoolVolumeMutex       sync.RWMutex
+	createStoragePoolVolumeArgsForCall []struct {
+		arg1 string
+		arg2 api.StorageVolumesPost
+	}
+	createStoragePoolVolumeReturns struct {
+		result1 error
+	}
+	createStoragePoolVolumeReturnsOnCall map[int]struct {
+		result1 error
+	}
 	DeleteImageStub        func(string) (incusa.Operation, error)
 	deleteImageMutex       sync.RWMutex
 	deleteImageArgsForCall []struct {
@@ -150,6 +162,19 @@ type FakeIncusAPI struct {
 		result1 error
 	}
 	deleteNetworkReturnsOnCall map[int]struct {
+		result1 error
+	}
+	DeleteStoragePoolVolumeStub        func(string, string, string) error
+	deleteStoragePoolVolumeMutex       sync.RWMutex
+	deleteStoragePoolVolumeArgsForCall []struct {
+		arg1 string
+		arg2 string
+		arg3 string
+	}
+	deleteStoragePoolVolumeReturns struct {
+		result1 error
+	}
+	deleteStoragePoolVolumeReturnsOnCall map[int]struct {
 		result1 error
 	}
 	DisconnectStub        func()
@@ -337,6 +362,23 @@ type FakeIncusAPI struct {
 	}
 	getStoragePoolReturnsOnCall map[int]struct {
 		result1 *api.StoragePool
+		result2 string
+		result3 error
+	}
+	GetStoragePoolVolumeStub        func(string, string, string) (*api.StorageVolume, string, error)
+	getStoragePoolVolumeMutex       sync.RWMutex
+	getStoragePoolVolumeArgsForCall []struct {
+		arg1 string
+		arg2 string
+		arg3 string
+	}
+	getStoragePoolVolumeReturns struct {
+		result1 *api.StorageVolume
+		result2 string
+		result3 error
+	}
+	getStoragePoolVolumeReturnsOnCall map[int]struct {
+		result1 *api.StorageVolume
 		result2 string
 		result3 error
 	}
@@ -839,6 +881,68 @@ func (fake *FakeIncusAPI) CreateNetworkReturnsOnCall(i int, result1 error) {
 	}{result1}
 }
 
+func (fake *FakeIncusAPI) CreateStoragePoolVolume(arg1 string, arg2 api.StorageVolumesPost) error {
+	fake.createStoragePoolVolumeMutex.Lock()
+	ret, specificReturn := fake.createStoragePoolVolumeReturnsOnCall[len(fake.createStoragePoolVolumeArgsForCall)]
+	fake.createStoragePoolVolumeArgsForCall = append(fake.createStoragePoolVolumeArgsForCall, struct {
+		arg1 string
+		arg2 api.StorageVolumesPost
+	}{arg1, arg2})
+	stub := fake.CreateStoragePoolVolumeStub
+	fakeReturns := fake.createStoragePoolVolumeReturns
+	fake.recordInvocation("CreateStoragePoolVolume", []interface{}{arg1, arg2})
+	fake.createStoragePoolVolumeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeIncusAPI) CreateStoragePoolVolumeCallCount() int {
+	fake.createStoragePoolVolumeMutex.RLock()
+	defer fake.createStoragePoolVolumeMutex.RUnlock()
+	return len(fake.createStoragePoolVolumeArgsForCall)
+}
+
+func (fake *FakeIncusAPI) CreateStoragePoolVolumeCalls(stub func(string, api.StorageVolumesPost) error) {
+	fake.createStoragePoolVolumeMutex.Lock()
+	defer fake.createStoragePoolVolumeMutex.Unlock()
+	fake.CreateStoragePoolVolumeStub = stub
+}
+
+func (fake *FakeIncusAPI) CreateStoragePoolVolumeArgsForCall(i int) (string, api.StorageVolumesPost) {
+	fake.createStoragePoolVolumeMutex.RLock()
+	defer fake.createStoragePoolVolumeMutex.RUnlock()
+	argsForCall := fake.createStoragePoolVolumeArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeIncusAPI) CreateStoragePoolVolumeReturns(result1 error) {
+	fake.createStoragePoolVolumeMutex.Lock()
+	defer fake.createStoragePoolVolumeMutex.Unlock()
+	fake.CreateStoragePoolVolumeStub = nil
+	fake.createStoragePoolVolumeReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeIncusAPI) CreateStoragePoolVolumeReturnsOnCall(i int, result1 error) {
+	fake.createStoragePoolVolumeMutex.Lock()
+	defer fake.createStoragePoolVolumeMutex.Unlock()
+	fake.CreateStoragePoolVolumeStub = nil
+	if fake.createStoragePoolVolumeReturnsOnCall == nil {
+		fake.createStoragePoolVolumeReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.createStoragePoolVolumeReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *FakeIncusAPI) DeleteImage(arg1 string) (incusa.Operation, error) {
 	fake.deleteImageMutex.Lock()
 	ret, specificReturn := fake.deleteImageReturnsOnCall[len(fake.deleteImageArgsForCall)]
@@ -1086,6 +1190,69 @@ func (fake *FakeIncusAPI) DeleteNetworkReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.deleteNetworkReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeIncusAPI) DeleteStoragePoolVolume(arg1 string, arg2 string, arg3 string) error {
+	fake.deleteStoragePoolVolumeMutex.Lock()
+	ret, specificReturn := fake.deleteStoragePoolVolumeReturnsOnCall[len(fake.deleteStoragePoolVolumeArgsForCall)]
+	fake.deleteStoragePoolVolumeArgsForCall = append(fake.deleteStoragePoolVolumeArgsForCall, struct {
+		arg1 string
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.DeleteStoragePoolVolumeStub
+	fakeReturns := fake.deleteStoragePoolVolumeReturns
+	fake.recordInvocation("DeleteStoragePoolVolume", []interface{}{arg1, arg2, arg3})
+	fake.deleteStoragePoolVolumeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeIncusAPI) DeleteStoragePoolVolumeCallCount() int {
+	fake.deleteStoragePoolVolumeMutex.RLock()
+	defer fake.deleteStoragePoolVolumeMutex.RUnlock()
+	return len(fake.deleteStoragePoolVolumeArgsForCall)
+}
+
+func (fake *FakeIncusAPI) DeleteStoragePoolVolumeCalls(stub func(string, string, string) error) {
+	fake.deleteStoragePoolVolumeMutex.Lock()
+	defer fake.deleteStoragePoolVolumeMutex.Unlock()
+	fake.DeleteStoragePoolVolumeStub = stub
+}
+
+func (fake *FakeIncusAPI) DeleteStoragePoolVolumeArgsForCall(i int) (string, string, string) {
+	fake.deleteStoragePoolVolumeMutex.RLock()
+	defer fake.deleteStoragePoolVolumeMutex.RUnlock()
+	argsForCall := fake.deleteStoragePoolVolumeArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeIncusAPI) DeleteStoragePoolVolumeReturns(result1 error) {
+	fake.deleteStoragePoolVolumeMutex.Lock()
+	defer fake.deleteStoragePoolVolumeMutex.Unlock()
+	fake.DeleteStoragePoolVolumeStub = nil
+	fake.deleteStoragePoolVolumeReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeIncusAPI) DeleteStoragePoolVolumeReturnsOnCall(i int, result1 error) {
+	fake.deleteStoragePoolVolumeMutex.Lock()
+	defer fake.deleteStoragePoolVolumeMutex.Unlock()
+	fake.DeleteStoragePoolVolumeStub = nil
+	if fake.deleteStoragePoolVolumeReturnsOnCall == nil {
+		fake.deleteStoragePoolVolumeReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.deleteStoragePoolVolumeReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
@@ -1942,6 +2109,75 @@ func (fake *FakeIncusAPI) GetStoragePoolReturnsOnCall(i int, result1 *api.Storag
 	}
 	fake.getStoragePoolReturnsOnCall[i] = struct {
 		result1 *api.StoragePool
+		result2 string
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeIncusAPI) GetStoragePoolVolume(arg1 string, arg2 string, arg3 string) (*api.StorageVolume, string, error) {
+	fake.getStoragePoolVolumeMutex.Lock()
+	ret, specificReturn := fake.getStoragePoolVolumeReturnsOnCall[len(fake.getStoragePoolVolumeArgsForCall)]
+	fake.getStoragePoolVolumeArgsForCall = append(fake.getStoragePoolVolumeArgsForCall, struct {
+		arg1 string
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.GetStoragePoolVolumeStub
+	fakeReturns := fake.getStoragePoolVolumeReturns
+	fake.recordInvocation("GetStoragePoolVolume", []interface{}{arg1, arg2, arg3})
+	fake.getStoragePoolVolumeMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
+}
+
+func (fake *FakeIncusAPI) GetStoragePoolVolumeCallCount() int {
+	fake.getStoragePoolVolumeMutex.RLock()
+	defer fake.getStoragePoolVolumeMutex.RUnlock()
+	return len(fake.getStoragePoolVolumeArgsForCall)
+}
+
+func (fake *FakeIncusAPI) GetStoragePoolVolumeCalls(stub func(string, string, string) (*api.StorageVolume, string, error)) {
+	fake.getStoragePoolVolumeMutex.Lock()
+	defer fake.getStoragePoolVolumeMutex.Unlock()
+	fake.GetStoragePoolVolumeStub = stub
+}
+
+func (fake *FakeIncusAPI) GetStoragePoolVolumeArgsForCall(i int) (string, string, string) {
+	fake.getStoragePoolVolumeMutex.RLock()
+	defer fake.getStoragePoolVolumeMutex.RUnlock()
+	argsForCall := fake.getStoragePoolVolumeArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeIncusAPI) GetStoragePoolVolumeReturns(result1 *api.StorageVolume, result2 string, result3 error) {
+	fake.getStoragePoolVolumeMutex.Lock()
+	defer fake.getStoragePoolVolumeMutex.Unlock()
+	fake.GetStoragePoolVolumeStub = nil
+	fake.getStoragePoolVolumeReturns = struct {
+		result1 *api.StorageVolume
+		result2 string
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeIncusAPI) GetStoragePoolVolumeReturnsOnCall(i int, result1 *api.StorageVolume, result2 string, result3 error) {
+	fake.getStoragePoolVolumeMutex.Lock()
+	defer fake.getStoragePoolVolumeMutex.Unlock()
+	fake.GetStoragePoolVolumeStub = nil
+	if fake.getStoragePoolVolumeReturnsOnCall == nil {
+		fake.getStoragePoolVolumeReturnsOnCall = make(map[int]struct {
+			result1 *api.StorageVolume
+			result2 string
+			result3 error
+		})
+	}
+	fake.getStoragePoolVolumeReturnsOnCall[i] = struct {
+		result1 *api.StorageVolume
 		result2 string
 		result3 error
 	}{result1, result2, result3}

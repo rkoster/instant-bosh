@@ -21,15 +21,15 @@ import (
 
 const (
 	ContainerName      = "instant-bosh"
-	NetworkName        = "ibosh-net"
+	NetworkName        = "ibosh"
 	NetworkSubnet      = "10.246.0.0/16"
 	NetworkGateway     = "10.246.0.1"
 	ContainerIP        = "10.246.0.10"
 	DirectorPort       = "25555"
 	SSHPort            = "2222"
-	DefaultProject     = "default"
+	DefaultProject     = "ibosh"
 	DefaultProfile     = "default"
-	DefaultStoragePool = "default"
+	DefaultStoragePool = "local"
 )
 
 //counterfeiter:generate . ClientFactory
@@ -215,6 +215,45 @@ func (c *Client) NetworkExists(ctx context.Context, name string) (bool, error) {
 	return true, nil
 }
 
+// EnsureVolumes ensures persistent storage volumes exist in the configured storage pool.
+func (c *Client) EnsureVolumes(ctx context.Context) error {
+	volNames := []string{"instant-bosh-store", "instant-bosh-data"}
+	for _, v := range volNames {
+		c.logger.Debug(c.logTag, "Ensuring storage volume %s exists in pool %s", v, c.storagePool)
+		_, _, err := c.cli.GetStoragePoolVolume(c.storagePool, "custom", v)
+		if err != nil {
+			if api.StatusErrorCheck(err, 404) {
+				createReq := api.StorageVolumesPost{
+					StorageVolumePut: api.StorageVolumePut{Config: api.ConfigMap{}},
+					Name:             v,
+					Type:             "custom",
+				}
+				if err := c.cli.CreateStoragePoolVolume(c.storagePool, createReq); err != nil {
+					return fmt.Errorf("creating storage volume %s: %w", v, err)
+				}
+				continue
+			}
+			return fmt.Errorf("inspecting storage volume %s: %w", v, err)
+		}
+	}
+	return nil
+}
+
+// RemoveVolumes attempts to delete the named storage volumes (ignores not found).
+func (c *Client) RemoveVolumes(ctx context.Context) error {
+	volNames := []string{"instant-bosh-store", "instant-bosh-data"}
+	for _, v := range volNames {
+		c.logger.Debug(c.logTag, "Deleting storage volume %s from pool %s", v, c.storagePool)
+		if err := c.cli.DeleteStoragePoolVolume(c.storagePool, "custom", v); err != nil {
+			if api.StatusErrorCheck(err, 404) {
+				continue
+			}
+			return fmt.Errorf("deleting storage volume %s: %w", v, err)
+		}
+	}
+	return nil
+}
+
 func (c *Client) CreateNetwork(ctx context.Context) error {
 	c.logger.Debug(c.logTag, "Creating network %s", c.networkName)
 
@@ -267,6 +306,11 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		return fmt.Errorf("reading client credentials: %w", err)
 	}
 
+	// Ensure the persistent volumes exist before creating the instance.
+	if err := c.EnsureVolumes(ctx); err != nil {
+		return fmt.Errorf("ensuring volumes: %w", err)
+	}
+
 	devices := map[string]map[string]string{
 		"eth0": {
 			"type":         "nic",
@@ -279,7 +323,24 @@ func (c *Client) StartContainer(ctx context.Context) error {
 			"path": "/",
 			"pool": c.storagePool,
 		},
+		"store": {
+			"type":   "disk",
+			"pool":   c.storagePool,
+			"source": "instant-bosh-store",
+			"path":   "/var/vcap/store",
+		},
+		"data": {
+			"type":   "disk",
+			"pool":   c.storagePool,
+			"source": "instant-bosh-data",
+			"path":   "/var/vcap/data",
+		},
 	}
+
+	// Add mounts for persistent volumes (mirror Docker behavior)
+	// We attach named storage volumes in the storage pool to paths inside the container.
+	// Volume names match Docker: instant-bosh-store and instant-bosh-data
+	// Devices will be added before creating the instance.
 
 	// Pass BOSH configuration via environment variables
 	// BOB_VARS_ENV tells the entrypoint to read variables from env vars with the given prefix
@@ -465,7 +526,8 @@ func (c *Client) createInstanceFromImage(ctx context.Context, req api.InstancesP
 		}
 
 		// Save the updated config
-		if err := c.cliConfig.SaveConfig(c.cliConfig.ConfigPath()); err != nil {
+		configPath := c.cliConfig.ConfigPath("config.yml")
+		if err := c.cliConfig.SaveConfig(configPath); err != nil {
 			return fmt.Errorf("saving CLI config after adding OCI remote: %w", err)
 		}
 	}
@@ -744,6 +806,18 @@ func (w *incusAPIWrapper) GetStoragePool(name string) (*api.StoragePool, string,
 
 func (w *incusAPIWrapper) GetStoragePools() ([]api.StoragePool, error) {
 	return w.server.GetStoragePools()
+}
+
+func (w *incusAPIWrapper) GetStoragePoolVolume(pool string, volType string, name string) (*api.StorageVolume, string, error) {
+	return w.server.GetStoragePoolVolume(pool, volType, name)
+}
+
+func (w *incusAPIWrapper) CreateStoragePoolVolume(pool string, volume api.StorageVolumesPost) error {
+	return w.server.CreateStoragePoolVolume(pool, volume)
+}
+
+func (w *incusAPIWrapper) DeleteStoragePoolVolume(pool string, volType string, name string) error {
+	return w.server.DeleteStoragePoolVolume(pool, volType, name)
 }
 
 func (w *incusAPIWrapper) GetProfile(name string) (*api.Profile, string, error) {

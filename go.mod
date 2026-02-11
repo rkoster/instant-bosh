@@ -9,6 +9,7 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/go-connections v0.6.0
 	github.com/gonvenience/ytbx v1.4.7
+	github.com/gorilla/websocket v1.5.3
 	github.com/homeport/dyff v1.10.2
 	github.com/lxc/incus/v6 v6.20.0
 	github.com/maxbrunsfeld/counterfeiter/v6 v6.11.3
@@ -69,7 +70,6 @@ require (
 	github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect

@@ -1,0 +1,49 @@
+---
+# Pre-start setup for instant-bosh container
+#
+# This ops file adds a pre-start-script job that:
+# 1. Fixes Docker socket permissions so vcap user can access it for CPI operations
+# 2. Starts SSH daemon for container access (since systemd is not running)
+
+# Add os-conf release if not already present
+- path: /releases/name=os-conf?
+  release: os-conf
+  type: replace
+  value:
+    name: os-conf
+    sha1: d20772d8ce6e781ceb13cac7df5950bfa4330ba1
+    url: https://bosh.io/d/github.com/cloudfoundry/os-conf-release?v=23.0.0
+    version: 23.0.0
+
+# Add pre-start-script job for container setup
+- path: /instance_groups/name=bosh/jobs/-
+  type: replace
+  value:
+    name: pre-start-script
+    release: os-conf
+    properties:
+      script: |-
+        #!/bin/bash
+        set -e
+        
+        # Fix Docker socket permissions so vcap user can access it
+        # The director worker processes run as the vcap user and need access to
+        # the Docker socket for CPI operations.
+        if [ -S /var/run/docker.sock ]; then
+          # Change Docker socket group to vcap (GID 1000) so vcap user can access it
+          # This avoids needing to add vcap to host groups and restart processes
+          chgrp 1000 /var/run/docker.sock
+          chmod g+rw /var/run/docker.sock
+        fi
+        
+        # Create privilege separation directory for sshd
+        mkdir -p /run/sshd
+        
+        # Ensure SSH host keys exist
+        if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+          ssh-keygen -A
+        fi
+        
+        # Start sshd (runs as daemon by default)
+        /usr/sbin/sshd
+
