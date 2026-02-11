@@ -36,6 +36,11 @@ type IncusAPI interface {
 	GetStoragePool(name string) (*api.StoragePool, string, error)
 	GetStoragePools() ([]api.StoragePool, error)
 
+	// Storage volume operations
+	GetStoragePoolVolume(pool string, volType string, name string) (*api.StorageVolume, string, error)
+	CreateStoragePoolVolume(pool string, volume api.StorageVolumesPost) error
+	DeleteStoragePoolVolume(pool string, volType string, name string) error
+
 	GetProfile(name string) (*api.Profile, string, error)
 
 	UseProject(name string) incus.InstanceServer
