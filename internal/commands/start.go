@@ -54,7 +54,13 @@ func StartAction(
 		ui.PrintLinef("instant-bosh is already running")
 		ui.PrintLinef("")
 		ui.PrintLinef("To configure your BOSH CLI environment, run:")
-		ui.PrintLinef("  eval \"$(ibosh print-env)\"")
+		prefix := "ibosh"
+		if _, ok := cpiInstance.(*cpi.DockerCPI); ok {
+			prefix = "ibosh docker"
+		} else if _, ok := cpiInstance.(*cpi.IncusCPI); ok {
+			prefix = "ibosh incus"
+		}
+		ui.PrintLinef("  eval \"$(%s print-env)\"", prefix)
 		return nil
 	}
 
@@ -147,7 +153,13 @@ func StartAction(
 
 	ui.PrintLinef("")
 	ui.PrintLinef("To configure your BOSH CLI environment, run:")
-	ui.PrintLinef("  eval \"$(ibosh print-env)\"")
+	prefix := "ibosh"
+	if _, ok := cpiInstance.(*cpi.DockerCPI); ok {
+		prefix = "ibosh docker"
+	} else if _, ok := cpiInstance.(*cpi.IncusCPI); ok {
+		prefix = "ibosh incus"
+	}
+	ui.PrintLinef("  eval \"$(%s print-env)\"", prefix)
 
 	return nil
 }
