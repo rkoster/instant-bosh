@@ -68,7 +68,17 @@ func (i *IncusCPI) Stop(ctx context.Context) error {
 }
 
 func (i *IncusCPI) Destroy(ctx context.Context) error {
-	return i.client.RemoveContainer(ctx, incus.ContainerName)
+	// Remove container first
+	if err := i.client.RemoveContainer(ctx, incus.ContainerName); err != nil {
+		return err
+	}
+
+	// Remove volumes created for the instance.
+	if err := i.client.RemoveVolumes(ctx); err != nil {
+		return fmt.Errorf("removing volumes: %w", err)
+	}
+
+	return nil
 }
 
 func (i *IncusCPI) IsRunning(ctx context.Context) (bool, error) {
@@ -307,7 +317,11 @@ func (i *IncusCPI) GetContainersOnNetwork(ctx context.Context) ([]ContainerInfo,
 	return nil, fmt.Errorf("GetContainersOnNetwork not yet implemented for Incus CPI")
 }
 
-func (i *IncusCPI) EnsurePrerequisites(ctx context.Context) error {
+func (i *IncusCPI) EnsureVolumes(ctx context.Context) error {
+	return i.client.EnsureVolumes(ctx)
+}
+
+func (i *IncusCPI) EnsureNetwork(ctx context.Context) error {
 	networkExists, err := i.client.NetworkExists(ctx, i.client.NetworkName())
 	if err != nil {
 		return fmt.Errorf("checking network: %w", err)
