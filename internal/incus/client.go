@@ -21,15 +21,15 @@ import (
 
 const (
 	ContainerName      = "instant-bosh"
-	NetworkName        = "ibosh-net"
+	NetworkName        = "ibosh"
 	NetworkSubnet      = "10.246.0.0/16"
 	NetworkGateway     = "10.246.0.1"
 	ContainerIP        = "10.246.0.10"
 	DirectorPort       = "25555"
 	SSHPort            = "2222"
-	DefaultProject     = "default"
+	DefaultProject     = "ibosh"
 	DefaultProfile     = "default"
-	DefaultStoragePool = "default"
+	DefaultStoragePool = "local"
 )
 
 //counterfeiter:generate . ClientFactory
@@ -526,7 +526,8 @@ func (c *Client) createInstanceFromImage(ctx context.Context, req api.InstancesP
 		}
 
 		// Save the updated config
-		if err := c.cliConfig.SaveConfig(c.cliConfig.ConfigPath()); err != nil {
+		configPath := c.cliConfig.ConfigPath("config.yml")
+		if err := c.cliConfig.SaveConfig(configPath); err != nil {
 			return fmt.Errorf("saving CLI config after adding OCI remote: %w", err)
 		}
 	}
