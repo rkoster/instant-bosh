@@ -52,15 +52,7 @@ func StartAction(
 
 	if running {
 		ui.PrintLinef("instant-bosh is already running")
-		ui.PrintLinef("")
-		ui.PrintLinef("To configure your BOSH CLI environment, run:")
-		prefix := "ibosh"
-		if _, ok := cpiInstance.(*cpi.DockerCPI); ok {
-			prefix = "ibosh docker"
-		} else if _, ok := cpiInstance.(*cpi.IncusCPI); ok {
-			prefix = "ibosh incus"
-		}
-		ui.PrintLinef("  eval \"$(%s print-env)\"", prefix)
+		printEnvInstructions(ui, cpiInstance)
 		return nil
 	}
 
@@ -152,6 +144,12 @@ func StartAction(
 	}
 
 	ui.PrintLinef("")
+	printEnvInstructions(ui, cpiInstance)
+
+	return nil
+}
+
+func printEnvInstructions(ui UI, cpiInstance cpi.CPI) {
 	ui.PrintLinef("To configure your BOSH CLI environment, run:")
 	prefix := "ibosh"
 	if _, ok := cpiInstance.(*cpi.DockerCPI); ok {
@@ -160,8 +158,6 @@ func StartAction(
 		prefix = "ibosh incus"
 	}
 	ui.PrintLinef("  eval \"$(%s print-env)\"", prefix)
-
-	return nil
 }
 
 func unwrapDockerClient(cpiInstance cpi.CPI) (*docker.Client, bool) {
