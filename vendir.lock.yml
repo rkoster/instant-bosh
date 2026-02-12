@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh-docker-cpi to version 0.2.3
-      sha: 16958071fdf38616a3a6a8e878a8ccdbe35159d4
+      commitTitle: Bumping bpm to version 1.4.25
+      sha: e7dd603a5ac5e551188c7cda28b6677ea9e1ec0b
       tags:
-      - last-xenial-4429-g16958071
+      - last-xenial-4435-ge7dd603a
     path: bosh-deployment
   path: manifests
 - contents:
