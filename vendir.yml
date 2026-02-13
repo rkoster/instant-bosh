@@ -13,6 +13,13 @@ directories:
     - docker/unix-sock.yml
     - docker/cloud-config.yml
     - jumpbox-user.yml
+    - misc/config-server.yml
+  - path: uaa-lite-release
+    git:
+      url: https://github.com/rkoster/uaa-lite-release
+      ref: origin/main
+    includePaths:
+    - operations/uaa-lite.yml
 - path: .github/scripts/deskrun
   contents:
   - path: .

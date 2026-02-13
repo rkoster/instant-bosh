@@ -1,5 +1,17 @@
 .PHONY: help build build-ibosh dev-bob-build run stop logs sync clean reset print-env
 
+# Common ops-paths (paths relative to repo root)
+OPS_PATHS = \
+	manifests/bosh-deployment/misc/config-server.yml \
+	manifests/uaa-lite-release/operations/uaa-lite.yml
+
+# Generate bob --ops-file args for normal build (repo-root paths)
+BOB_OPS = $(foreach p,$(OPS_PATHS),--ops-file $(p))
+
+# Generate bob --ops-file args for dev-bob-build (prefix with ../instant-bosh/)
+DEV_PREFIX = ../instant-bosh/
+DEV_BOB_OPS = $(foreach p,$(OPS_PATHS),--ops-file $(DEV_PREFIX)$(p))
+
 # Rebuild trigger: bob underscore prefix fix (issue #100) - attempt 2
 help:
 	@echo "Available targets:"
@@ -35,6 +47,7 @@ build:
 	        --ops-file ops/pre-start-setup.yml \
 		--ops-file ops/disable-short-lived-nats-credentials.yml \
 		--ops-file manifests/bosh-deployment/jumpbox-user.yml \
+	$(BOB_OPS) \
 		--embed-ops-file ops/director-alternative-names.yml \
 		--embed-ops-file ops/lxd-cpi.yml \
 		--license LICENSE \
@@ -53,6 +66,7 @@ dev-bob-build:
 		--ops-file ../instant-bosh/ops/pre-start-setup.yml \
 		--ops-file ../instant-bosh/ops/disable-short-lived-nats-credentials.yml \
 		--ops-file ../instant-bosh/manifests/bosh-deployment/jumpbox-user.yml \
+	$(DEV_BOB_OPS) \
 		--embed-ops-file ../instant-bosh/ops/director-alternative-names.yml \
 		--embed-ops-file ../instant-bosh/ops/lxd-cpi.yml \
 		--license ../instant-bosh/LICENSE \

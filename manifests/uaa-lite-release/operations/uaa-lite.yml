@@ -1,0 +1,128 @@
+---
+# Ops file to add uaa-lite to a BOSH director
+
+# Add uaa-lite release
+- type: replace
+  path: /releases/-
+  value:
+    name: uaa-lite
+    version: "1"
+    url: "https://bosh.io/d/github.com/rkoster/uaa-lite-release?v=1"
+    sha1: sha256:fc9246cf23ace8ad59f461835e4bfc44f2e71a317a3fb1cf81d889cf347f47be
+
+# Switch director user management to UAA
+- type: replace
+  path: /instance_groups/name=bosh/properties/director/user_management/provider?
+  value: uaa
+
+- type: remove
+  path: /instance_groups/name=bosh/properties/director/user_management/local
+
+- type: replace
+  path: /instance_groups/name=bosh/properties/director/user_management/uaa?/url
+  value: https://((internal_ip)):8443
+
+- type: replace
+  path: /instance_groups/name=bosh/properties/director/user_management/uaa/public_key?
+  value: ((uaa_jwt_signing_key.public_key))
+
+# Add uaa job to bosh instance group
+- type: replace
+  path: /instance_groups/name=bosh/jobs/-
+  value:
+    name: uaa
+    release: uaa-lite
+    properties:
+      uaa:
+        port: 8443
+        issuer: https://((internal_ip)):8443
+        tls:
+          certificate: ((uaa_ssl.certificate))
+          private_key: ((uaa_ssl.private_key))
+        jwt:
+          policy:
+            active_key_id: uaa-jwt-key-1
+            keys:
+              uaa-jwt-key-1:
+                signingKey: ((uaa_jwt_signing_key.private_key))
+            access_token_validity: 43200
+            refresh_token_validity: 2592000
+        clients:
+          admin:
+            secret: ((admin_password))
+            authorized_grant_types: [client_credentials]
+            authorities: [bosh.admin]
+            scope: []
+            override: true
+          bosh_cli:
+            secret: ((bosh_cli_password))
+            authorized_grant_types: [password, refresh_token]
+            authorities: [uaa.none]
+            scope: [openid, bosh.admin, bosh.read, "bosh.*.admin", "bosh.*.read", "bosh.teams.*.admin", "bosh.teams.*.read"]
+            access_token_validity: 120
+            refresh_token_validity: 86400
+            override: true
+          hm:
+            secret: ((hm_password))
+            authorized_grant_types: [client_credentials]
+            authorities: [bosh.admin]
+            scope: []
+            override: true
+          nats:
+            secret: ((nats_sync_password))
+            authorized_grant_types: [client_credentials]
+            authorities: [bosh.admin]
+            scope: []
+            override: true
+          director_config_server:
+            secret: ((director_config_server_client_secret))
+            authorized_grant_types:
+            - client_credentials
+            authorities:
+            - config_server.admin
+        users:
+          admin:
+            password: ((admin_password))
+            email: "admin@example.com"
+            groups: [bosh.admin, openid]
+
+# Update hm and nats director_account to use uaa clients
+- type: replace
+  path: /instance_groups/name=bosh/properties/hm/director_account/client_id?
+  value: hm
+
+- type: replace
+  path: /instance_groups/name=bosh/properties/hm/director_account/client_secret?
+  value: ((hm_password))
+
+- type: replace
+  path: /instance_groups/name=bosh/properties/nats/director_account/client_id?
+  value: nats
+
+- type: replace
+  path: /instance_groups/name=bosh/properties/nats/director_account/client_secret?
+  value: ((nats_sync_password))
+
+# Add variables required for uaa-lite
+- type: replace
+  path: /variables/-
+  value:
+    name: uaa_jwt_signing_key
+    type: rsa
+
+- type: replace
+  path: /variables/-
+  value:
+    name: uaa_ssl
+    options:
+      alternative_names:
+        - ((internal_ip))
+      ca: default_ca
+      common_name: ((internal_ip))
+    type: certificate
+
+- type: replace
+  path: /variables/-
+  value:
+    name: bosh_cli_password
+    type: password
