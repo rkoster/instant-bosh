@@ -264,8 +264,10 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 	}
 
 	directorConfig.CACert = config.CACert
-	directorConfig.Client = config.Client
-	directorConfig.ClientSecret = config.ClientSecret
+	// NOTE: We intentionally do NOT set directorConfig.Client and directorConfig.ClientSecret here.
+	// The bosh-cli library's AuthRequestAdjustment checks for username first, and if set,
+	// uses Basic auth instead of the TokenFunc. Since we use UAA token-based auth,
+	// we only set TokenFunc below and leave Client/ClientSecret empty on the director config.
 
 	// Create UAA config for authentication
 	// UAA runs on a different port (8443) than the director (25555)
@@ -284,7 +286,8 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 		return nil, bosherr.WrapError(err, "Building UAA client")
 	}
 
-	// Create token function for authentication
+	// Create token function for UAA-based authentication
+	// This will acquire a bearer token from UAA and use it for director API requests
 	directorConfig.TokenFunc = boshuaa.NewClientTokenSession(uaa).TokenFunc
 
 	// Create director factory
