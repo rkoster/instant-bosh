@@ -30,17 +30,13 @@ networks:
   - azs: [z1, z2, z3]
     range: 10.245.0.0/16
     dns: [8.8.8.8]
-    reserved: [10.245.0.2-10.245.0.10]
+    reserved: [10.245.0.1-10.245.0.20]
     gateway: 10.245.0.1
-    static: [10.245.0.34-10.245.0.100]
+    static: [10.245.0.21-10.245.0.100]
     cloud_properties:
       name: instant-bosh
 
 vm_extensions:
-- name: all_ports
-  cloud_properties:
-    ports:
-    - 22/tcp
 - name: 50GB_ephemeral_disk
 - name: 100GB_ephemeral_disk
 - name: diego-ssh-proxy-network-properties
@@ -48,7 +44,7 @@ vm_extensions:
 - name: cf-tcp-router-network-properties
 
 compilation:
-  workers: 5
+  workers: 4
   az: z1
   reuse_compilation_vms: true
   vm_type: compilation
