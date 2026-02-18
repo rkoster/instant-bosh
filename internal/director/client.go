@@ -30,6 +30,14 @@ type Config struct {
 	CACert         string
 	AllProxy       string
 	JumpboxKeyPath string
+	// Config-server/CredHub configuration
+	ConfigServerURL    string
+	ConfigServerClient string
+	ConfigServerSecret string
+	ConfigServerCACert string
+	// UAA configuration (for config-server auth)
+	UAAURL    string
+	UAACACert string
 }
 
 // ConfigProvider is an interface for retrieving BOSH director configuration.
@@ -133,6 +141,34 @@ func GetDirectorConfig(ctx context.Context, containerClient container.Client, co
 		return nil, fmt.Errorf("jumpbox_ssh.private_key is not a string")
 	}
 
+	// Extract config-server/CredHub credentials
+	configServerSecret, err := extractYAMLValue(data, "director_config_server_client_secret")
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract director_config_server_client_secret: %w", err)
+	}
+	configServerSecretStr, ok := configServerSecret.(string)
+	if !ok {
+		return nil, fmt.Errorf("director_config_server_client_secret is not a string")
+	}
+
+	// Extract config-server SSL CA certificate
+	configServerSSL, err := extractYAMLValue(data, "config_server_ssl")
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract config_server_ssl: %w", err)
+	}
+	configServerSSLMap, ok := configServerSSL.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("config_server_ssl is not a map")
+	}
+	configServerCACert, err := extractYAMLValue(configServerSSLMap, "ca")
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract config_server_ssl.ca: %w", err)
+	}
+	configServerCACertStr, ok := configServerCACert.(string)
+	if !ok {
+		return nil, fmt.Errorf("config_server_ssl.ca is not a string")
+	}
+
 	// Create temporary file for jumpbox key
 	keyFileHandle, err := os.CreateTemp("", "jumpbox-key-*")
 	if err != nil {
@@ -183,12 +219,18 @@ func GetDirectorConfig(ctx context.Context, containerClient container.Client, co
 	}
 
 	return &Config{
-		Environment:    fmt.Sprintf("https://%s:25555", hostAddress),
-		Client:         "admin",
-		ClientSecret:   adminPasswordStr,
-		CACert:         directorCertStr,
-		AllProxy:       allProxy,
-		JumpboxKeyPath: keyFile,
+		Environment:        fmt.Sprintf("https://%s:25555", hostAddress),
+		Client:             "admin",
+		ClientSecret:       adminPasswordStr,
+		CACert:             directorCertStr,
+		AllProxy:           allProxy,
+		JumpboxKeyPath:     keyFile,
+		ConfigServerURL:    fmt.Sprintf("https://%s:8081", hostAddress),
+		ConfigServerClient: "director_config_server",
+		ConfigServerSecret: configServerSecretStr,
+		ConfigServerCACert: configServerCACertStr,
+		UAAURL:             fmt.Sprintf("https://%s:8443", hostAddress),
+		UAACACert:          directorCertStr, // UAA uses same CA as director
 	}, nil
 }
 

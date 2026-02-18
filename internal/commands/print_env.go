@@ -34,5 +34,13 @@ func PrintEnvAction(ui UI, logger boshlog.Logger, cpiInstance cpi.CPI, configPro
 		ui.PrintLinef("export BOSH_ALL_PROXY=%s", config.AllProxy)
 	}
 
+	// Config-server environment variables for ibosh creds commands
+	ui.PrintLinef("export CONFIG_SERVER_URL=%s", config.ConfigServerURL)
+	ui.PrintLinef("export CONFIG_SERVER_CLIENT=%s", config.ConfigServerClient)
+	ui.PrintLinef("export CONFIG_SERVER_SECRET=%s", config.ConfigServerSecret)
+	ui.PrintLinef("export CONFIG_SERVER_CA_CERT='%s'", config.ConfigServerCACert)
+	ui.PrintLinef("export UAA_URL=%s", config.UAAURL)
+	ui.PrintLinef("export UAA_CA_CERT='%s'", config.UAACACert)
+
 	return nil
 }
