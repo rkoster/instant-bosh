@@ -239,10 +239,16 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 	// Protect global state manipulation with a mutex for thread safety
 	dialerMutex.Lock()
 
-	// Unset BOSH_ALL_PROXY to ensure direct connection to localhost.
-	// This variable is meant for external BOSH CLI usage through the jumpbox,
-	// not for our internal API calls to localhost:25555.
+	// Unset all BOSH environment variables to ensure the bosh-cli library
+	// uses only our explicitly provided configuration, not stale shell env vars.
+	// This is critical because the user may have BOSH_* vars set from a previous
+	// session (e.g., via `eval $(ibosh print-env)`), which would override our
+	// programmatic configuration.
 	os.Unsetenv("BOSH_ALL_PROXY")
+	os.Unsetenv("BOSH_CLIENT")
+	os.Unsetenv("BOSH_CLIENT_SECRET")
+	os.Unsetenv("BOSH_CA_CERT")
+	os.Unsetenv("BOSH_ENVIRONMENT")
 
 	// Reset the HTTP client dialer to pick up the environment variable change.
 	// The bosh-utils library caches the dialer with proxy settings at package init time,
@@ -262,11 +268,12 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 	directorConfig.ClientSecret = config.ClientSecret
 
 	// Create UAA config for authentication
-	uaaConfig, err := boshuaa.NewConfigFromURL(config.Environment)
+	// UAA runs on a different port (8443) than the director (25555)
+	uaaConfig, err := boshuaa.NewConfigFromURL(config.UAAURL)
 	if err != nil {
-		return nil, bosherr.WrapErrorf(err, "Building UAA config from URL '%s'", config.Environment)
+		return nil, bosherr.WrapErrorf(err, "Building UAA config from URL '%s'", config.UAAURL)
 	}
-	uaaConfig.CACert = config.CACert
+	uaaConfig.CACert = config.UAACACert
 	uaaConfig.Client = config.Client
 	uaaConfig.ClientSecret = config.ClientSecret
 
