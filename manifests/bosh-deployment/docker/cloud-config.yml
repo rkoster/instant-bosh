@@ -5,10 +5,20 @@ azs:
 
 vm_types:
 - name: default
+- name: minimal
+- name: small
+- name: medium
+- name: small-highmem
 
 disk_types:
 - name: default
   disk_size: 1024
+- name: 5GB
+  disk_size: 5120
+- name: 10GB
+  disk_size: 10240
+- name: 100GB
+  disk_size: 102400
 
 networks:
 - name: default
@@ -29,6 +39,12 @@ vm_extensions:
   cloud_properties:
     ports:
     - 22/tcp
+# CF deployment VM extensions (no cloud properties needed for docker/incus)
+- name: 50GB_ephemeral_disk
+- name: 100GB_ephemeral_disk
+- name: cf-router-network-properties
+- name: cf-tcp-router-network-properties
+- name: diego-ssh-proxy-network-properties
 
 compilation:
   workers: 5
