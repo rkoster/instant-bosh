@@ -24,10 +24,34 @@ vm_types:
   cloud_properties:
     instance_type: c2-m4
     ephemeral_disk: 10240
+- name: minimal
+  cloud_properties:
+    instance_type: c1-m4
+    ephemeral_disk: 10240
+- name: small
+  cloud_properties:
+    instance_type: c2-m8
+    ephemeral_disk: 10240
+- name: small-highmem
+  cloud_properties:
+    instance_type: c2-m10
+    ephemeral_disk: 10240
+- name: medium
+  cloud_properties:
+    instance_type: c4-m8
+    ephemeral_disk: 10240
+- name: compilation
+  cloud_properties:
+    instance_type: c4-m8
+    ephemeral_disk: 51200
 
 disk_types:
 - name: default
   disk_size: 10240
+- name: 10GB
+  disk_size: 10240
+- name: 100GB
+  disk_size: 102400
 
 networks:
 - name: default
@@ -42,11 +66,25 @@ networks:
     cloud_properties:
       name: instant-bosh-incus
 
+vm_extensions:
+- name: 50GB_ephemeral_disk
+  cloud_properties:
+    ephemeral_disk: 51200
+- name: 100GB_ephemeral_disk
+  cloud_properties:
+    ephemeral_disk: 102400
+- name: diego-ssh-proxy-network-properties
+  cloud_properties: {}
+- name: cf-router-network-properties
+  cloud_properties: {}
+- name: cf-tcp-router-network-properties
+  cloud_properties: {}
+
 compilation:
   workers: 4
   az: z1
   reuse_compilation_vms: true
-  vm_type: default
+  vm_type: compilation
   network: default
 `)
 )

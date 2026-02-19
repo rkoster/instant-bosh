@@ -17,10 +17,19 @@ var (
 
 vm_types:
 - name: default
+- name: minimal
+- name: small
+- name: small-highmem
+- name: medium
+- name: compilation
 
 disk_types:
 - name: default
-  disk_size: 1024
+  disk_size: 10240
+- name: 10GB
+  disk_size: 10240
+- name: 100GB
+  disk_size: 102400
 
 networks:
 - name: default
@@ -29,23 +38,24 @@ networks:
   - azs: [z1, z2, z3]
     range: 10.245.0.0/16
     dns: [8.8.8.8]
-    reserved: [10.245.0.2-10.245.0.10]
+    reserved: [10.245.0.1-10.245.0.20]
     gateway: 10.245.0.1
-    static: [10.245.0.34]
+    static: [10.245.0.21-10.245.0.100]
     cloud_properties:
       name: instant-bosh
 
 vm_extensions:
-- name: all_ports
-  cloud_properties:
-    ports:
-    - 22/tcp
+- name: 50GB_ephemeral_disk
+- name: 100GB_ephemeral_disk
+- name: diego-ssh-proxy-network-properties
+- name: cf-router-network-properties
+- name: cf-tcp-router-network-properties
 
 compilation:
-  workers: 5
+  workers: 4
   az: z1
   reuse_compilation_vms: true
-  vm_type: default
+  vm_type: compilation
   network: default
 `)
 )
