@@ -405,3 +405,24 @@ func (i *IncusCPI) UploadStemcell(ctx context.Context, directorClient boshdir.Di
 
 	return nil
 }
+
+// GetCurrentImageInfo returns information about the OCI image the running container was created from.
+func (i *IncusCPI) GetCurrentImageInfo(ctx context.Context) (ImageInfo, error) {
+	imageRef, err := i.client.GetContainerImageRef(ctx)
+	if err != nil {
+		return ImageInfo{}, fmt.Errorf("getting container image ref: %w", err)
+	}
+
+	// Incus doesn't store the OCI digest locally for OCI images,
+	// so we return an empty digest. The registry client can fetch the remote
+	// digest when needed for update checks.
+	return ImageInfo{
+		Ref:    imageRef,
+		Digest: "",
+	}, nil
+}
+
+// GetTargetImageRef returns the OCI image reference that would be used for new containers.
+func (i *IncusCPI) GetTargetImageRef() string {
+	return i.client.GetImageName()
+}

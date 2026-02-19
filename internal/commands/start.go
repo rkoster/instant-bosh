@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -12,6 +13,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/logwriter"
+	"github.com/rkoster/instant-bosh/internal/registry"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
@@ -45,27 +47,39 @@ func StartActionWithWriter(
 
 	ctx := context.Background()
 
-	// TODO: Push image update/upgrade logic into CPI interface in future iteration
-	// For now, we check if the CPI wraps a Docker client to access Docker-specific features
-	if dockerClient, ok := unwrapDockerClient(cpiInstance); ok {
-		if err := handleDockerImageManagement(ctx, ui, logger, dockerClient, opts); err != nil {
-			return err
-		}
-	}
+	// Create registry client for CPI-agnostic image operations
+	registryClient := registry.NewClient(logger)
 
-	if err := cpiInstance.EnsurePrerequisites(ctx); err != nil {
-		return fmt.Errorf("failed to ensure prerequisites: %w", err)
-	}
-
+	// Handle image management for running containers (upgrade scenario)
+	// This is CPI-agnostic and uses the registry client for manifest diffs
 	running, err := cpiInstance.IsRunning(ctx)
 	if err != nil {
 		return err
 	}
 
 	if running {
-		ui.PrintLinef("instant-bosh is already running")
-		printEnvInstructions(ui, cpiInstance)
-		return nil
+		upgraded, err := handleRunningContainerUpgrade(ctx, ui, logger, cpiInstance, registryClient, opts)
+		if err != nil {
+			return err
+		}
+		if !upgraded {
+			// User cancelled upgrade or no upgrade needed
+			ui.PrintLinef("instant-bosh is already running")
+			printEnvInstructions(ui, cpiInstance)
+			return nil
+		}
+		// Container was stopped for upgrade, continue with normal start flow
+	}
+
+	// Handle Docker-specific image pulling (not needed for Incus - it pulls on container create)
+	if dockerClient, ok := unwrapDockerClient(cpiInstance); ok {
+		if err := handleDockerImagePull(ctx, ui, logger, dockerClient, registryClient, opts); err != nil {
+			return err
+		}
+	}
+
+	if err := cpiInstance.EnsurePrerequisites(ctx); err != nil {
+		return fmt.Errorf("failed to ensure prerequisites: %w", err)
 	}
 
 	exists, err := cpiInstance.Exists(ctx)
@@ -179,107 +193,158 @@ func unwrapDockerClient(cpiInstance cpi.CPI) (*docker.Client, bool) {
 	return nil, false
 }
 
-func handleDockerImageManagement(
+// handleRunningContainerUpgrade handles the upgrade scenario when a container is already running.
+// It checks if the target image differs from the current container's image and prompts for upgrade.
+// Returns true if the container was stopped for upgrade, false if no upgrade was needed or cancelled.
+func handleRunningContainerUpgrade(
+	ctx context.Context,
+	ui UI,
+	logger boshlog.Logger,
+	cpiInstance cpi.CPI,
+	registryClient registry.Client,
+	opts StartOptions,
+) (bool, error) {
+	if opts.SkipUpdate {
+		return false, nil
+	}
+
+	targetImage := cpiInstance.GetTargetImageRef()
+	if opts.CustomImage != "" {
+		targetImage = opts.CustomImage
+	}
+
+	// Get current container's image info
+	currentInfo, err := cpiInstance.GetCurrentImageInfo(ctx)
+	if err != nil {
+		logger.Debug("startCommand", "Failed to get current image info: %v", err)
+		// Can't determine current image, skip upgrade check
+		return false, nil
+	}
+
+	// If the image refs are identical, check if we need to compare digests
+	if currentInfo.Ref == targetImage {
+		// Same ref - for tags like "latest" we need to check digests
+		// For pinned refs (sha-xxx, specific versions), same ref means same image
+		if currentInfo.Digest != "" {
+			// We have a local digest, compare with remote
+			remoteDigest, err := registryClient.GetImageDigest(ctx, targetImage)
+			if err != nil {
+				logger.Debug("startCommand", "Failed to get remote digest: %v", err)
+				// Can't verify, skip upgrade check
+				return false, nil
+			}
+			if currentInfo.Digest == remoteDigest {
+				// Digests match, no upgrade needed
+				return false, nil
+			}
+			// Digests differ, continue to manifest diff
+		} else {
+			// No local digest available (e.g., Incus)
+			// For pinned image refs, same ref means same image - skip upgrade
+			// For mutable tags like "latest", we should check remote digest
+			// Heuristic: if ref doesn't contain "latest" or "stable", assume it's pinned
+			if !strings.Contains(targetImage, ":latest") && !strings.Contains(targetImage, ":stable") {
+				logger.Debug("startCommand", "Same pinned image ref %s, skipping upgrade check", targetImage)
+				return false, nil
+			}
+			// Mutable tag - need to fetch remote digest and compare
+			// Fall through to manifest diff for "latest" tags
+		}
+	}
+
+	ui.PrintLinef("Checking for image updates for %s...", targetImage)
+
+	// For Docker, ensure the target image exists locally before comparing
+	if dockerClient, ok := unwrapDockerClient(cpiInstance); ok {
+		targetImageExists, err := dockerClient.ImageExists(ctx)
+		if err != nil {
+			return false, fmt.Errorf("checking if target image exists: %w", err)
+		}
+
+		if !targetImageExists {
+			ui.PrintLinef("Pulling new image %s...", targetImage)
+			if err := dockerClient.PullImage(ctx); err != nil {
+				return false, fmt.Errorf("pulling new image: %w", err)
+			}
+		}
+	}
+
+	// Show manifest diff using registry client
+	diff, err := registryClient.GetManifestDiff(ctx, currentInfo.Ref, targetImage)
+	if err != nil {
+		logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
+		ui.PrintLinef("Warning: Could not compare manifests: %v", err)
+		// Can't determine if upgrade is needed, skip
+		return false, nil
+	}
+
+	if diff == "" {
+		ui.PrintLinef("No differences in BOSH manifest")
+		// No manifest differences, no upgrade needed
+		return false, nil
+	}
+
+	ui.PrintLinef("")
+	ui.PrintLinef("Manifest changes:")
+	ui.PrintLinef("")
+	ui.PrintLinef(diff)
+
+	ui.PrintLinef("")
+	ui.PrintLinef("Continue with upgrade?")
+
+	if err := ui.AskForConfirmation(); err != nil {
+		ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
+		return false, nil
+	}
+
+	ui.PrintLinef("")
+	ui.PrintLinef("Upgrading to new image...")
+
+	ui.PrintLinef("Stopping and removing current container...")
+	if err := cpiInstance.RemoveContainer(ctx); err != nil {
+		return false, fmt.Errorf("removing container: %w", err)
+	}
+
+	// Wait for container to be removed
+	maxWaitTime := 30 * time.Second
+	pollInterval := 200 * time.Millisecond
+	deadline := time.Now().Add(maxWaitTime)
+
+	for time.Now().Before(deadline) {
+		exists, err := cpiInstance.Exists(ctx)
+		if err != nil {
+			return false, fmt.Errorf("checking if container exists: %w", err)
+		}
+		if !exists {
+			break
+		}
+		time.Sleep(pollInterval)
+	}
+
+	stillExists, err := cpiInstance.Exists(ctx)
+	if err != nil {
+		return false, fmt.Errorf("verifying container removal: %w", err)
+	}
+	if stillExists {
+		return false, fmt.Errorf("container removal timed out after %v", maxWaitTime)
+	}
+
+	return true, nil
+}
+
+// handleDockerImagePull handles Docker-specific image pulling for non-running containers.
+// For Incus, the image is pulled when creating the container, so this is not needed.
+func handleDockerImagePull(
 	ctx context.Context,
 	ui UI,
 	logger boshlog.Logger,
 	dockerClient *docker.Client,
+	registryClient registry.Client,
 	opts StartOptions,
 ) error {
 	targetImage := docker.ImageName
 	if opts.CustomImage != "" {
 		targetImage = opts.CustomImage
-	}
-
-	running, err := dockerClient.IsContainerRunning(ctx)
-	if err != nil {
-		return err
-	}
-
-	if running {
-		imageDifferent, err := dockerClient.IsContainerImageDifferent(ctx, docker.ContainerName)
-		if err != nil {
-			return fmt.Errorf("checking if container image is different: %w", err)
-		}
-
-		if imageDifferent {
-			if opts.SkipUpdate {
-				return nil
-			}
-
-			ui.PrintLinef("Checking for image updates for %s...", targetImage)
-
-			currentImageName, err := dockerClient.GetContainerImageName(ctx, docker.ContainerName)
-			if err != nil {
-				return fmt.Errorf("getting current container image: %w", err)
-			}
-
-			targetImageExists, err := dockerClient.ImageExists(ctx)
-			if err != nil {
-				return fmt.Errorf("checking if target image exists: %w", err)
-			}
-
-			if !targetImageExists {
-				ui.PrintLinef("Pulling new image %s...", targetImage)
-				if err := dockerClient.PullImage(ctx); err != nil {
-					return fmt.Errorf("pulling new image: %w", err)
-				}
-			}
-
-			diff, err := dockerClient.ShowManifestDiff(ctx, currentImageName, targetImage)
-			if err != nil {
-				logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
-				ui.PrintLinef("Warning: Could not compare manifests: %v", err)
-			} else if diff != "" {
-				ui.PrintLinef("")
-				ui.PrintLinef("Manifest changes:")
-				ui.PrintLinef("")
-				ui.PrintLinef(diff)
-			} else {
-				ui.PrintLinef("No differences in BOSH manifest")
-			}
-
-			ui.PrintLinef("")
-			ui.PrintLinef("Continue with upgrade?")
-
-			if err := ui.AskForConfirmation(); err != nil {
-				ui.PrintLinef("Upgrade cancelled. No changes were made to the running container.")
-				return nil
-			}
-
-			ui.PrintLinef("")
-			ui.PrintLinef("Upgrading to new image...")
-
-			ui.PrintLinef("Stopping and removing current container...")
-			if err := dockerClient.StopContainer(ctx); err != nil {
-				return fmt.Errorf("stopping container: %w", err)
-			}
-
-			maxWaitTime := 30 * time.Second
-			pollInterval := 200 * time.Millisecond
-			deadline := time.Now().Add(maxWaitTime)
-
-			for time.Now().Before(deadline) {
-				exists, err := dockerClient.ContainerExists(ctx)
-				if err != nil {
-					return fmt.Errorf("checking if container exists: %w", err)
-				}
-				if !exists {
-					break
-				}
-				time.Sleep(pollInterval)
-			}
-
-			stillExists, err := dockerClient.ContainerExists(ctx)
-			if err != nil {
-				return fmt.Errorf("verifying container removal: %w", err)
-			}
-			if stillExists {
-				return fmt.Errorf("container removal timed out after %v", maxWaitTime)
-			}
-		}
-
-		return nil
 	}
 
 	imageExists, err := dockerClient.ImageExists(ctx)
@@ -307,7 +372,8 @@ func handleDockerImageManagement(
 				return fmt.Errorf("pulling updated image: %w", err)
 			}
 
-			diff, err := dockerClient.ShowManifestDiff(ctx, currentImageName, targetImage)
+			// Show manifest diff using registry client
+			diff, err := registryClient.GetManifestDiff(ctx, currentImageName, targetImage)
 			if err != nil {
 				logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
 				ui.PrintLinef("Warning: Could not compare manifests: %v", err)

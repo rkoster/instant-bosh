@@ -14,6 +14,15 @@ type ContainerInfo struct {
 	Network string
 }
 
+// ImageInfo contains information about the container's source OCI image
+type ImageInfo struct {
+	// Ref is the full image reference (e.g., "ghcr.io/rkoster/instant-bosh:latest")
+	Ref string
+	// Digest is the image digest (e.g., "sha256:abc123...")
+	// May be empty if not available locally (e.g., for Incus OCI images)
+	Digest string
+}
+
 // CPI defines a unified interface for Cloud Provider Implementations (CPIs).
 // Both Docker and Incus clients implement this interface, enabling mode-agnostic
 // command implementations and easy addition of new CPIs in the future.
@@ -67,6 +76,14 @@ type CPI interface {
 	// For Docker CPI: creates a light stemcell from container image
 	// For Incus CPI: downloads full stemcell from bosh.io and uploads via URL
 	UploadStemcell(ctx context.Context, directorClient boshdir.Director, os, version string) error
+
+	// Image management
+	// GetCurrentImageInfo returns information about the OCI image the running container was created from.
+	// Returns an error if the container doesn't exist.
+	GetCurrentImageInfo(ctx context.Context) (ImageInfo, error)
+
+	// GetTargetImageRef returns the OCI image reference that would be used for new containers.
+	GetTargetImageRef() string
 }
 
 type StartOptions struct {

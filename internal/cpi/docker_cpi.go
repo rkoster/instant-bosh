@@ -288,3 +288,21 @@ func (d *DockerCPI) UploadStemcell(ctx context.Context, directorClient boshdir.D
 
 	return nil
 }
+
+// GetCurrentImageInfo returns information about the OCI image the running container was created from.
+func (d *DockerCPI) GetCurrentImageInfo(ctx context.Context) (ImageInfo, error) {
+	imageRef, digest, err := d.client.GetContainerImageInfo(ctx, docker.ContainerName)
+	if err != nil {
+		return ImageInfo{}, fmt.Errorf("getting container image info: %w", err)
+	}
+
+	return ImageInfo{
+		Ref:    imageRef,
+		Digest: digest,
+	}, nil
+}
+
+// GetTargetImageRef returns the OCI image reference that would be used for new containers.
+func (d *DockerCPI) GetTargetImageRef() string {
+	return d.client.GetImageName()
+}

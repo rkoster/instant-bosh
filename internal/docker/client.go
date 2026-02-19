@@ -807,3 +807,34 @@ func (c *Client) IsContainerImageDifferent(ctx context.Context, containerName st
 
 	return different, nil
 }
+
+// GetContainerImageInfo returns the image reference and digest for the container's image.
+// The digest is extracted from the image's RepoDigests field.
+func (c *Client) GetContainerImageInfo(ctx context.Context, containerName string) (imageRef string, digest string, err error) {
+	c.logger.Debug(c.logTag, "Getting image info for container %s", containerName)
+
+	// Get container inspect to find the image ref and image ID
+	containerInspect, err := c.cli.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return "", "", fmt.Errorf("inspecting container: %w", err)
+	}
+
+	imageRef = containerInspect.Config.Image
+	imageID := containerInspect.Image
+
+	// Get image inspect to find the digest from RepoDigests
+	imageInspect, _, err := c.cli.ImageInspectWithRaw(ctx, imageID)
+	if err != nil {
+		return imageRef, "", fmt.Errorf("inspecting image: %w", err)
+	}
+
+	// Extract digest from RepoDigests (format: "registry/repo@sha256:...")
+	if len(imageInspect.RepoDigests) > 0 {
+		parts := strings.Split(imageInspect.RepoDigests[0], "@")
+		if len(parts) == 2 {
+			digest = parts[1]
+		}
+	}
+
+	return imageRef, digest, nil
+}
