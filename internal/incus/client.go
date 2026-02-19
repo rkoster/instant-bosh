@@ -203,6 +203,40 @@ func (c *Client) NetworkName() string {
 	return c.networkName
 }
 
+// GetImageName returns the target image name for new containers.
+func (c *Client) GetImageName() string {
+	return c.imageName
+}
+
+// GetContainerImageRef returns the OCI image reference for the running container.
+// It reconstructs the full reference from instance config metadata.
+// Returns the image ref and an empty digest (digest is not stored locally for OCI images in Incus).
+func (c *Client) GetContainerImageRef(ctx context.Context) (string, error) {
+	c.logger.Debug(c.logTag, "Getting image ref for container %s", ContainerName)
+
+	instance, _, err := c.cli.GetInstance(ContainerName)
+	if err != nil {
+		return "", fmt.Errorf("getting instance: %w", err)
+	}
+
+	// image.description contains "ghcr.io/rkoster/instant-bosh (OCI)"
+	// image.id contains "rkoster/instant-bosh:latest"
+	imageDesc := instance.Config["image.description"]
+	imageID := instance.Config["image.id"]
+
+	if imageDesc == "" || imageID == "" {
+		return "", fmt.Errorf("instance missing image metadata (image.description=%q, image.id=%q)", imageDesc, imageID)
+	}
+
+	// Extract registry from image.description (first part before "/")
+	// e.g., "ghcr.io/rkoster/instant-bosh (OCI)" -> "ghcr.io"
+	registry := strings.Split(imageDesc, "/")[0]
+
+	// Combine: registry + "/" + image.id
+	// e.g., "ghcr.io" + "/" + "rkoster/instant-bosh:latest" = "ghcr.io/rkoster/instant-bosh:latest"
+	return registry + "/" + imageID, nil
+}
+
 func (c *Client) NetworkExists(ctx context.Context, name string) (bool, error) {
 	c.logger.Debug(c.logTag, "Checking if network %s exists", name)
 	_, _, err := c.cli.GetNetwork(name)

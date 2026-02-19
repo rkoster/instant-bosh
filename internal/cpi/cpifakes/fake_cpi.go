@@ -143,6 +143,19 @@ type FakeCPI struct {
 		result1 []cpi.ContainerInfo
 		result2 error
 	}
+	GetCurrentImageInfoStub        func(context.Context) (cpi.ImageInfo, error)
+	getCurrentImageInfoMutex       sync.RWMutex
+	getCurrentImageInfoArgsForCall []struct {
+		arg1 context.Context
+	}
+	getCurrentImageInfoReturns struct {
+		result1 cpi.ImageInfo
+		result2 error
+	}
+	getCurrentImageInfoReturnsOnCall map[int]struct {
+		result1 cpi.ImageInfo
+		result2 error
+	}
 	GetDirectorPortStub        func() string
 	getDirectorPortMutex       sync.RWMutex
 	getDirectorPortArgsForCall []struct {
@@ -185,6 +198,16 @@ type FakeCPI struct {
 		result1 string
 	}
 	getSSHPortReturnsOnCall map[int]struct {
+		result1 string
+	}
+	GetTargetImageRefStub        func() string
+	getTargetImageRefMutex       sync.RWMutex
+	getTargetImageRefArgsForCall []struct {
+	}
+	getTargetImageRefReturns struct {
+		result1 string
+	}
+	getTargetImageRefReturnsOnCall map[int]struct {
 		result1 string
 	}
 	HasDirectNetworkAccessStub        func() bool
@@ -947,6 +970,70 @@ func (fake *FakeCPI) GetContainersOnNetworkReturnsOnCall(i int, result1 []cpi.Co
 	}{result1, result2}
 }
 
+func (fake *FakeCPI) GetCurrentImageInfo(arg1 context.Context) (cpi.ImageInfo, error) {
+	fake.getCurrentImageInfoMutex.Lock()
+	ret, specificReturn := fake.getCurrentImageInfoReturnsOnCall[len(fake.getCurrentImageInfoArgsForCall)]
+	fake.getCurrentImageInfoArgsForCall = append(fake.getCurrentImageInfoArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.GetCurrentImageInfoStub
+	fakeReturns := fake.getCurrentImageInfoReturns
+	fake.recordInvocation("GetCurrentImageInfo", []interface{}{arg1})
+	fake.getCurrentImageInfoMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeCPI) GetCurrentImageInfoCallCount() int {
+	fake.getCurrentImageInfoMutex.RLock()
+	defer fake.getCurrentImageInfoMutex.RUnlock()
+	return len(fake.getCurrentImageInfoArgsForCall)
+}
+
+func (fake *FakeCPI) GetCurrentImageInfoCalls(stub func(context.Context) (cpi.ImageInfo, error)) {
+	fake.getCurrentImageInfoMutex.Lock()
+	defer fake.getCurrentImageInfoMutex.Unlock()
+	fake.GetCurrentImageInfoStub = stub
+}
+
+func (fake *FakeCPI) GetCurrentImageInfoArgsForCall(i int) context.Context {
+	fake.getCurrentImageInfoMutex.RLock()
+	defer fake.getCurrentImageInfoMutex.RUnlock()
+	argsForCall := fake.getCurrentImageInfoArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeCPI) GetCurrentImageInfoReturns(result1 cpi.ImageInfo, result2 error) {
+	fake.getCurrentImageInfoMutex.Lock()
+	defer fake.getCurrentImageInfoMutex.Unlock()
+	fake.GetCurrentImageInfoStub = nil
+	fake.getCurrentImageInfoReturns = struct {
+		result1 cpi.ImageInfo
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeCPI) GetCurrentImageInfoReturnsOnCall(i int, result1 cpi.ImageInfo, result2 error) {
+	fake.getCurrentImageInfoMutex.Lock()
+	defer fake.getCurrentImageInfoMutex.Unlock()
+	fake.GetCurrentImageInfoStub = nil
+	if fake.getCurrentImageInfoReturnsOnCall == nil {
+		fake.getCurrentImageInfoReturnsOnCall = make(map[int]struct {
+			result1 cpi.ImageInfo
+			result2 error
+		})
+	}
+	fake.getCurrentImageInfoReturnsOnCall[i] = struct {
+		result1 cpi.ImageInfo
+		result2 error
+	}{result1, result2}
+}
+
 func (fake *FakeCPI) GetDirectorPort() string {
 	fake.getDirectorPortMutex.Lock()
 	ret, specificReturn := fake.getDirectorPortReturnsOnCall[len(fake.getDirectorPortArgsForCall)]
@@ -1167,6 +1254,59 @@ func (fake *FakeCPI) GetSSHPortReturnsOnCall(i int, result1 string) {
 		})
 	}
 	fake.getSSHPortReturnsOnCall[i] = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeCPI) GetTargetImageRef() string {
+	fake.getTargetImageRefMutex.Lock()
+	ret, specificReturn := fake.getTargetImageRefReturnsOnCall[len(fake.getTargetImageRefArgsForCall)]
+	fake.getTargetImageRefArgsForCall = append(fake.getTargetImageRefArgsForCall, struct {
+	}{})
+	stub := fake.GetTargetImageRefStub
+	fakeReturns := fake.getTargetImageRefReturns
+	fake.recordInvocation("GetTargetImageRef", []interface{}{})
+	fake.getTargetImageRefMutex.Unlock()
+	if stub != nil {
+		return stub()
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) GetTargetImageRefCallCount() int {
+	fake.getTargetImageRefMutex.RLock()
+	defer fake.getTargetImageRefMutex.RUnlock()
+	return len(fake.getTargetImageRefArgsForCall)
+}
+
+func (fake *FakeCPI) GetTargetImageRefCalls(stub func() string) {
+	fake.getTargetImageRefMutex.Lock()
+	defer fake.getTargetImageRefMutex.Unlock()
+	fake.GetTargetImageRefStub = stub
+}
+
+func (fake *FakeCPI) GetTargetImageRefReturns(result1 string) {
+	fake.getTargetImageRefMutex.Lock()
+	defer fake.getTargetImageRefMutex.Unlock()
+	fake.GetTargetImageRefStub = nil
+	fake.getTargetImageRefReturns = struct {
+		result1 string
+	}{result1}
+}
+
+func (fake *FakeCPI) GetTargetImageRefReturnsOnCall(i int, result1 string) {
+	fake.getTargetImageRefMutex.Lock()
+	defer fake.getTargetImageRefMutex.Unlock()
+	fake.GetTargetImageRefStub = nil
+	if fake.getTargetImageRefReturnsOnCall == nil {
+		fake.getTargetImageRefReturnsOnCall = make(map[int]struct {
+			result1 string
+		})
+	}
+	fake.getTargetImageRefReturnsOnCall[i] = struct {
 		result1 string
 	}{result1}
 }
