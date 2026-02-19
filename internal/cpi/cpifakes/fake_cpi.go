@@ -257,6 +257,12 @@ type FakeCPI struct {
 		result1 bool
 		result2 error
 	}
+	SetResolvedImageStub        func(string, string)
+	setResolvedImageMutex       sync.RWMutex
+	setResolvedImageArgsForCall []struct {
+		arg1 string
+		arg2 string
+	}
 	StartStub        func(context.Context) error
 	startMutex       sync.RWMutex
 	startArgsForCall []struct {
@@ -1551,6 +1557,39 @@ func (fake *FakeCPI) ResourcesExistReturnsOnCall(i int, result1 bool, result2 er
 		result1 bool
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeCPI) SetResolvedImage(arg1 string, arg2 string) {
+	fake.setResolvedImageMutex.Lock()
+	fake.setResolvedImageArgsForCall = append(fake.setResolvedImageArgsForCall, struct {
+		arg1 string
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.SetResolvedImageStub
+	fake.recordInvocation("SetResolvedImage", []interface{}{arg1, arg2})
+	fake.setResolvedImageMutex.Unlock()
+	if stub != nil {
+		fake.SetResolvedImageStub(arg1, arg2)
+	}
+}
+
+func (fake *FakeCPI) SetResolvedImageCallCount() int {
+	fake.setResolvedImageMutex.RLock()
+	defer fake.setResolvedImageMutex.RUnlock()
+	return len(fake.setResolvedImageArgsForCall)
+}
+
+func (fake *FakeCPI) SetResolvedImageCalls(stub func(string, string)) {
+	fake.setResolvedImageMutex.Lock()
+	defer fake.setResolvedImageMutex.Unlock()
+	fake.SetResolvedImageStub = stub
+}
+
+func (fake *FakeCPI) SetResolvedImageArgsForCall(i int) (string, string) {
+	fake.setResolvedImageMutex.RLock()
+	defer fake.setResolvedImageMutex.RUnlock()
+	argsForCall := fake.setResolvedImageArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
 }
 
 func (fake *FakeCPI) Start(arg1 context.Context) error {

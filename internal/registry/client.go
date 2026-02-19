@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
+	"sort"
 	"strings"
 
 	boshlog "github.com/cloudfoundry/bosh-utils/logger"
@@ -247,4 +249,119 @@ func (c *client) GetImageDigest(ctx context.Context, imageRef string) (string, e
 	c.logger.Debug(c.logTag, "Image %s has digest %s", imageRef, digest)
 
 	return digest, nil
+}
+
+// ResolveImageRef resolves a tag-based image reference to a digest-pinned reference.
+// If the input already contains a digest (@sha256:...), it returns the reference unchanged.
+func (c *client) ResolveImageRef(ctx context.Context, imageRef string) (pinnedRef, digest string, err error) {
+	c.logger.Debug(c.logTag, "Resolving image reference %s", imageRef)
+
+	// Parse the image reference
+	r, err := ref.New(imageRef)
+	if err != nil {
+		return "", "", fmt.Errorf("parsing image reference: %w", err)
+	}
+
+	// If reference already has a digest, return it as-is
+	if r.Digest != "" {
+		c.logger.Debug(c.logTag, "Image reference %s already has digest %s", imageRef, r.Digest)
+		return imageRef, r.Digest, nil
+	}
+
+	// Create regclient with Docker credentials
+	rc := regclient.New(
+		regclient.WithDockerCreds(),
+		regclient.WithDockerCerts(),
+	)
+
+	// Get the manifest to retrieve the digest
+	manifest, err := rc.ManifestGet(ctx, r)
+	if err != nil {
+		return "", "", fmt.Errorf("getting manifest: %w", err)
+	}
+
+	digest = manifest.GetDescriptor().Digest.String()
+
+	// Build the digest-pinned reference: registry/repo@sha256:...
+	pinnedRef = fmt.Sprintf("%s/%s@%s", r.Registry, r.Repository, digest)
+	c.logger.Debug(c.logTag, "Resolved %s to %s", imageRef, pinnedRef)
+
+	return pinnedRef, digest, nil
+}
+
+// FindTagsForDigest finds all tags in a repository that point to a specific digest.
+// Returns tags sorted with version tags first (e.g., ["1.165", "latest"]).
+func (c *client) FindTagsForDigest(ctx context.Context, imageRef string, targetDigest string) ([]string, error) {
+	c.logger.Debug(c.logTag, "Finding tags for digest %s in %s", targetDigest, imageRef)
+
+	// Parse the image reference to get registry/repository
+	r, err := ref.New(imageRef)
+	if err != nil {
+		return nil, fmt.Errorf("parsing image reference: %w", err)
+	}
+
+	// Create regclient with Docker credentials
+	rc := regclient.New(
+		regclient.WithDockerCreds(),
+		regclient.WithDockerCerts(),
+	)
+
+	// List all tags for the repository
+	tagList, err := rc.TagList(ctx, r)
+	if err != nil {
+		return nil, fmt.Errorf("listing tags: %w", err)
+	}
+
+	tags, err := tagList.GetTags()
+	if err != nil {
+		return nil, fmt.Errorf("getting tags: %w", err)
+	}
+
+	// Find tags that match the target digest
+	var matchingTags []string
+	for _, tag := range tags {
+		// Create a reference for this tag
+		tagRef, err := ref.New(fmt.Sprintf("%s/%s:%s", r.Registry, r.Repository, tag))
+		if err != nil {
+			c.logger.Debug(c.logTag, "Failed to parse tag reference %s: %v", tag, err)
+			continue
+		}
+
+		// Get the manifest for this tag
+		manifest, err := rc.ManifestGet(ctx, tagRef)
+		if err != nil {
+			c.logger.Debug(c.logTag, "Failed to get manifest for tag %s: %v", tag, err)
+			continue
+		}
+
+		// Check if digest matches
+		if manifest.GetDescriptor().Digest.String() == targetDigest {
+			matchingTags = append(matchingTags, tag)
+		}
+	}
+
+	// Sort tags: version tags first, then alphabetically
+	sort.Slice(matchingTags, func(i, j int) bool {
+		iIsVersion := isVersionTag(matchingTags[i])
+		jIsVersion := isVersionTag(matchingTags[j])
+
+		if iIsVersion && !jIsVersion {
+			return true // version tags come first
+		}
+		if !iIsVersion && jIsVersion {
+			return false
+		}
+		// Both same type, sort alphabetically
+		return matchingTags[i] < matchingTags[j]
+	})
+
+	c.logger.Debug(c.logTag, "Found %d tags for digest %s: %v", len(matchingTags), targetDigest, matchingTags)
+	return matchingTags, nil
+}
+
+// isVersionTag checks if a tag looks like a version number.
+// Matches: 1.165, 1.165.0, v1.165, 1.165-alpha, 1.0.0-rc1
+func isVersionTag(tag string) bool {
+	versionPattern := regexp.MustCompile(`^v?\d+(\.\d+)*(-[a-zA-Z0-9.]+)?$`)
+	return versionPattern.MatchString(tag)
 }

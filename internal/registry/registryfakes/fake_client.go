@@ -24,6 +24,21 @@ type FakeClient struct {
 		result1 []byte
 		result2 error
 	}
+	FindTagsForDigestStub        func(context.Context, string, string) ([]string, error)
+	findTagsForDigestMutex       sync.RWMutex
+	findTagsForDigestArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}
+	findTagsForDigestReturns struct {
+		result1 []string
+		result2 error
+	}
+	findTagsForDigestReturnsOnCall map[int]struct {
+		result1 []string
+		result2 error
+	}
 	GetImageDigestStub        func(context.Context, string) (string, error)
 	getImageDigestMutex       sync.RWMutex
 	getImageDigestArgsForCall []struct {
@@ -52,6 +67,22 @@ type FakeClient struct {
 	getManifestDiffReturnsOnCall map[int]struct {
 		result1 string
 		result2 error
+	}
+	ResolveImageRefStub        func(context.Context, string) (string, string, error)
+	resolveImageRefMutex       sync.RWMutex
+	resolveImageRefArgsForCall []struct {
+		arg1 context.Context
+		arg2 string
+	}
+	resolveImageRefReturns struct {
+		result1 string
+		result2 string
+		result3 error
+	}
+	resolveImageRefReturnsOnCall map[int]struct {
+		result1 string
+		result2 string
+		result3 error
 	}
 	invocations      map[string][][]interface{}
 	invocationsMutex sync.RWMutex
@@ -119,6 +150,72 @@ func (fake *FakeClient) ExtractFileFromImageReturnsOnCall(i int, result1 []byte,
 	}
 	fake.extractFileFromImageReturnsOnCall[i] = struct {
 		result1 []byte
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeClient) FindTagsForDigest(arg1 context.Context, arg2 string, arg3 string) ([]string, error) {
+	fake.findTagsForDigestMutex.Lock()
+	ret, specificReturn := fake.findTagsForDigestReturnsOnCall[len(fake.findTagsForDigestArgsForCall)]
+	fake.findTagsForDigestArgsForCall = append(fake.findTagsForDigestArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+		arg3 string
+	}{arg1, arg2, arg3})
+	stub := fake.FindTagsForDigestStub
+	fakeReturns := fake.findTagsForDigestReturns
+	fake.recordInvocation("FindTagsForDigest", []interface{}{arg1, arg2, arg3})
+	fake.findTagsForDigestMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2
+	}
+	return fakeReturns.result1, fakeReturns.result2
+}
+
+func (fake *FakeClient) FindTagsForDigestCallCount() int {
+	fake.findTagsForDigestMutex.RLock()
+	defer fake.findTagsForDigestMutex.RUnlock()
+	return len(fake.findTagsForDigestArgsForCall)
+}
+
+func (fake *FakeClient) FindTagsForDigestCalls(stub func(context.Context, string, string) ([]string, error)) {
+	fake.findTagsForDigestMutex.Lock()
+	defer fake.findTagsForDigestMutex.Unlock()
+	fake.FindTagsForDigestStub = stub
+}
+
+func (fake *FakeClient) FindTagsForDigestArgsForCall(i int) (context.Context, string, string) {
+	fake.findTagsForDigestMutex.RLock()
+	defer fake.findTagsForDigestMutex.RUnlock()
+	argsForCall := fake.findTagsForDigestArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
+}
+
+func (fake *FakeClient) FindTagsForDigestReturns(result1 []string, result2 error) {
+	fake.findTagsForDigestMutex.Lock()
+	defer fake.findTagsForDigestMutex.Unlock()
+	fake.FindTagsForDigestStub = nil
+	fake.findTagsForDigestReturns = struct {
+		result1 []string
+		result2 error
+	}{result1, result2}
+}
+
+func (fake *FakeClient) FindTagsForDigestReturnsOnCall(i int, result1 []string, result2 error) {
+	fake.findTagsForDigestMutex.Lock()
+	defer fake.findTagsForDigestMutex.Unlock()
+	fake.FindTagsForDigestStub = nil
+	if fake.findTagsForDigestReturnsOnCall == nil {
+		fake.findTagsForDigestReturnsOnCall = make(map[int]struct {
+			result1 []string
+			result2 error
+		})
+	}
+	fake.findTagsForDigestReturnsOnCall[i] = struct {
+		result1 []string
 		result2 error
 	}{result1, result2}
 }
@@ -252,6 +349,74 @@ func (fake *FakeClient) GetManifestDiffReturnsOnCall(i int, result1 string, resu
 		result1 string
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeClient) ResolveImageRef(arg1 context.Context, arg2 string) (string, string, error) {
+	fake.resolveImageRefMutex.Lock()
+	ret, specificReturn := fake.resolveImageRefReturnsOnCall[len(fake.resolveImageRefArgsForCall)]
+	fake.resolveImageRefArgsForCall = append(fake.resolveImageRefArgsForCall, struct {
+		arg1 context.Context
+		arg2 string
+	}{arg1, arg2})
+	stub := fake.ResolveImageRefStub
+	fakeReturns := fake.resolveImageRefReturns
+	fake.recordInvocation("ResolveImageRef", []interface{}{arg1, arg2})
+	fake.resolveImageRefMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2)
+	}
+	if specificReturn {
+		return ret.result1, ret.result2, ret.result3
+	}
+	return fakeReturns.result1, fakeReturns.result2, fakeReturns.result3
+}
+
+func (fake *FakeClient) ResolveImageRefCallCount() int {
+	fake.resolveImageRefMutex.RLock()
+	defer fake.resolveImageRefMutex.RUnlock()
+	return len(fake.resolveImageRefArgsForCall)
+}
+
+func (fake *FakeClient) ResolveImageRefCalls(stub func(context.Context, string) (string, string, error)) {
+	fake.resolveImageRefMutex.Lock()
+	defer fake.resolveImageRefMutex.Unlock()
+	fake.ResolveImageRefStub = stub
+}
+
+func (fake *FakeClient) ResolveImageRefArgsForCall(i int) (context.Context, string) {
+	fake.resolveImageRefMutex.RLock()
+	defer fake.resolveImageRefMutex.RUnlock()
+	argsForCall := fake.resolveImageRefArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2
+}
+
+func (fake *FakeClient) ResolveImageRefReturns(result1 string, result2 string, result3 error) {
+	fake.resolveImageRefMutex.Lock()
+	defer fake.resolveImageRefMutex.Unlock()
+	fake.ResolveImageRefStub = nil
+	fake.resolveImageRefReturns = struct {
+		result1 string
+		result2 string
+		result3 error
+	}{result1, result2, result3}
+}
+
+func (fake *FakeClient) ResolveImageRefReturnsOnCall(i int, result1 string, result2 string, result3 error) {
+	fake.resolveImageRefMutex.Lock()
+	defer fake.resolveImageRefMutex.Unlock()
+	fake.ResolveImageRefStub = nil
+	if fake.resolveImageRefReturnsOnCall == nil {
+		fake.resolveImageRefReturnsOnCall = make(map[int]struct {
+			result1 string
+			result2 string
+			result3 error
+		})
+	}
+	fake.resolveImageRefReturnsOnCall[i] = struct {
+		result1 string
+		result2 string
+		result3 error
+	}{result1, result2, result3}
 }
 
 func (fake *FakeClient) Invocations() map[string][][]interface{} {

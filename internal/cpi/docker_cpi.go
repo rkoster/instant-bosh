@@ -63,7 +63,9 @@ compilation:
 )
 
 type DockerCPI struct {
-	client *docker.Client
+	client      *docker.Client
+	resolvedRef string // Digest-pinned image reference (e.g., "ghcr.io/repo@sha256:...")
+	resolvedDig string // Just the digest (e.g., "sha256:...")
 }
 
 func NewDockerCPI(client *docker.Client) *DockerCPI {
@@ -303,6 +305,20 @@ func (d *DockerCPI) GetCurrentImageInfo(ctx context.Context) (ImageInfo, error) 
 }
 
 // GetTargetImageRef returns the OCI image reference that would be used for new containers.
+// If a resolved (digest-pinned) image has been set, returns that; otherwise returns the original tag-based ref.
 func (d *DockerCPI) GetTargetImageRef() string {
+	if d.resolvedRef != "" {
+		return d.resolvedRef
+	}
 	return d.client.GetImageName()
+}
+
+// SetResolvedImage sets the resolved (digest-pinned) image reference for container creation.
+// This should be called before Start() to ensure the container is created with a digest-pinned
+// image reference, enabling accurate upgrade comparisons.
+func (d *DockerCPI) SetResolvedImage(pinnedRef, digest string) {
+	d.resolvedRef = pinnedRef
+	d.resolvedDig = digest
+	// Also update the docker client's image name so StartContainer uses the digest-pinned ref
+	d.client.SetImageName(pinnedRef)
 }

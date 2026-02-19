@@ -31,4 +31,21 @@ type Client interface {
 	// GetImageDigest retrieves the digest of an image from the remote registry.
 	// Returns the digest in the format "sha256:...".
 	GetImageDigest(ctx context.Context, imageRef string) (string, error)
+
+	// ResolveImageRef resolves a tag-based image reference to a digest-pinned reference.
+	// This allows tracking the exact image version used, even when mutable tags like "latest" are used.
+	//
+	// Input:  "ghcr.io/rkoster/instant-bosh:latest"
+	// Output: pinnedRef="ghcr.io/rkoster/instant-bosh@sha256:abc...", digest="sha256:abc...", nil
+	//
+	// If the input already contains a digest (@sha256:...), it returns the reference unchanged.
+	ResolveImageRef(ctx context.Context, imageRef string) (pinnedRef, digest string, err error)
+
+	// FindTagsForDigest finds all tags in a repository that point to a specific digest.
+	// This is useful for display purposes - showing which tags (like "latest", "1.165") reference the same image.
+	// Returns tags sorted with version tags first (e.g., ["1.165", "latest"]).
+	//
+	// imageRef: Repository reference (e.g., "ghcr.io/rkoster/instant-bosh:latest" or "ghcr.io/rkoster/instant-bosh")
+	// digest:   Digest to look up (e.g., "sha256:abc...")
+	FindTagsForDigest(ctx context.Context, imageRef string, digest string) ([]string, error)
 }

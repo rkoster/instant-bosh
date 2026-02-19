@@ -208,24 +208,40 @@ func (c *Client) GetImageName() string {
 	return c.imageName
 }
 
+// SetImageName sets the image name to use for new containers.
+// This is typically called with a digest-pinned reference (e.g., "ghcr.io/repo@sha256:...")
+// to ensure consistent image tracking across container restarts.
+func (c *Client) SetImageName(imageName string) {
+	c.imageName = imageName
+}
+
 // GetContainerImageRef returns the OCI image reference for the running container.
-// It reconstructs the full reference from instance config metadata.
-// Returns the image ref and an empty digest (digest is not stored locally for OCI images in Incus).
-func (c *Client) GetContainerImageRef(ctx context.Context) (string, error) {
+// It first checks for our custom user.ibosh.image.ref config key (set when using digest-pinned refs),
+// then falls back to reconstructing the reference from standard Incus image metadata.
+// Returns the image ref and digest (digest may be empty if not stored).
+func (c *Client) GetContainerImageRef(ctx context.Context) (ref string, digest string, err error) {
 	c.logger.Debug(c.logTag, "Getting image ref for container %s", ContainerName)
 
 	instance, _, err := c.cli.GetInstance(ContainerName)
 	if err != nil {
-		return "", fmt.Errorf("getting instance: %w", err)
+		return "", "", fmt.Errorf("getting instance: %w", err)
 	}
 
+	// First, check for our custom metadata (set when using digest-pinned refs)
+	if customRef := instance.Config["user.ibosh.image.ref"]; customRef != "" {
+		customDigest := instance.Config["user.ibosh.image.digest"]
+		c.logger.Debug(c.logTag, "Found custom image metadata: ref=%s, digest=%s", customRef, customDigest)
+		return customRef, customDigest, nil
+	}
+
+	// Fall back to reconstructing from standard Incus metadata
 	// image.description contains "ghcr.io/rkoster/instant-bosh (OCI)"
 	// image.id contains "rkoster/instant-bosh:latest"
 	imageDesc := instance.Config["image.description"]
 	imageID := instance.Config["image.id"]
 
 	if imageDesc == "" || imageID == "" {
-		return "", fmt.Errorf("instance missing image metadata (image.description=%q, image.id=%q)", imageDesc, imageID)
+		return "", "", fmt.Errorf("instance missing image metadata (image.description=%q, image.id=%q)", imageDesc, imageID)
 	}
 
 	// Extract registry from image.description (first part before "/")
@@ -234,7 +250,7 @@ func (c *Client) GetContainerImageRef(ctx context.Context) (string, error) {
 
 	// Combine: registry + "/" + image.id
 	// e.g., "ghcr.io" + "/" + "rkoster/instant-bosh:latest" = "ghcr.io/rkoster/instant-bosh:latest"
-	return registry + "/" + imageID, nil
+	return registry + "/" + imageID, "", nil
 }
 
 func (c *Client) NetworkExists(ctx context.Context, name string) (bool, error) {
@@ -497,11 +513,12 @@ func (c *Client) StartContainer(ctx context.Context) error {
 // createInstanceFromImage creates an instance from an OCI image.
 // It mimics "incus launch oci-remote:image" by using CreateInstanceFromImage
 // which lets the server pull the image directly from the OCI registry.
+// Supports both tag-based refs (ghcr.io/repo:tag) and digest-based refs (ghcr.io/repo@sha256:...).
 func (c *Client) createInstanceFromImage(ctx context.Context, req api.InstancesPost) error {
 	imageRef := c.imageName
 
 	// Check if imageRef is a fingerprint (no colons, hex string)
-	if !strings.Contains(imageRef, ":") && !strings.Contains(imageRef, "/") {
+	if !strings.Contains(imageRef, ":") && !strings.Contains(imageRef, "/") && !strings.Contains(imageRef, "@") {
 		// Use local image by fingerprint
 		_, _, err := c.cli.GetImage(imageRef)
 		if err != nil {
@@ -518,20 +535,41 @@ func (c *Client) createInstanceFromImage(ctx context.Context, req api.InstancesP
 		return op.Wait()
 	}
 
-	// Parse image reference: ghcr.io/rkoster/instant-bosh:latest
-	imageParts := strings.Split(imageRef, ":")
-	if len(imageParts) != 2 {
-		return fmt.Errorf("invalid image reference format: %s (expected repository:tag)", imageRef)
-	}
-	registryAndRepo := imageParts[0]
-	tag := imageParts[1]
+	// Parse image reference - can be either:
+	// - ghcr.io/rkoster/instant-bosh:latest (tag-based)
+	// - ghcr.io/rkoster/instant-bosh@sha256:abc123 (digest-based)
+	var registry, repository, tagOrDigest string
+	var isDigestRef bool
 
-	parts := strings.SplitN(registryAndRepo, "/", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("invalid image reference format: %s (expected registry/repository:tag)", imageRef)
+	if strings.Contains(imageRef, "@sha256:") {
+		// Digest-based reference: ghcr.io/repo@sha256:abc123
+		isDigestRef = true
+		atIdx := strings.LastIndex(imageRef, "@")
+		registryAndRepo := imageRef[:atIdx]
+		tagOrDigest = imageRef[atIdx+1:] // sha256:abc123
+
+		parts := strings.SplitN(registryAndRepo, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid image reference format: %s (expected registry/repository@digest)", imageRef)
+		}
+		registry = parts[0]
+		repository = parts[1]
+	} else {
+		// Tag-based reference: ghcr.io/repo:tag
+		colonIdx := strings.LastIndex(imageRef, ":")
+		if colonIdx == -1 {
+			return fmt.Errorf("invalid image reference format: %s (expected repository:tag or repository@digest)", imageRef)
+		}
+		registryAndRepo := imageRef[:colonIdx]
+		tagOrDigest = imageRef[colonIdx+1:]
+
+		parts := strings.SplitN(registryAndRepo, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid image reference format: %s (expected registry/repository:tag)", imageRef)
+		}
+		registry = parts[0]
+		repository = parts[1]
 	}
-	registry := parts[0]
-	repository := parts[1]
 
 	// Find OCI remote for this registry, or create one if it doesn't exist
 	if c.cliConfig == nil {
@@ -572,14 +610,30 @@ func (c *Client) createInstanceFromImage(ctx context.Context, req api.InstancesP
 		return fmt.Errorf("connecting to OCI remote '%s': %w", ociRemoteName, err)
 	}
 
-	// For OCI remotes, we don't call GetImageAlias/GetImage like we would for incus remotes.
-	// Instead, we create a minimal image info with just the alias set.
-	// This matches how the incus CLI handles OCI remotes (see getImgInfo in utils.go).
-	ociAlias := fmt.Sprintf("%s:%s", repository, tag)
+	// For OCI remotes, we create a minimal image info with the alias set.
+	// For digest refs, we use @digest; for tag refs, we use :tag
+	var ociAlias string
+	if isDigestRef {
+		// Digest reference: repository@sha256:abc123
+		ociAlias = fmt.Sprintf("%s@%s", repository, tagOrDigest)
+	} else {
+		// Tag reference: repository:tag
+		ociAlias = fmt.Sprintf("%s:%s", repository, tagOrDigest)
+	}
 	imgInfo := &api.Image{}
 	imgInfo.Fingerprint = ociAlias
 	imgInfo.Public = true
 	req.Source.Alias = ociAlias
+
+	// Store our custom metadata for later retrieval (enables upgrade tracking)
+	// We store both the original ref and the digest (if available from the ref)
+	if req.InstancePut.Config == nil {
+		req.InstancePut.Config = make(map[string]string)
+	}
+	req.InstancePut.Config["user.ibosh.image.ref"] = imageRef
+	if isDigestRef {
+		req.InstancePut.Config["user.ibosh.image.digest"] = tagOrDigest
+	}
 
 	c.logger.Info(c.logTag, "Creating instance from OCI image %s", imageRef)
 
