@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	_ "image/png"
+	"io"
 	"os"
 
 	"github.com/qeesung/image2ascii/convert"
@@ -15,8 +16,13 @@ import (
 //go:embed assets/logo.png
 var logoData []byte
 
-// PrintLogo displays the instant-bosh logo in ASCII art
+// PrintLogo displays the instant-bosh logo in ASCII art to stdout
 func PrintLogo() error {
+	return PrintLogoTo(os.Stdout)
+}
+
+// PrintLogoTo displays the instant-bosh logo in ASCII art to the given writer
+func PrintLogoTo(w io.Writer) error {
 	// Decode the embedded image
 	img, _, err := image.Decode(bytes.NewReader(logoData))
 	if err != nil {
@@ -72,7 +78,7 @@ func PrintLogo() error {
 	// Convert image to ASCII
 	asciiArt := converter.Image2ASCIIString(img, &convertOptions)
 
-	// Print to stdout
-	fmt.Fprintln(os.Stdout, asciiArt)
+	// Print to writer
+	fmt.Fprintln(w, asciiArt)
 	return nil
 }

@@ -83,7 +83,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("starts the container successfully", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(fakeCPI.EnsurePrerequisitesCallCount()).To(Equal(1))
@@ -108,10 +108,10 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("removes stopped container and starts a new one", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(fakeCPI.DestroyCallCount()).To(Equal(1))
+				Expect(fakeCPI.RemoveContainerCallCount()).To(Equal(1))
 				Expect(fakeCPI.StartCallCount()).To(Equal(1))
 				Expect(fakeDirector.UpdateCloudConfigCallCount()).To(Equal(1))
 			})
@@ -125,10 +125,10 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("displays already running message without recreating container", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(fakeCPI.DestroyCallCount()).To(Equal(0))
+				Expect(fakeCPI.RemoveContainerCallCount()).To(Equal(0))
 				Expect(fakeCPI.StartCallCount()).To(Equal(0))
 				Expect(fakeDirector.UpdateCloudConfigCallCount()).To(Equal(0))
 
@@ -152,7 +152,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to ensure prerequisites"))
 				Expect(fakeCPI.StartCallCount()).To(Equal(0))
@@ -165,7 +165,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("status check failed"))
 				Expect(fakeCPI.StartCallCount()).To(Equal(0))
@@ -179,22 +179,22 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("exists check failed"))
 				Expect(fakeCPI.StartCallCount()).To(Equal(0))
 			})
 		})
 
-		Context("when destroying stopped container fails", func() {
+		Context("when removing stopped container fails", func() {
 			BeforeEach(func() {
 				fakeCPI.IsRunningReturns(false, nil)
 				fakeCPI.ExistsReturns(true, nil)
-				fakeCPI.DestroyReturns(errors.New("destroy failed"))
+				fakeCPI.RemoveContainerReturns(errors.New("remove failed"))
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to remove stopped container"))
 				Expect(fakeCPI.StartCallCount()).To(Equal(0))
@@ -207,7 +207,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to start container"))
 				Expect(fakeCPI.WaitForReadyCallCount()).To(Equal(0))
@@ -220,7 +220,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("BOSH failed to become ready"))
 				Expect(fakeDirector.UpdateCloudConfigCallCount()).To(Equal(0))
@@ -233,7 +233,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to apply cloud-config"))
 			})
@@ -245,7 +245,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("returns an error", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("config provider error"))
 			})
@@ -259,7 +259,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("applies the cloud-config using CPI's configuration", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(fakeDirector.UpdateCloudConfigCallCount()).To(Equal(1))
@@ -275,7 +275,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("does not upload stemcells", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(fakeDirector.StemcellsCallCount()).To(Equal(0))
@@ -289,7 +289,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("skips stemcell upload since fake CPI is not Docker-based", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -313,7 +313,7 @@ var _ = Describe("StartAction", func() {
 			})
 
 			It("streams logs during startup", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
 				Eventually(func() bool {
@@ -328,7 +328,7 @@ var _ = Describe("StartAction", func() {
 	Describe("UI messages", func() {
 		Context("when starting successfully", func() {
 			It("displays appropriate progress messages", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
 				messages := []string{}
@@ -337,10 +337,10 @@ var _ = Describe("StartAction", func() {
 					messages = append(messages, format)
 				}
 
-			Expect(messages).To(ContainElement(ContainSubstring("Starting instant-bosh container")))
-			Expect(messages).To(ContainElement(ContainSubstring("Waiting for BOSH to be ready")))
-			Expect(messages).To(ContainElement(ContainSubstring("instant-bosh is ready")))
-			Expect(messages).To(ContainElement(ContainSubstring("Applying cloud-config")))
+				Expect(messages).To(ContainElement(ContainSubstring("Starting instant-bosh container")))
+				Expect(messages).To(ContainElement(ContainSubstring("Waiting for BOSH to be ready")))
+				Expect(messages).To(ContainElement(ContainSubstring("instant-bosh is ready")))
+				Expect(messages).To(ContainElement(ContainSubstring("Applying cloud-config")))
 			})
 		})
 	})
@@ -348,7 +348,7 @@ var _ = Describe("StartAction", func() {
 	Describe("integration with director", func() {
 		Context("when director factory and config provider work together", func() {
 			It("successfully creates director and applies configuration", func() {
-				err := commands.StartAction(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts)
+				err := commands.StartActionWithWriter(fakeUI, logger, fakeCPI, fakeConfigProvider, fakeDirectorFactory, opts, io.Discard)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(fakeConfigProvider.GetDirectorConfigCallCount()).To(Equal(1))

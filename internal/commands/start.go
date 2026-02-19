@@ -27,7 +27,19 @@ func StartAction(
 	directorFactory director.DirectorFactory,
 	opts StartOptions,
 ) error {
-	if err := PrintLogo(); err != nil {
+	return StartActionWithWriter(ui, logger, cpiInstance, configProvider, directorFactory, opts, os.Stdout)
+}
+
+func StartActionWithWriter(
+	ui UI,
+	logger boshlog.Logger,
+	cpiInstance cpi.CPI,
+	configProvider director.ConfigProvider,
+	directorFactory director.DirectorFactory,
+	opts StartOptions,
+	logoWriter io.Writer,
+) error {
+	if err := PrintLogoTo(logoWriter); err != nil {
 		logger.Debug("startCommand", "Failed to print logo: %v", err)
 	}
 
