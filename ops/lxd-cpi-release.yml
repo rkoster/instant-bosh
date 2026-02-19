@@ -4,9 +4,9 @@
   path: /releases/-
   value:
     name: lxd-bosh-cpi
-    version: "6"
-    url: https://github.com/a2geek/bosh-lxd-cpi-release/releases/download/v6/bosh-lxd-cpi-release.tgz
-    sha1: 735fd3f106735b64f6129ee3b83a9987a6d93c8b
+    version: "7"
+    url: https://github.com/a2geek/bosh-lxd-cpi-release/releases/download/v7/bosh-lxd-cpi-release.tgz
+    sha1: ecd3973bdfbaada35f0a648479552e03dc62a110
 
 # Add lxd_cpi job to bosh instance group with dummy config
 # The actual config will be set at runtime via lxd-cpi.yml ops-file

@@ -33,4 +33,3 @@
     profile_name: ((lxd_profile_name))
     network_name: ((lxd_network_name))
     storage_pool_name: ((lxd_storage_pool_name))
-    bios_path: /opt/incus/share/qemu/seabios.bin
