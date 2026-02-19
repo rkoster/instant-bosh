@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"time"
+
+	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
 )
 
 type ContainerInfo struct {
@@ -59,6 +61,12 @@ type CPI interface {
 	// Resource management
 	EnsurePrerequisites(ctx context.Context) error
 	Close() error
+
+	// Stemcell management
+	// UploadStemcell uploads a stemcell to the BOSH director
+	// For Docker CPI: creates a light stemcell from container image
+	// For Incus CPI: downloads full stemcell from bosh.io and uploads via URL
+	UploadStemcell(ctx context.Context, directorClient boshdir.Director, os, version string) error
 }
 
 type StartOptions struct {

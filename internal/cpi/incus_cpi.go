@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
+	"github.com/rkoster/instant-bosh/internal/boshio"
 	"github.com/rkoster/instant-bosh/internal/incus"
 )
 
@@ -381,4 +383,25 @@ func (i *IncusCPI) EnsurePrerequisites(ctx context.Context) error {
 
 func (i *IncusCPI) Close() error {
 	return i.client.Close()
+}
+
+// UploadStemcell uploads a stemcell to the BOSH director for Incus CPI
+// It resolves the stemcell from bosh.io and uploads it via URL
+func (i *IncusCPI) UploadStemcell(ctx context.Context, directorClient boshdir.Director, os, version string) error {
+	// Build the OpenStack stemcell name (Incus uses OpenStack stemcells)
+	stemcellName := boshio.OpenStackStemcellName(os)
+
+	// Resolve stemcell info from bosh.io
+	client := boshio.NewClient()
+	info, err := client.ResolveStemcell(ctx, stemcellName, version)
+	if err != nil {
+		return fmt.Errorf("resolving stemcell from bosh.io: %w", err)
+	}
+
+	// Upload stemcell via URL - the director will download it
+	if err := directorClient.UploadStemcellURL(info.URL, info.SHA1, false); err != nil {
+		return fmt.Errorf("uploading stemcell from %s: %w", info.URL, err)
+	}
+
+	return nil
 }

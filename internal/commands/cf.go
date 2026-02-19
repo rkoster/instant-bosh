@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -8,20 +9,120 @@ import (
 	"os/exec"
 	"strings"
 
+	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
+	boshlog "github.com/cloudfoundry/bosh-utils/logger"
 	"github.com/rkoster/instant-bosh/internal/configserver"
+	"github.com/rkoster/instant-bosh/internal/cpi"
+	"github.com/rkoster/instant-bosh/internal/director"
+	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/incus"
 	"github.com/rkoster/instant-bosh/internal/manifests"
 	"gopkg.in/yaml.v3"
 )
 
+// createCPIAndDirectorClient creates a CPI instance and director client based on the detected CPI type
+// This is used for stemcell upload before CF deployment
+func createCPIAndDirectorClient(ctx context.Context) (cpi.CPI, func(), error) {
+	// Create a logger for the clients
+	logger := boshlog.NewLogger(boshlog.LevelError)
+
+	// Detect CPI type from bosh env
+	cpiType, err := cpi.DetectCPIType(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("detecting CPI type: %w", err)
+	}
+
+	var cpiInstance cpi.CPI
+	var cleanup func()
+
+	switch cpiType {
+	case cpi.CPITypeDocker:
+		dockerClient, err := docker.NewClient(logger, "")
+		if err != nil {
+			return nil, nil, fmt.Errorf("creating docker client: %w", err)
+		}
+		cpiInstance = cpi.NewDockerCPI(dockerClient)
+		cleanup = func() { dockerClient.Close() }
+
+	case cpi.CPITypeIncus:
+		// For Incus, we use default settings - the CLI will have set up the connection
+		incusClient, err := incus.NewClient(logger, "", "", "", "", "")
+		if err != nil {
+			return nil, nil, fmt.Errorf("creating incus client: %w", err)
+		}
+		cpiInstance = cpi.NewIncusCPI(incusClient)
+		cleanup = func() { incusClient.Close() }
+
+	default:
+		return nil, nil, fmt.Errorf("unsupported CPI type: %s", cpiType)
+	}
+
+	return cpiInstance, cleanup, nil
+}
+
+// createDirectorClient creates a BOSH director client from the CPI instance
+func createDirectorClient(ctx context.Context, cpiInstance cpi.CPI) (boshdir.Director, func(), error) {
+	logger := boshlog.NewLogger(boshlog.LevelError)
+
+	// Get the director config from the container
+	containerName := cpiInstance.GetContainerName()
+
+	// Create a wrapper that implements container.Client for GetDirectorConfig
+	wrapper := &cpiContainerWrapper{cpi: cpiInstance}
+
+	configProvider := &director.DefaultConfigProvider{}
+	config, err := configProvider.GetDirectorConfig(ctx, wrapper, containerName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting director config: %w", err)
+	}
+
+	cleanup := func() {
+		config.Cleanup()
+	}
+
+	directorFactory := &director.DefaultDirectorFactory{}
+	directorClient, err := directorFactory.NewDirector(config, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, fmt.Errorf("creating director client: %w", err)
+	}
+
+	return directorClient, cleanup, nil
+}
+
+// cpiContainerWrapper wraps a CPI to implement container.Client interface
+type cpiContainerWrapper struct {
+	cpi cpi.CPI
+}
+
+func (w *cpiContainerWrapper) ExecCommand(ctx context.Context, containerName string, command []string) (string, error) {
+	return w.cpi.ExecCommand(ctx, containerName, command)
+}
+
+func (w *cpiContainerWrapper) GetHostAddress() string {
+	return w.cpi.GetHostAddress()
+}
+
+func (w *cpiContainerWrapper) HasDirectNetworkAccess() bool {
+	return w.cpi.HasDirectNetworkAccess()
+}
+
+func (w *cpiContainerWrapper) Close() error {
+	return w.cpi.Close()
+}
+
 // CFDeployOptions contains options for CF deployment
 type CFDeployOptions struct {
-	RouterIP     string // Optional: specify router IP, otherwise auto-select
-	SystemDomain string // Optional: specify system domain, otherwise derive from router IP
-	DryRun       bool   // If true, show what would be deployed without deploying
+	RouterIP           string // Optional: specify router IP, otherwise auto-select
+	SystemDomain       string // Optional: specify system domain, otherwise derive from router IP
+	DryRun             bool   // If true, show what would be deployed without deploying
+	SkipStemcellUpload bool   // If true, skip auto-uploading required stemcells
 }
 
 // CFDeployAction deploys Cloud Foundry to the BOSH director
 func CFDeployAction(ui UI, opts CFDeployOptions) error {
+	ctx := context.Background()
+
 	// Check that BOSH env vars are set
 	if err := checkBOSHEnv(); err != nil {
 		return err
@@ -91,6 +192,39 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 			return fmt.Errorf("failed to write ops file %s: %w", opsFilePaths[i], err)
 		}
 		opsPaths = append(opsPaths, path)
+	}
+
+	// Ensure required stemcells are uploaded before deploy
+	if !opts.SkipStemcellUpload {
+		ui.PrintLinef("Checking and uploading required stemcells...")
+
+		// Save BOSH env vars before stemcell upload (createDirectorClient unsets them)
+		savedEnv := saveBOSHEnvVars()
+
+		cpiInstance, cpiCleanup, err := createCPIAndDirectorClient(ctx)
+		if err != nil {
+			restoreBOSHEnvVars(savedEnv)
+			return fmt.Errorf("failed to create CPI client: %w", err)
+		}
+
+		directorClient, directorCleanup, err := createDirectorClient(ctx, cpiInstance)
+		if err != nil {
+			cpiCleanup()
+			restoreBOSHEnvVars(savedEnv)
+			return fmt.Errorf("failed to create director client: %w", err)
+		}
+
+		err = EnsureStemcellsForCF(ctx, ui, directorClient, cpiInstance, manifestPath, opsPaths, systemDomain, routerIP)
+
+		// Clean up and restore env vars
+		directorCleanup()
+		cpiCleanup()
+		restoreBOSHEnvVars(savedEnv)
+
+		if err != nil {
+			return fmt.Errorf("failed to ensure stemcells: %w", err)
+		}
+		ui.PrintLinef("")
 	}
 
 	// Build bosh deploy command
@@ -284,6 +418,45 @@ func checkBOSHEnv() error {
 	}
 
 	return nil
+}
+
+// boshEnvVars holds saved BOSH environment variables
+type boshEnvVars struct {
+	Environment  string
+	Client       string
+	ClientSecret string
+	CACert       string
+	AllProxy     string
+}
+
+// saveBOSHEnvVars saves current BOSH environment variables
+func saveBOSHEnvVars() boshEnvVars {
+	return boshEnvVars{
+		Environment:  os.Getenv("BOSH_ENVIRONMENT"),
+		Client:       os.Getenv("BOSH_CLIENT"),
+		ClientSecret: os.Getenv("BOSH_CLIENT_SECRET"),
+		CACert:       os.Getenv("BOSH_CA_CERT"),
+		AllProxy:     os.Getenv("BOSH_ALL_PROXY"),
+	}
+}
+
+// restoreBOSHEnvVars restores previously saved BOSH environment variables
+func restoreBOSHEnvVars(saved boshEnvVars) {
+	if saved.Environment != "" {
+		os.Setenv("BOSH_ENVIRONMENT", saved.Environment)
+	}
+	if saved.Client != "" {
+		os.Setenv("BOSH_CLIENT", saved.Client)
+	}
+	if saved.ClientSecret != "" {
+		os.Setenv("BOSH_CLIENT_SECRET", saved.ClientSecret)
+	}
+	if saved.CACert != "" {
+		os.Setenv("BOSH_CA_CERT", saved.CACert)
+	}
+	if saved.AllProxy != "" {
+		os.Setenv("BOSH_ALL_PROXY", saved.AllProxy)
+	}
 }
 
 // selectRouterIP selects an available IP from the cloud-config static range

@@ -6,7 +6,9 @@ import (
 	"io"
 	"time"
 
+	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
 var (
@@ -250,4 +252,39 @@ func (d *DockerCPI) EnsurePrerequisites(ctx context.Context) error {
 
 func (d *DockerCPI) Close() error {
 	return d.client.Close()
+}
+
+// UploadStemcell uploads a light stemcell to the BOSH director for Docker CPI
+// It resolves the image from ghcr.io, creates a light stemcell tarball, and uploads it
+func (d *DockerCPI) UploadStemcell(ctx context.Context, directorClient boshdir.Director, os, version string) error {
+	// Build image reference
+	imageRef := fmt.Sprintf("ghcr.io/cloudfoundry/%s-stemcell:%s", os, version)
+
+	// Get image metadata (resolves tag to digest)
+	metadata, err := d.client.GetImageMetadata(ctx, imageRef)
+	if err != nil {
+		return fmt.Errorf("resolving image metadata for %s: %w", imageRef, err)
+	}
+
+	// Build stemcell info
+	stemcellInfo := stemcell.Info{
+		Name:           stemcell.BuildStemcellName(os),
+		Version:        metadata.Tag,
+		OS:             os,
+		ImageReference: metadata.FullReference,
+		Digest:         metadata.Digest,
+	}
+
+	// Create light stemcell tarball
+	uploadableFile, err := stemcell.CreateLightStemcell(stemcellInfo)
+	if err != nil {
+		return fmt.Errorf("creating light stemcell: %w", err)
+	}
+
+	// Upload stemcell to director
+	if err := directorClient.UploadStemcellFile(uploadableFile, false); err != nil {
+		return fmt.Errorf("uploading stemcell: %w", err)
+	}
+
+	return nil
 }

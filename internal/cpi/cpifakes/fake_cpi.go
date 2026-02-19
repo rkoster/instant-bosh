@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/bosh-cli/v7/director"
 	"github.com/rkoster/instant-bosh/internal/cpi"
 )
 
@@ -253,6 +254,20 @@ type FakeCPI struct {
 		result1 error
 	}
 	stopReturnsOnCall map[int]struct {
+		result1 error
+	}
+	UploadStemcellStub        func(context.Context, director.Director, string, string) error
+	uploadStemcellMutex       sync.RWMutex
+	uploadStemcellArgsForCall []struct {
+		arg1 context.Context
+		arg2 director.Director
+		arg3 string
+		arg4 string
+	}
+	uploadStemcellReturns struct {
+		result1 error
+	}
+	uploadStemcellReturnsOnCall map[int]struct {
 		result1 error
 	}
 	WaitForReadyStub        func(context.Context, time.Duration) error
@@ -1516,6 +1531,70 @@ func (fake *FakeCPI) StopReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.stopReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) UploadStemcell(arg1 context.Context, arg2 director.Director, arg3 string, arg4 string) error {
+	fake.uploadStemcellMutex.Lock()
+	ret, specificReturn := fake.uploadStemcellReturnsOnCall[len(fake.uploadStemcellArgsForCall)]
+	fake.uploadStemcellArgsForCall = append(fake.uploadStemcellArgsForCall, struct {
+		arg1 context.Context
+		arg2 director.Director
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.UploadStemcellStub
+	fakeReturns := fake.uploadStemcellReturns
+	fake.recordInvocation("UploadStemcell", []interface{}{arg1, arg2, arg3, arg4})
+	fake.uploadStemcellMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) UploadStemcellCallCount() int {
+	fake.uploadStemcellMutex.RLock()
+	defer fake.uploadStemcellMutex.RUnlock()
+	return len(fake.uploadStemcellArgsForCall)
+}
+
+func (fake *FakeCPI) UploadStemcellCalls(stub func(context.Context, director.Director, string, string) error) {
+	fake.uploadStemcellMutex.Lock()
+	defer fake.uploadStemcellMutex.Unlock()
+	fake.UploadStemcellStub = stub
+}
+
+func (fake *FakeCPI) UploadStemcellArgsForCall(i int) (context.Context, director.Director, string, string) {
+	fake.uploadStemcellMutex.RLock()
+	defer fake.uploadStemcellMutex.RUnlock()
+	argsForCall := fake.uploadStemcellArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *FakeCPI) UploadStemcellReturns(result1 error) {
+	fake.uploadStemcellMutex.Lock()
+	defer fake.uploadStemcellMutex.Unlock()
+	fake.UploadStemcellStub = nil
+	fake.uploadStemcellReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) UploadStemcellReturnsOnCall(i int, result1 error) {
+	fake.uploadStemcellMutex.Lock()
+	defer fake.uploadStemcellMutex.Unlock()
+	fake.UploadStemcellStub = nil
+	if fake.uploadStemcellReturnsOnCall == nil {
+		fake.uploadStemcellReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.uploadStemcellReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }
