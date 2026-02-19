@@ -38,12 +38,12 @@ type FakeClient struct {
 		result1 string
 		result2 error
 	}
-	GetManifestDiffStub        func(context.Context, string, string) (string, error)
+	GetManifestDiffStub        func(context.Context, registry.ImageInfo, registry.ImageInfo) (string, error)
 	getManifestDiffMutex       sync.RWMutex
 	getManifestDiffArgsForCall []struct {
 		arg1 context.Context
-		arg2 string
-		arg3 string
+		arg2 registry.ImageInfo
+		arg3 registry.ImageInfo
 	}
 	getManifestDiffReturns struct {
 		result1 string
@@ -188,13 +188,13 @@ func (fake *FakeClient) GetImageDigestReturnsOnCall(i int, result1 string, resul
 	}{result1, result2}
 }
 
-func (fake *FakeClient) GetManifestDiff(arg1 context.Context, arg2 string, arg3 string) (string, error) {
+func (fake *FakeClient) GetManifestDiff(arg1 context.Context, arg2 registry.ImageInfo, arg3 registry.ImageInfo) (string, error) {
 	fake.getManifestDiffMutex.Lock()
 	ret, specificReturn := fake.getManifestDiffReturnsOnCall[len(fake.getManifestDiffArgsForCall)]
 	fake.getManifestDiffArgsForCall = append(fake.getManifestDiffArgsForCall, struct {
 		arg1 context.Context
-		arg2 string
-		arg3 string
+		arg2 registry.ImageInfo
+		arg3 registry.ImageInfo
 	}{arg1, arg2, arg3})
 	stub := fake.GetManifestDiffStub
 	fakeReturns := fake.getManifestDiffReturns
@@ -215,13 +215,13 @@ func (fake *FakeClient) GetManifestDiffCallCount() int {
 	return len(fake.getManifestDiffArgsForCall)
 }
 
-func (fake *FakeClient) GetManifestDiffCalls(stub func(context.Context, string, string) (string, error)) {
+func (fake *FakeClient) GetManifestDiffCalls(stub func(context.Context, registry.ImageInfo, registry.ImageInfo) (string, error)) {
 	fake.getManifestDiffMutex.Lock()
 	defer fake.getManifestDiffMutex.Unlock()
 	fake.GetManifestDiffStub = stub
 }
 
-func (fake *FakeClient) GetManifestDiffArgsForCall(i int) (context.Context, string, string) {
+func (fake *FakeClient) GetManifestDiffArgsForCall(i int) (context.Context, registry.ImageInfo, registry.ImageInfo) {
 	fake.getManifestDiffMutex.RLock()
 	defer fake.getManifestDiffMutex.RUnlock()
 	argsForCall := fake.getManifestDiffArgsForCall[i]
