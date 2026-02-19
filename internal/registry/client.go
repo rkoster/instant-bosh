@@ -138,29 +138,42 @@ func (c *client) ExtractFileFromImage(ctx context.Context, imageRef string, file
 	return nil, fmt.Errorf("file %s not found in any layer of image %s", filePath, imageRef)
 }
 
+// prependImageMetadata prepends image metadata to a YAML manifest.
+// This allows the diff to show image ref and digest changes.
+func prependImageMetadata(manifest []byte, image ImageInfo) []byte {
+	// Create image metadata header
+	header := fmt.Sprintf("image:\n  ref: %s\n  digest: %s\n", image.Ref, image.Digest)
+	return append([]byte(header), manifest...)
+}
+
 // GetManifestDiff compares BOSH manifests from two images and returns a human-readable diff.
-func (c *client) GetManifestDiff(ctx context.Context, currentImageRef, newImageRef string) (string, error) {
-	c.logger.Info(c.logTag, "Comparing manifests between %s and %s", currentImageRef, newImageRef)
+// Image metadata (ref, digest) is prepended to show image changes.
+func (c *client) GetManifestDiff(ctx context.Context, currentImage, newImage ImageInfo) (string, error) {
+	c.logger.Info(c.logTag, "Comparing manifests between %s and %s", currentImage.Ref, newImage.Ref)
 
 	// Extract manifest from current image
-	currentManifest, err := c.ExtractFileFromImage(ctx, currentImageRef, ManifestPath)
+	currentManifest, err := c.ExtractFileFromImage(ctx, currentImage.Ref, ManifestPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract manifest from current image: %w", err)
 	}
 
 	// Extract manifest from new image
-	newManifest, err := c.ExtractFileFromImage(ctx, newImageRef, ManifestPath)
+	newManifest, err := c.ExtractFileFromImage(ctx, newImage.Ref, ManifestPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to extract manifest from new image: %w", err)
 	}
 
+	// Prepend image metadata to both manifests
+	currentManifestWithMeta := prependImageMetadata(currentManifest, currentImage)
+	newManifestWithMeta := prependImageMetadata(newManifest, newImage)
+
 	// Parse YAML documents using ytbx
-	currentDocs, err := ytbx.LoadYAMLDocuments(currentManifest)
+	currentDocs, err := ytbx.LoadYAMLDocuments(currentManifestWithMeta)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse current manifest: %w", err)
 	}
 
-	newDocs, err := ytbx.LoadYAMLDocuments(newManifest)
+	newDocs, err := ytbx.LoadYAMLDocuments(newManifestWithMeta)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse new manifest: %w", err)
 	}

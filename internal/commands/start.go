@@ -195,6 +195,7 @@ func unwrapDockerClient(cpiInstance cpi.CPI) (*docker.Client, bool) {
 
 // handleRunningContainerUpgrade handles the upgrade scenario when a container is already running.
 // It checks if the target image differs from the current container's image and prompts for upgrade.
+// The primary decision is based on image digest comparison. The manifest diff is shown for user visibility.
 // Returns true if the container was stopped for upgrade, false if no upgrade was needed or cancelled.
 func handleRunningContainerUpgrade(
 	ctx context.Context,
@@ -221,40 +222,38 @@ func handleRunningContainerUpgrade(
 		return false, nil
 	}
 
-	// If the image refs are identical, check if we need to compare digests
-	if currentInfo.Ref == targetImage {
-		// Same ref - for tags like "latest" we need to check digests
-		// For pinned refs (sha-xxx, specific versions), same ref means same image
-		if currentInfo.Digest != "" {
-			// We have a local digest, compare with remote
-			remoteDigest, err := registryClient.GetImageDigest(ctx, targetImage)
-			if err != nil {
-				logger.Debug("startCommand", "Failed to get remote digest: %v", err)
-				// Can't verify, skip upgrade check
-				return false, nil
-			}
-			if currentInfo.Digest == remoteDigest {
-				// Digests match, no upgrade needed
-				return false, nil
-			}
-			// Digests differ, continue to manifest diff
-		} else {
-			// No local digest available (e.g., Incus)
-			// For pinned image refs, same ref means same image - skip upgrade
-			// For mutable tags like "latest", we should check remote digest
-			// Heuristic: if ref doesn't contain "latest" or "stable", assume it's pinned
-			if !strings.Contains(targetImage, ":latest") && !strings.Contains(targetImage, ":stable") {
-				logger.Debug("startCommand", "Same pinned image ref %s, skipping upgrade check", targetImage)
-				return false, nil
-			}
-			// Mutable tag - need to fetch remote digest and compare
-			// Fall through to manifest diff for "latest" tags
-		}
-	}
-
 	ui.PrintLinef("Checking for image updates for %s...", targetImage)
 
-	// For Docker, ensure the target image exists locally before comparing
+	// Get the remote digest for the target image - this is the primary comparison
+	remoteDigest, err := registryClient.GetImageDigest(ctx, targetImage)
+	if err != nil {
+		logger.Debug("startCommand", "Failed to get remote digest: %v", err)
+		ui.PrintLinef("Warning: Could not get remote image digest: %v", err)
+		// Can't verify, skip upgrade check
+		return false, nil
+	}
+
+	// Compare digests - this is the primary decision maker
+	// If we have a local digest, compare directly
+	// If we don't have a local digest but refs are identical and it's a pinned ref, assume same image
+	currentDigest := currentInfo.Digest
+	if currentDigest == "" && currentInfo.Ref == targetImage {
+		// No local digest available (e.g., Incus with OCI images)
+		// For pinned image refs (sha-xxx, specific versions), same ref means same image
+		// For mutable tags like "latest", we should treat as different and check
+		if !strings.Contains(targetImage, ":latest") && !strings.Contains(targetImage, ":stable") {
+			logger.Debug("startCommand", "Same pinned image ref %s, skipping upgrade check", targetImage)
+			return false, nil
+		}
+		// For mutable tags without local digest, we can't compare - assume different if refs differ
+		// Fall through to show diff
+	} else if currentDigest == remoteDigest {
+		// Digests match exactly, no upgrade needed
+		logger.Debug("startCommand", "Digests match (%s), no upgrade needed", currentDigest)
+		return false, nil
+	}
+
+	// For Docker, ensure the target image exists locally before comparing manifests
 	if dockerClient, ok := unwrapDockerClient(cpiInstance); ok {
 		targetImageExists, err := dockerClient.ImageExists(ctx)
 		if err != nil {
@@ -269,25 +268,35 @@ func handleRunningContainerUpgrade(
 		}
 	}
 
-	// Show manifest diff using registry client
-	diff, err := registryClient.GetManifestDiff(ctx, currentInfo.Ref, targetImage)
+	// Build ImageInfo for diff - show user what's changing
+	currentImageInfo := registry.ImageInfo{
+		Ref:    currentInfo.Ref,
+		Digest: currentDigest,
+	}
+	newImageInfo := registry.ImageInfo{
+		Ref:    targetImage,
+		Digest: remoteDigest,
+	}
+
+	// Show manifest diff using registry client (for user visibility)
+	diff, err := registryClient.GetManifestDiff(ctx, currentImageInfo, newImageInfo)
 	if err != nil {
 		logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
 		ui.PrintLinef("Warning: Could not compare manifests: %v", err)
-		// Can't determine if upgrade is needed, skip
-		return false, nil
-	}
-
-	if diff == "" {
-		ui.PrintLinef("No differences in BOSH manifest")
-		// No manifest differences, no upgrade needed
-		return false, nil
+		// Still proceed with upgrade since digests differ
 	}
 
 	ui.PrintLinef("")
-	ui.PrintLinef("Manifest changes:")
-	ui.PrintLinef("")
-	ui.PrintLinef(diff)
+	if diff != "" {
+		ui.PrintLinef("Image changes:")
+		ui.PrintLinef("")
+		ui.PrintLinef(diff)
+	} else {
+		// Digests differ but manifest content is the same - ops files or entrypoint changed
+		ui.PrintLinef("Image digest changed (ops files or entrypoint may have changed):")
+		ui.PrintLinef("  Current: %s", currentDigest)
+		ui.PrintLinef("  New:     %s", remoteDigest)
+	}
 
 	ui.PrintLinef("")
 	ui.PrintLinef("Continue with upgrade?")
@@ -368,18 +377,26 @@ func handleDockerImagePull(
 
 			currentImageName := dockerClient.GetImageName()
 
+			// Get current digest before pulling
+			currentDigest, _ := registryClient.GetImageDigest(ctx, currentImageName)
+
 			if err := dockerClient.PullImage(ctx); err != nil {
 				return fmt.Errorf("pulling updated image: %w", err)
 			}
 
+			// Get new digest after pulling
+			newDigest, _ := registryClient.GetImageDigest(ctx, targetImage)
+
 			// Show manifest diff using registry client
-			diff, err := registryClient.GetManifestDiff(ctx, currentImageName, targetImage)
+			currentImage := registry.ImageInfo{Ref: currentImageName, Digest: currentDigest}
+			newImage := registry.ImageInfo{Ref: targetImage, Digest: newDigest}
+			diff, err := registryClient.GetManifestDiff(ctx, currentImage, newImage)
 			if err != nil {
 				logger.Debug("startCommand", "Failed to show manifest diff: %v", err)
 				ui.PrintLinef("Warning: Could not compare manifests: %v", err)
 			} else if diff != "" {
 				ui.PrintLinef("")
-				ui.PrintLinef("Manifest changes:")
+				ui.PrintLinef("Image changes:")
 				ui.PrintLinef("")
 				ui.PrintLinef(diff)
 			} else {
