@@ -20,6 +20,19 @@ directories:
       ref: origin/main
     includePaths:
     - operations/uaa-lite.yml
+- path: internal/manifests/cf-deployment
+  contents:
+  - path: .
+    git:
+      url: https://github.com/cloudfoundry/cf-deployment
+      ref: origin/main
+    includePaths:
+    - cf-deployment.yml
+    - operations/scale-to-one-az.yml
+    - operations/use-compiled-releases.yml
+    - operations/set-router-static-ips.yml
+    - operations/experimental/fast-deploy-with-downtime-and-danger.yml
+    - operations/experimental/use-create-swap-delete-vm-strategy.yml
 - path: .github/scripts/deskrun
   contents:
   - path: .

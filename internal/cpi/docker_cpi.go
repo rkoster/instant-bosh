@@ -6,7 +6,9 @@ import (
 	"io"
 	"time"
 
+	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
+	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
 var (
@@ -17,10 +19,19 @@ var (
 
 vm_types:
 - name: default
+- name: minimal
+- name: small
+- name: small-highmem
+- name: medium
+- name: compilation
 
 disk_types:
 - name: default
-  disk_size: 1024
+  disk_size: 10240
+- name: 10GB
+  disk_size: 10240
+- name: 100GB
+  disk_size: 102400
 
 networks:
 - name: default
@@ -29,23 +40,24 @@ networks:
   - azs: [z1, z2, z3]
     range: 10.245.0.0/16
     dns: [8.8.8.8]
-    reserved: [10.245.0.2-10.245.0.10]
+    reserved: [10.245.0.1-10.245.0.20]
     gateway: 10.245.0.1
-    static: [10.245.0.34]
+    static: [10.245.0.21-10.245.0.100]
     cloud_properties:
       name: instant-bosh
 
 vm_extensions:
-- name: all_ports
-  cloud_properties:
-    ports:
-    - 22/tcp
+- name: 50GB_ephemeral_disk
+- name: 100GB_ephemeral_disk
+- name: diego-ssh-proxy-network-properties
+- name: cf-router-network-properties
+- name: cf-tcp-router-network-properties
 
 compilation:
-  workers: 5
+  workers: 4
   az: z1
   reuse_compilation_vms: true
-  vm_type: default
+  vm_type: compilation
   network: default
 `)
 )
@@ -97,6 +109,11 @@ func (d *DockerCPI) Destroy(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (d *DockerCPI) RemoveContainer(ctx context.Context) error {
+	// Remove container only, preserve volumes for restart
+	return d.client.RemoveContainer(ctx, docker.ContainerName)
 }
 
 func (d *DockerCPI) IsRunning(ctx context.Context) (bool, error) {
@@ -235,4 +252,39 @@ func (d *DockerCPI) EnsurePrerequisites(ctx context.Context) error {
 
 func (d *DockerCPI) Close() error {
 	return d.client.Close()
+}
+
+// UploadStemcell uploads a light stemcell to the BOSH director for Docker CPI
+// It resolves the image from ghcr.io, creates a light stemcell tarball, and uploads it
+func (d *DockerCPI) UploadStemcell(ctx context.Context, directorClient boshdir.Director, os, version string) error {
+	// Build image reference
+	imageRef := fmt.Sprintf("ghcr.io/cloudfoundry/%s-stemcell:%s", os, version)
+
+	// Get image metadata (resolves tag to digest)
+	metadata, err := d.client.GetImageMetadata(ctx, imageRef)
+	if err != nil {
+		return fmt.Errorf("resolving image metadata for %s: %w", imageRef, err)
+	}
+
+	// Build stemcell info
+	stemcellInfo := stemcell.Info{
+		Name:           stemcell.BuildStemcellName(os),
+		Version:        metadata.Tag,
+		OS:             os,
+		ImageReference: metadata.FullReference,
+		Digest:         metadata.Digest,
+	}
+
+	// Create light stemcell tarball
+	uploadableFile, err := stemcell.CreateLightStemcell(stemcellInfo)
+	if err != nil {
+		return fmt.Errorf("creating light stemcell: %w", err)
+	}
+
+	// Upload stemcell to director
+	if err := directorClient.UploadStemcellFile(uploadableFile, false); err != nil {
+		return fmt.Errorf("uploading stemcell: %w", err)
+	}
+
+	return nil
 }

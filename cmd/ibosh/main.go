@@ -506,6 +506,192 @@ Works offline if the image is already pulled locally.`,
 							return commands.LogsAction(ui, logger, cpiInstance, false, []string{}, c.Bool("follow"), c.String("tail"))
 						},
 					},
+					{
+						Name:      "upload-stemcell",
+						Usage:     "Upload a stemcell from bosh.io for Incus CPI",
+						ArgsUsage: "<os> [version]",
+						Description: `Upload a stemcell to the BOSH director from bosh.io.
+
+The Incus CPI uses OpenStack stemcells from bosh.io.
+
+Arguments:
+  os       - The OS name (e.g., ubuntu-jammy, ubuntu-noble)
+  version  - The stemcell version (default: latest)
+
+Examples:
+  ibosh incus upload-stemcell ubuntu-jammy          # Upload latest ubuntu-jammy
+  ibosh incus upload-stemcell ubuntu-jammy 1.542    # Upload specific version
+  ibosh incus upload-stemcell ubuntu-noble latest   # Upload latest ubuntu-noble
+
+The command will:
+  1. Query bosh.io API to resolve the stemcell URL
+  2. Tell the BOSH director to download and upload the stemcell
+  3. Show progress (stemcells are ~500MB, so this may take a few minutes)`,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "remote",
+								Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
+								EnvVars: []string{"IBOSH_INCUS_REMOTE"},
+							},
+							&cli.StringFlag{
+								Name:    "project",
+								Usage:   "Incus project name",
+								Value:   "ibosh",
+								EnvVars: []string{"IBOSH_INCUS_PROJECT"},
+							},
+						},
+						Action: func(c *cli.Context) error {
+							if c.NArg() < 1 {
+								return cli.Exit("Error: OS name required (e.g., ubuntu-jammy)", 1)
+							}
+							osName := c.Args().First()
+							version := "latest"
+							if c.NArg() >= 2 {
+								version = c.Args().Get(1)
+							}
+							ui, logger := initUIAndLogger(c)
+							return commands.UploadIncusStemcellAction(
+								ui,
+								logger,
+								c.String("remote"),
+								c.String("project"),
+								osName,
+								version,
+							)
+						},
+					},
+				},
+			},
+			// Credentials commands (requires eval "$(ibosh docker/incus print-env)")
+			{
+				Name:    "creds",
+				Aliases: []string{"credentials"},
+				Usage:   "Manage credentials in config-server",
+				Description: `Interact with the config-server to manage credentials.
+
+Requires BOSH environment to be configured first:
+  eval "$(ibosh docker print-env)"   # or ibosh incus print-env
+
+Examples:
+  ibosh creds find                    # List all credentials
+  ibosh creds find --path /cf         # List credentials under /cf
+  ibosh creds get /cf/admin_password  # Get a specific credential`,
+				Subcommands: []*cli.Command{
+					{
+						Name:      "get",
+						Usage:     "Get a credential by name",
+						ArgsUsage: "<name>",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name:    "json",
+								Aliases: []string{"j"},
+								Usage:   "Output as JSON",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							if c.NArg() < 1 {
+								return cli.Exit("Error: credential name required", 1)
+							}
+							ui, _ := initUIAndLogger(c)
+							return commands.CredsGetAction(ui, c.Args().First(), c.Bool("json"))
+						},
+					},
+					{
+						Name:  "find",
+						Usage: "List credentials",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "path",
+								Aliases: []string{"p"},
+								Usage:   "Filter by path prefix (e.g., /cf)",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.CredsFindAction(ui, c.String("path"))
+						},
+					},
+				},
+			},
+			// CF commands (requires eval "$(ibosh docker/incus print-env)")
+			{
+				Name:  "cf",
+				Usage: "Deploy and manage Cloud Foundry",
+				Description: `Deploy and manage Cloud Foundry on instant-bosh.
+
+Requires BOSH environment to be configured first:
+  eval "$(ibosh docker print-env)"   # or ibosh incus print-env
+
+Examples:
+  ibosh cf deploy                     # Deploy CF (auto-selects router IP)
+  ibosh cf deploy --router-ip 10.245.0.34  # Deploy with specific router IP
+  ibosh cf delete                     # Delete CF deployment
+  ibosh cf print-env                  # Print CF CLI env vars
+  ibosh cf login                      # Login to CF as admin`,
+				Subcommands: []*cli.Command{
+					{
+						Name:  "deploy",
+						Usage: "Deploy Cloud Foundry",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "router-ip",
+								Usage: "Static IP for the router (auto-selected from cloud-config if not specified)",
+							},
+							&cli.StringFlag{
+								Name:  "system-domain",
+								Usage: "System domain for CF (defaults to <router-ip>.sslip.io)",
+							},
+							&cli.BoolFlag{
+								Name:  "dry-run",
+								Usage: "Show what would be deployed without deploying",
+							},
+							&cli.BoolFlag{
+								Name:  "skip-stemcell-upload",
+								Usage: "Skip automatic stemcell upload (use if stemcells are already uploaded)",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							opts := commands.CFDeployOptions{
+								RouterIP:           c.String("router-ip"),
+								SystemDomain:       c.String("system-domain"),
+								DryRun:             c.Bool("dry-run"),
+								SkipStemcellUpload: c.Bool("skip-stemcell-upload"),
+							}
+							return commands.CFDeployAction(ui, opts)
+						},
+					},
+					{
+						Name:  "delete",
+						Usage: "Delete CF deployment",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name:    "force",
+								Aliases: []string{"f"},
+								Usage:   "Skip confirmation prompt",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.CFDeleteAction(ui, c.Bool("force"))
+						},
+					},
+					{
+						Name:  "print-env",
+						Usage: "Print CF CLI environment variables",
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.CFPrintEnvAction(ui)
+						},
+					},
+					{
+						Name:  "login",
+						Usage: "Login to CF as admin",
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.CFLoginAction(ui)
+						},
+					},
 				},
 			},
 			// Deprecated commands with helpful error messages

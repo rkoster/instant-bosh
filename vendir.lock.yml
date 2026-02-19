@@ -14,6 +14,14 @@ directories:
   path: manifests
 - contents:
   - git:
+      commitTitle: Update cf-deployment manifest version to v54.9.0
+      sha: fa00a30fd9404370de0b4dbf06fd6cf4c220ed5f
+      tags:
+      - v54.9.0
+    path: .
+  path: internal/manifests/cf-deployment
+- contents:
+  - git:
       commitTitle: Update vendorHash in flake.nix
       sha: 1038e23c452c7f8b4e9db190f321f2470016783c
     path: .

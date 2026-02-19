@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
+	"github.com/rkoster/instant-bosh/internal/boshio"
 	"github.com/rkoster/instant-bosh/internal/incus"
 )
 
@@ -24,10 +26,34 @@ vm_types:
   cloud_properties:
     instance_type: c2-m4
     ephemeral_disk: 10240
+- name: minimal
+  cloud_properties:
+    instance_type: c1-m4
+    ephemeral_disk: 10240
+- name: small
+  cloud_properties:
+    instance_type: c2-m8
+    ephemeral_disk: 10240
+- name: small-highmem
+  cloud_properties:
+    instance_type: c2-m10
+    ephemeral_disk: 10240
+- name: medium
+  cloud_properties:
+    instance_type: c4-m8
+    ephemeral_disk: 10240
+- name: compilation
+  cloud_properties:
+    instance_type: c4-m8
+    ephemeral_disk: 51200
 
 disk_types:
 - name: default
   disk_size: 10240
+- name: 10GB
+  disk_size: 10240
+- name: 100GB
+  disk_size: 102400
 
 networks:
 - name: default
@@ -42,11 +68,25 @@ networks:
     cloud_properties:
       name: instant-bosh-incus
 
+vm_extensions:
+- name: 50GB_ephemeral_disk
+  cloud_properties:
+    ephemeral_disk: 51200
+- name: 100GB_ephemeral_disk
+  cloud_properties:
+    ephemeral_disk: 102400
+- name: diego-ssh-proxy-network-properties
+  cloud_properties: {}
+- name: cf-router-network-properties
+  cloud_properties: {}
+- name: cf-tcp-router-network-properties
+  cloud_properties: {}
+
 compilation:
   workers: 4
   az: z1
   reuse_compilation_vms: true
-  vm_type: default
+  vm_type: compilation
   network: default
 `)
 )
@@ -79,6 +119,11 @@ func (i *IncusCPI) Destroy(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (i *IncusCPI) RemoveContainer(ctx context.Context) error {
+	// Remove container only, preserve volumes for restart
+	return i.client.RemoveContainer(ctx, incus.ContainerName)
 }
 
 func (i *IncusCPI) IsRunning(ctx context.Context) (bool, error) {
@@ -338,4 +383,25 @@ func (i *IncusCPI) EnsurePrerequisites(ctx context.Context) error {
 
 func (i *IncusCPI) Close() error {
 	return i.client.Close()
+}
+
+// UploadStemcell uploads a stemcell to the BOSH director for Incus CPI
+// It resolves the stemcell from bosh.io and uploads it via URL
+func (i *IncusCPI) UploadStemcell(ctx context.Context, directorClient boshdir.Director, os, version string) error {
+	// Build the OpenStack stemcell name (Incus uses OpenStack stemcells)
+	stemcellName := boshio.OpenStackStemcellName(os)
+
+	// Resolve stemcell info from bosh.io
+	client := boshio.NewClient()
+	info, err := client.ResolveStemcell(ctx, stemcellName, version)
+	if err != nil {
+		return fmt.Errorf("resolving stemcell from bosh.io: %w", err)
+	}
+
+	// Upload stemcell via URL - the director will download it
+	if err := directorClient.UploadStemcellURL(info.URL, info.SHA1, false); err != nil {
+		return fmt.Errorf("uploading stemcell from %s: %w", info.URL, err)
+	}
+
+	return nil
 }

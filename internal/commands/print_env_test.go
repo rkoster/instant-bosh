@@ -32,11 +32,17 @@ var _ = Describe("PrintEnvAction", func() {
 		fakeCPI.GetContainerNameReturns("instant-bosh")
 
 		fakeConfigProvider.GetDirectorConfigReturns(&director.Config{
-			Environment:  "https://127.0.0.1:25555",
-			Client:       "admin",
-			ClientSecret: "fake-secret",
-			CACert:       "-----BEGIN CERTIFICATE-----\nfake-cert\n-----END CERTIFICATE-----",
-			AllProxy:     "ssh+socks5://jumpbox@127.0.0.1:22222?private-key=/tmp/jumpbox-key",
+			Environment:        "https://127.0.0.1:25555",
+			Client:             "admin",
+			ClientSecret:       "fake-secret",
+			CACert:             "-----BEGIN CERTIFICATE-----\nfake-cert\n-----END CERTIFICATE-----",
+			AllProxy:           "ssh+socks5://jumpbox@127.0.0.1:22222?private-key=/tmp/jumpbox-key",
+			ConfigServerURL:    "https://127.0.0.1:8081",
+			ConfigServerClient: "director_config_server",
+			ConfigServerSecret: "fake-config-server-secret",
+			ConfigServerCACert: "-----BEGIN CERTIFICATE-----\nfake-config-server-cert\n-----END CERTIFICATE-----",
+			UAAURL:             "https://127.0.0.1:8443",
+			UAACACert:          "-----BEGIN CERTIFICATE-----\nfake-uaa-cert\n-----END CERTIFICATE-----",
 		}, nil)
 	})
 
@@ -50,7 +56,7 @@ var _ = Describe("PrintEnvAction", func() {
 
 			Expect(fakeConfigProvider.GetDirectorConfigCallCount()).To(Equal(1))
 
-			Expect(fakeUI.PrintLinefCallCount()).To(Equal(5))
+			Expect(fakeUI.PrintLinefCallCount()).To(Equal(11))
 
 			format1, args1 := fakeUI.PrintLinefArgsForCall(0)
 			Expect(format1).To(Equal("export BOSH_CLIENT=%s"))
@@ -76,6 +82,36 @@ var _ = Describe("PrintEnvAction", func() {
 			Expect(format5).To(Equal("export BOSH_ALL_PROXY=%s"))
 			Expect(args5).To(HaveLen(1))
 			Expect(args5[0]).To(ContainSubstring("ssh+socks5"))
+
+			format6, args6 := fakeUI.PrintLinefArgsForCall(5)
+			Expect(format6).To(Equal("export CONFIG_SERVER_URL=%s"))
+			Expect(args6).To(HaveLen(1))
+			Expect(args6[0]).To(Equal("https://127.0.0.1:8081"))
+
+			format7, args7 := fakeUI.PrintLinefArgsForCall(6)
+			Expect(format7).To(Equal("export CONFIG_SERVER_CLIENT=%s"))
+			Expect(args7).To(HaveLen(1))
+			Expect(args7[0]).To(Equal("director_config_server"))
+
+			format8, args8 := fakeUI.PrintLinefArgsForCall(7)
+			Expect(format8).To(Equal("export CONFIG_SERVER_SECRET=%s"))
+			Expect(args8).To(HaveLen(1))
+			Expect(args8[0]).To(Equal("fake-config-server-secret"))
+
+			format9, args9 := fakeUI.PrintLinefArgsForCall(8)
+			Expect(format9).To(Equal("export CONFIG_SERVER_CA_CERT='%s'"))
+			Expect(args9).To(HaveLen(1))
+			Expect(args9[0]).To(ContainSubstring("BEGIN CERTIFICATE"))
+
+			format10, args10 := fakeUI.PrintLinefArgsForCall(9)
+			Expect(format10).To(Equal("export UAA_URL=%s"))
+			Expect(args10).To(HaveLen(1))
+			Expect(args10[0]).To(Equal("https://127.0.0.1:8443"))
+
+			format11, args11 := fakeUI.PrintLinefArgsForCall(10)
+			Expect(format11).To(Equal("export UAA_CA_CERT='%s'"))
+			Expect(args11).To(HaveLen(1))
+			Expect(args11[0]).To(ContainSubstring("BEGIN CERTIFICATE"))
 		})
 
 		It("should output in shell-compatible format", func() {
@@ -92,11 +128,17 @@ var _ = Describe("PrintEnvAction", func() {
 		Context("with different director configurations", func() {
 			BeforeEach(func() {
 				fakeConfigProvider.GetDirectorConfigReturns(&director.Config{
-					Environment:  "https://10.0.0.1:25555",
-					Client:       "custom-client",
-					ClientSecret: "custom-secret",
-					CACert:       "custom-cert",
-					AllProxy:     "custom-proxy",
+					Environment:        "https://10.0.0.1:25555",
+					Client:             "custom-client",
+					ClientSecret:       "custom-secret",
+					CACert:             "custom-cert",
+					AllProxy:           "custom-proxy",
+					ConfigServerURL:    "https://10.0.0.1:8081",
+					ConfigServerClient: "custom-config-client",
+					ConfigServerSecret: "custom-config-secret",
+					ConfigServerCACert: "custom-config-cert",
+					UAAURL:             "https://10.0.0.1:8443",
+					UAACACert:          "custom-uaa-cert",
 				}, nil)
 			})
 
@@ -184,7 +226,11 @@ var _ = Describe("PrintEnvAction", func() {
 				format, args := fakeUI.PrintLinefArgsForCall(i)
 
 				Expect(format).To(ContainSubstring("export"))
-				Expect(format).To(ContainSubstring("BOSH_"))
+				Expect(format).To(SatisfyAny(
+					ContainSubstring("BOSH_"),
+					ContainSubstring("CONFIG_SERVER_"),
+					ContainSubstring("UAA_"),
+				))
 
 				Expect(args).To(HaveLen(1))
 				Expect(args[0]).NotTo(BeEmpty())

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudfoundry/bosh-cli/v7/director"
 	"github.com/rkoster/instant-bosh/internal/cpi"
 )
 
@@ -209,6 +210,17 @@ type FakeCPI struct {
 		result1 bool
 		result2 error
 	}
+	RemoveContainerStub        func(context.Context) error
+	removeContainerMutex       sync.RWMutex
+	removeContainerArgsForCall []struct {
+		arg1 context.Context
+	}
+	removeContainerReturns struct {
+		result1 error
+	}
+	removeContainerReturnsOnCall map[int]struct {
+		result1 error
+	}
 	ResourcesExistStub        func(context.Context) (bool, error)
 	resourcesExistMutex       sync.RWMutex
 	resourcesExistArgsForCall []struct {
@@ -242,6 +254,20 @@ type FakeCPI struct {
 		result1 error
 	}
 	stopReturnsOnCall map[int]struct {
+		result1 error
+	}
+	UploadStemcellStub        func(context.Context, director.Director, string, string) error
+	uploadStemcellMutex       sync.RWMutex
+	uploadStemcellArgsForCall []struct {
+		arg1 context.Context
+		arg2 director.Director
+		arg3 string
+		arg4 string
+	}
+	uploadStemcellReturns struct {
+		result1 error
+	}
+	uploadStemcellReturnsOnCall map[int]struct {
 		result1 error
 	}
 	WaitForReadyStub        func(context.Context, time.Duration) error
@@ -1262,6 +1288,67 @@ func (fake *FakeCPI) IsRunningReturnsOnCall(i int, result1 bool, result2 error) 
 	}{result1, result2}
 }
 
+func (fake *FakeCPI) RemoveContainer(arg1 context.Context) error {
+	fake.removeContainerMutex.Lock()
+	ret, specificReturn := fake.removeContainerReturnsOnCall[len(fake.removeContainerArgsForCall)]
+	fake.removeContainerArgsForCall = append(fake.removeContainerArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.RemoveContainerStub
+	fakeReturns := fake.removeContainerReturns
+	fake.recordInvocation("RemoveContainer", []interface{}{arg1})
+	fake.removeContainerMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) RemoveContainerCallCount() int {
+	fake.removeContainerMutex.RLock()
+	defer fake.removeContainerMutex.RUnlock()
+	return len(fake.removeContainerArgsForCall)
+}
+
+func (fake *FakeCPI) RemoveContainerCalls(stub func(context.Context) error) {
+	fake.removeContainerMutex.Lock()
+	defer fake.removeContainerMutex.Unlock()
+	fake.RemoveContainerStub = stub
+}
+
+func (fake *FakeCPI) RemoveContainerArgsForCall(i int) context.Context {
+	fake.removeContainerMutex.RLock()
+	defer fake.removeContainerMutex.RUnlock()
+	argsForCall := fake.removeContainerArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeCPI) RemoveContainerReturns(result1 error) {
+	fake.removeContainerMutex.Lock()
+	defer fake.removeContainerMutex.Unlock()
+	fake.RemoveContainerStub = nil
+	fake.removeContainerReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) RemoveContainerReturnsOnCall(i int, result1 error) {
+	fake.removeContainerMutex.Lock()
+	defer fake.removeContainerMutex.Unlock()
+	fake.RemoveContainerStub = nil
+	if fake.removeContainerReturnsOnCall == nil {
+		fake.removeContainerReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.removeContainerReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
 func (fake *FakeCPI) ResourcesExist(arg1 context.Context) (bool, error) {
 	fake.resourcesExistMutex.Lock()
 	ret, specificReturn := fake.resourcesExistReturnsOnCall[len(fake.resourcesExistArgsForCall)]
@@ -1444,6 +1531,70 @@ func (fake *FakeCPI) StopReturnsOnCall(i int, result1 error) {
 		})
 	}
 	fake.stopReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) UploadStemcell(arg1 context.Context, arg2 director.Director, arg3 string, arg4 string) error {
+	fake.uploadStemcellMutex.Lock()
+	ret, specificReturn := fake.uploadStemcellReturnsOnCall[len(fake.uploadStemcellArgsForCall)]
+	fake.uploadStemcellArgsForCall = append(fake.uploadStemcellArgsForCall, struct {
+		arg1 context.Context
+		arg2 director.Director
+		arg3 string
+		arg4 string
+	}{arg1, arg2, arg3, arg4})
+	stub := fake.UploadStemcellStub
+	fakeReturns := fake.uploadStemcellReturns
+	fake.recordInvocation("UploadStemcell", []interface{}{arg1, arg2, arg3, arg4})
+	fake.uploadStemcellMutex.Unlock()
+	if stub != nil {
+		return stub(arg1, arg2, arg3, arg4)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) UploadStemcellCallCount() int {
+	fake.uploadStemcellMutex.RLock()
+	defer fake.uploadStemcellMutex.RUnlock()
+	return len(fake.uploadStemcellArgsForCall)
+}
+
+func (fake *FakeCPI) UploadStemcellCalls(stub func(context.Context, director.Director, string, string) error) {
+	fake.uploadStemcellMutex.Lock()
+	defer fake.uploadStemcellMutex.Unlock()
+	fake.UploadStemcellStub = stub
+}
+
+func (fake *FakeCPI) UploadStemcellArgsForCall(i int) (context.Context, director.Director, string, string) {
+	fake.uploadStemcellMutex.RLock()
+	defer fake.uploadStemcellMutex.RUnlock()
+	argsForCall := fake.uploadStemcellArgsForCall[i]
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3, argsForCall.arg4
+}
+
+func (fake *FakeCPI) UploadStemcellReturns(result1 error) {
+	fake.uploadStemcellMutex.Lock()
+	defer fake.uploadStemcellMutex.Unlock()
+	fake.UploadStemcellStub = nil
+	fake.uploadStemcellReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) UploadStemcellReturnsOnCall(i int, result1 error) {
+	fake.uploadStemcellMutex.Lock()
+	defer fake.uploadStemcellMutex.Unlock()
+	fake.UploadStemcellStub = nil
+	if fake.uploadStemcellReturnsOnCall == nil {
+		fake.uploadStemcellReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.uploadStemcellReturnsOnCall[i] = struct {
 		result1 error
 	}{result1}
 }

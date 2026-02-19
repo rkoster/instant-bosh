@@ -30,6 +30,14 @@ type Config struct {
 	CACert         string
 	AllProxy       string
 	JumpboxKeyPath string
+	// Config-server/CredHub configuration
+	ConfigServerURL    string
+	ConfigServerClient string
+	ConfigServerSecret string
+	ConfigServerCACert string
+	// UAA configuration (for config-server auth)
+	UAAURL    string
+	UAACACert string
 }
 
 // ConfigProvider is an interface for retrieving BOSH director configuration.
@@ -133,6 +141,34 @@ func GetDirectorConfig(ctx context.Context, containerClient container.Client, co
 		return nil, fmt.Errorf("jumpbox_ssh.private_key is not a string")
 	}
 
+	// Extract config-server/CredHub credentials
+	configServerSecret, err := extractYAMLValue(data, "director_config_server_client_secret")
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract director_config_server_client_secret: %w", err)
+	}
+	configServerSecretStr, ok := configServerSecret.(string)
+	if !ok {
+		return nil, fmt.Errorf("director_config_server_client_secret is not a string")
+	}
+
+	// Extract config-server SSL CA certificate
+	configServerSSL, err := extractYAMLValue(data, "config_server_ssl")
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract config_server_ssl: %w", err)
+	}
+	configServerSSLMap, ok := configServerSSL.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("config_server_ssl is not a map")
+	}
+	configServerCACert, err := extractYAMLValue(configServerSSLMap, "ca")
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract config_server_ssl.ca: %w", err)
+	}
+	configServerCACertStr, ok := configServerCACert.(string)
+	if !ok {
+		return nil, fmt.Errorf("config_server_ssl.ca is not a string")
+	}
+
 	// Create temporary file for jumpbox key
 	keyFileHandle, err := os.CreateTemp("", "jumpbox-key-*")
 	if err != nil {
@@ -183,12 +219,18 @@ func GetDirectorConfig(ctx context.Context, containerClient container.Client, co
 	}
 
 	return &Config{
-		Environment:    fmt.Sprintf("https://%s:25555", hostAddress),
-		Client:         "admin",
-		ClientSecret:   adminPasswordStr,
-		CACert:         directorCertStr,
-		AllProxy:       allProxy,
-		JumpboxKeyPath: keyFile,
+		Environment:        fmt.Sprintf("https://%s:25555", hostAddress),
+		Client:             "admin",
+		ClientSecret:       adminPasswordStr,
+		CACert:             directorCertStr,
+		AllProxy:           allProxy,
+		JumpboxKeyPath:     keyFile,
+		ConfigServerURL:    fmt.Sprintf("https://%s:8081", hostAddress),
+		ConfigServerClient: "director_config_server",
+		ConfigServerSecret: configServerSecretStr,
+		ConfigServerCACert: configServerCACertStr,
+		UAAURL:             fmt.Sprintf("https://%s:8443", hostAddress),
+		UAACACert:          directorCertStr, // UAA uses same CA as director
 	}, nil
 }
 
@@ -197,10 +239,16 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 	// Protect global state manipulation with a mutex for thread safety
 	dialerMutex.Lock()
 
-	// Unset BOSH_ALL_PROXY to ensure direct connection to localhost.
-	// This variable is meant for external BOSH CLI usage through the jumpbox,
-	// not for our internal API calls to localhost:25555.
+	// Unset all BOSH environment variables to ensure the bosh-cli library
+	// uses only our explicitly provided configuration, not stale shell env vars.
+	// This is critical because the user may have BOSH_* vars set from a previous
+	// session (e.g., via `eval $(ibosh print-env)`), which would override our
+	// programmatic configuration.
 	os.Unsetenv("BOSH_ALL_PROXY")
+	os.Unsetenv("BOSH_CLIENT")
+	os.Unsetenv("BOSH_CLIENT_SECRET")
+	os.Unsetenv("BOSH_CA_CERT")
+	os.Unsetenv("BOSH_ENVIRONMENT")
 
 	// Reset the HTTP client dialer to pick up the environment variable change.
 	// The bosh-utils library caches the dialer with proxy settings at package init time,
@@ -216,15 +264,18 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 	}
 
 	directorConfig.CACert = config.CACert
-	directorConfig.Client = config.Client
-	directorConfig.ClientSecret = config.ClientSecret
+	// NOTE: We intentionally do NOT set directorConfig.Client and directorConfig.ClientSecret here.
+	// The bosh-cli library's AuthRequestAdjustment checks for username first, and if set,
+	// uses Basic auth instead of the TokenFunc. Since we use UAA token-based auth,
+	// we only set TokenFunc below and leave Client/ClientSecret empty on the director config.
 
 	// Create UAA config for authentication
-	uaaConfig, err := boshuaa.NewConfigFromURL(config.Environment)
+	// UAA runs on a different port (8443) than the director (25555)
+	uaaConfig, err := boshuaa.NewConfigFromURL(config.UAAURL)
 	if err != nil {
-		return nil, bosherr.WrapErrorf(err, "Building UAA config from URL '%s'", config.Environment)
+		return nil, bosherr.WrapErrorf(err, "Building UAA config from URL '%s'", config.UAAURL)
 	}
-	uaaConfig.CACert = config.CACert
+	uaaConfig.CACert = config.UAACACert
 	uaaConfig.Client = config.Client
 	uaaConfig.ClientSecret = config.ClientSecret
 
@@ -235,7 +286,8 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 		return nil, bosherr.WrapError(err, "Building UAA client")
 	}
 
-	// Create token function for authentication
+	// Create token function for UAA-based authentication
+	// This will acquire a bearer token from UAA and use it for director API requests
 	directorConfig.TokenFunc = boshuaa.NewClientTokenSession(uaa).TokenFunc
 
 	// Create director factory
