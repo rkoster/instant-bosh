@@ -33,3 +33,15 @@
     profile_name: ((lxd_profile_name))
     network_name: ((lxd_network_name))
     storage_pool_name: ((lxd_storage_pool_name))
+    # Instance config values must be strings as required by LXD/Incus API
+    instance_config:
+      jammy:
+        security.csm: "true"
+        security.secureboot: "false"
+      default:
+        security.secureboot: "false"
+
+# Ensure throttle_config.enabled is a proper boolean (spec default is incorrectly quoted)
+- type: replace
+  path: /instance_groups/name=bosh/jobs/name=lxd_cpi/properties/lxd_cpi/throttle_config?/enabled
+  value: false
