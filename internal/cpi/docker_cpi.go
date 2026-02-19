@@ -109,6 +109,11 @@ func (d *DockerCPI) Destroy(ctx context.Context) error {
 	return nil
 }
 
+func (d *DockerCPI) RemoveContainer(ctx context.Context) error {
+	// Remove container only, preserve volumes for restart
+	return d.client.RemoveContainer(ctx, docker.ContainerName)
+}
+
 func (d *DockerCPI) IsRunning(ctx context.Context) (bool, error) {
 	return d.client.IsContainerRunning(ctx)
 }

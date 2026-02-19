@@ -119,6 +119,11 @@ func (i *IncusCPI) Destroy(ctx context.Context) error {
 	return nil
 }
 
+func (i *IncusCPI) RemoveContainer(ctx context.Context) error {
+	// Remove container only, preserve volumes for restart
+	return i.client.RemoveContainer(ctx, incus.ContainerName)
+}
+
 func (i *IncusCPI) IsRunning(ctx context.Context) (bool, error) {
 	return i.client.IsContainerRunning(ctx)
 }

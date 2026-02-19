@@ -63,7 +63,7 @@ func StartAction(
 
 	if exists {
 		ui.PrintLinef("Removing stopped container...")
-		if err := cpiInstance.Destroy(ctx); err != nil {
+		if err := cpiInstance.RemoveContainer(ctx); err != nil {
 			return fmt.Errorf("failed to remove stopped container: %w", err)
 		}
 	}

@@ -209,6 +209,17 @@ type FakeCPI struct {
 		result1 bool
 		result2 error
 	}
+	RemoveContainerStub        func(context.Context) error
+	removeContainerMutex       sync.RWMutex
+	removeContainerArgsForCall []struct {
+		arg1 context.Context
+	}
+	removeContainerReturns struct {
+		result1 error
+	}
+	removeContainerReturnsOnCall map[int]struct {
+		result1 error
+	}
 	ResourcesExistStub        func(context.Context) (bool, error)
 	resourcesExistMutex       sync.RWMutex
 	resourcesExistArgsForCall []struct {
@@ -1260,6 +1271,67 @@ func (fake *FakeCPI) IsRunningReturnsOnCall(i int, result1 bool, result2 error) 
 		result1 bool
 		result2 error
 	}{result1, result2}
+}
+
+func (fake *FakeCPI) RemoveContainer(arg1 context.Context) error {
+	fake.removeContainerMutex.Lock()
+	ret, specificReturn := fake.removeContainerReturnsOnCall[len(fake.removeContainerArgsForCall)]
+	fake.removeContainerArgsForCall = append(fake.removeContainerArgsForCall, struct {
+		arg1 context.Context
+	}{arg1})
+	stub := fake.RemoveContainerStub
+	fakeReturns := fake.removeContainerReturns
+	fake.recordInvocation("RemoveContainer", []interface{}{arg1})
+	fake.removeContainerMutex.Unlock()
+	if stub != nil {
+		return stub(arg1)
+	}
+	if specificReturn {
+		return ret.result1
+	}
+	return fakeReturns.result1
+}
+
+func (fake *FakeCPI) RemoveContainerCallCount() int {
+	fake.removeContainerMutex.RLock()
+	defer fake.removeContainerMutex.RUnlock()
+	return len(fake.removeContainerArgsForCall)
+}
+
+func (fake *FakeCPI) RemoveContainerCalls(stub func(context.Context) error) {
+	fake.removeContainerMutex.Lock()
+	defer fake.removeContainerMutex.Unlock()
+	fake.RemoveContainerStub = stub
+}
+
+func (fake *FakeCPI) RemoveContainerArgsForCall(i int) context.Context {
+	fake.removeContainerMutex.RLock()
+	defer fake.removeContainerMutex.RUnlock()
+	argsForCall := fake.removeContainerArgsForCall[i]
+	return argsForCall.arg1
+}
+
+func (fake *FakeCPI) RemoveContainerReturns(result1 error) {
+	fake.removeContainerMutex.Lock()
+	defer fake.removeContainerMutex.Unlock()
+	fake.RemoveContainerStub = nil
+	fake.removeContainerReturns = struct {
+		result1 error
+	}{result1}
+}
+
+func (fake *FakeCPI) RemoveContainerReturnsOnCall(i int, result1 error) {
+	fake.removeContainerMutex.Lock()
+	defer fake.removeContainerMutex.Unlock()
+	fake.RemoveContainerStub = nil
+	if fake.removeContainerReturnsOnCall == nil {
+		fake.removeContainerReturnsOnCall = make(map[int]struct {
+			result1 error
+		})
+	}
+	fake.removeContainerReturnsOnCall[i] = struct {
+		result1 error
+	}{result1}
 }
 
 func (fake *FakeCPI) ResourcesExist(arg1 context.Context) (bool, error) {

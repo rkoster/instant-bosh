@@ -22,6 +22,7 @@ type CPI interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
 	Destroy(ctx context.Context) error
+	RemoveContainer(ctx context.Context) error // Removes container only, preserves volumes
 
 	// Status operations
 	IsRunning(ctx context.Context) (bool, error)
