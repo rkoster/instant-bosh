@@ -25,6 +25,22 @@ func CredsGetAction(ui UI, name string, outputJSON bool) error {
 	return nil
 }
 
+// CredsDeleteAction deletes a credential by name from the config-server
+func CredsDeleteAction(ui UI, name string) error {
+	client, err := configserver.NewClientFromEnv()
+	if err != nil {
+		return err
+	}
+
+	err = client.Delete(name)
+	if err != nil {
+		return err
+	}
+
+	ui.PrintLinef("Deleted credential: %s", name)
+	return nil
+}
+
 // CredsFindAction lists credentials from the config-server
 // Note: config-server doesn't support listing, so we provide helpful guidance
 func CredsFindAction(ui UI, pathPrefix string) error {

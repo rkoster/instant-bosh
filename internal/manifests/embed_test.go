@@ -52,7 +52,7 @@ func TestStandardCFOpsFiles(t *testing.T) {
 		t.Fatalf("StandardCFOpsFiles() error = %v", err)
 	}
 
-	expectedCount := 5 // scale-to-one-az, use-compiled-releases, set-router-static-ips, fast-deploy, use-create-swap-delete
+	expectedCount := 4 // scale-to-one-az, use-compiled-releases, set-router-static-ips, fast-deploy
 	if len(opsFiles) != expectedCount {
 		t.Errorf("StandardCFOpsFiles() returned %d ops files, expected %d", len(opsFiles), expectedCount)
 	}

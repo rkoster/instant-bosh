@@ -245,6 +245,60 @@ func (c *Client) Find(pathPrefix string) ([]Credential, error) {
 	return nil, ErrFindNotSupported
 }
 
+// Delete removes a credential by name from the config-server
+func (c *Client) Delete(name string) error {
+	// Ensure name starts with /
+	if !strings.HasPrefix(name, "/") {
+		name = "/" + name
+	}
+
+	// Get access token
+	token, err := c.getAccessToken()
+	if err != nil {
+		return fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	// Build URL: /v1/data?name=<name>
+	u, err := url.Parse(c.serverURL + "/v1/data")
+	if err != nil {
+		return fmt.Errorf("failed to parse URL: %w", err)
+	}
+
+	q := u.Query()
+	q.Set("name", name)
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequest("DELETE", u.String(), nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("credential not found: %s", name)
+	}
+
+	// Config-server returns 204 No Content on successful delete
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 // FormatValue formats a credential value for display
 func FormatValue(value interface{}) string {
 	switch v := value.(type) {

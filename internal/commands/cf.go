@@ -131,10 +131,17 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 	// Determine router IP
 	routerIP := opts.RouterIP
 	if routerIP == "" {
-		var err error
-		routerIP, err = selectRouterIP(ui)
-		if err != nil {
-			return fmt.Errorf("failed to select router IP: %w", err)
+		// First, try to get the existing router IP from a running CF deployment
+		existingIP, err := getExistingRouterIP()
+		if err == nil && existingIP != "" {
+			routerIP = existingIP
+			ui.PrintLinef("Using existing router IP from CF deployment: %s", routerIP)
+		} else {
+			// No existing deployment, select a new IP
+			routerIP, err = selectRouterIP(ui)
+			if err != nil {
+				return fmt.Errorf("failed to select router IP: %w", err)
+			}
 		}
 	}
 
@@ -618,6 +625,42 @@ func getUsedIPs() (map[string]bool, error) {
 	}
 
 	return used, nil
+}
+
+// getExistingRouterIP returns the router IP from an existing CF deployment, if any
+func getExistingRouterIP() (string, error) {
+	// Try to get from the CF deployment's router instance
+	cmd := exec.Command("bosh", "-d", "cf", "instances", "--json")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get CF instances: %w", err)
+	}
+
+	var result struct {
+		Tables []struct {
+			Rows []struct {
+				Instance string `json:"instance"`
+				IPs      string `json:"ips"`
+			} `json:"Rows"`
+		} `json:"Tables"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil {
+		return "", err
+	}
+
+	// Find router instance IP
+	for _, table := range result.Tables {
+		for _, row := range table.Rows {
+			if strings.HasPrefix(row.Instance, "router/") {
+				ip := strings.TrimSpace(strings.Split(row.IPs, "\n")[0])
+				if ip != "" {
+					return ip, nil
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("router instance not found in CF deployment")
 }
 
 // getCFSystemDomain determines the CF system domain from the deployment

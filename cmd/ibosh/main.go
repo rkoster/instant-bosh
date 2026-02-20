@@ -575,7 +575,8 @@ Requires BOSH environment to be configured first:
 Examples:
   ibosh creds find                    # List all credentials
   ibosh creds find --path /cf         # List credentials under /cf
-  ibosh creds get /cf/admin_password  # Get a specific credential`,
+  ibosh creds get /cf/admin_password  # Get a specific credential
+  ibosh creds delete /cf/cc_public_tls  # Delete a credential`,
 				Subcommands: []*cli.Command{
 					{
 						Name:      "get",
@@ -609,6 +610,18 @@ Examples:
 						Action: func(c *cli.Context) error {
 							ui, _ := initUIAndLogger(c)
 							return commands.CredsFindAction(ui, c.String("path"))
+						},
+					},
+					{
+						Name:      "delete",
+						Usage:     "Delete a credential by name",
+						ArgsUsage: "<name>",
+						Action: func(c *cli.Context) error {
+							if c.NArg() < 1 {
+								return cli.Exit("Error: credential name required", 1)
+							}
+							ui, _ := initUIAndLogger(c)
+							return commands.CredsDeleteAction(ui, c.Args().First())
 						},
 					},
 				},
