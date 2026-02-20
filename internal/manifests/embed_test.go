@@ -93,3 +93,61 @@ func TestListCFDeploymentOpsFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestDNSRuntimeConfig(t *testing.T) {
+	config, err := manifests.DNSRuntimeConfig()
+	if err != nil {
+		t.Fatalf("DNSRuntimeConfig() error = %v", err)
+	}
+
+	if len(config) == 0 {
+		t.Error("DNSRuntimeConfig() returned empty content")
+	}
+
+	// Check that it contains expected bosh-dns content
+	content := string(config)
+	if !strings.Contains(content, "bosh-dns") {
+		t.Error("DNSRuntimeConfig() should contain 'bosh-dns'")
+	}
+	if !strings.Contains(content, "addons") {
+		t.Error("DNSRuntimeConfig() should contain 'addons'")
+	}
+}
+
+func TestDNSOpsFile(t *testing.T) {
+	opsFile, err := manifests.DNSOpsFile()
+	if err != nil {
+		t.Fatalf("DNSOpsFile() error = %v", err)
+	}
+
+	if len(opsFile) == 0 {
+		t.Error("DNSOpsFile() returned empty content")
+	}
+
+	content := string(opsFile)
+
+	// Should contain ops for releases
+	if !strings.Contains(content, "/releases/-") {
+		t.Error("DNSOpsFile() should contain '/releases/-' path")
+	}
+
+	// Should contain ops for addons
+	if !strings.Contains(content, "/addons/-") {
+		t.Error("DNSOpsFile() should contain '/addons/-' path")
+	}
+
+	// Should contain ops for variables
+	if !strings.Contains(content, "/variables/-") {
+		t.Error("DNSOpsFile() should contain '/variables/-' path")
+	}
+
+	// Should reference bosh-dns
+	if !strings.Contains(content, "bosh-dns") {
+		t.Error("DNSOpsFile() should reference 'bosh-dns'")
+	}
+
+	// Should be valid ops file format (type: replace)
+	if !strings.Contains(content, "type: replace") {
+		t.Error("DNSOpsFile() should contain 'type: replace' operations")
+	}
+}
