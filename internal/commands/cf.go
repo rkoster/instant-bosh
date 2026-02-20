@@ -117,6 +117,7 @@ type CFDeployOptions struct {
 	SystemDomain       string // Optional: specify system domain, otherwise derive from router IP
 	DryRun             bool   // If true, show what would be deployed without deploying
 	SkipStemcellUpload bool   // If true, skip auto-uploading required stemcells
+	DeleteCreds        bool   // If true, delete all deployment credentials before deploying (forces regeneration)
 }
 
 // CFDeployAction deploys Cloud Foundry to the BOSH director
@@ -156,11 +157,6 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 	ui.PrintLinef("  System Domain: %s", systemDomain)
 	ui.PrintLinef("")
 
-	if opts.DryRun {
-		ui.PrintLinef("Dry run - would deploy with these settings")
-		return nil
-	}
-
 	// Create temporary directory for manifest files
 	tmpDir, err := os.MkdirTemp("", "cf-deploy-*")
 	if err != nil {
@@ -198,6 +194,23 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 			return fmt.Errorf("failed to write ops file %s: %w", opsFilePaths[i], err)
 		}
 		opsPaths = append(opsPaths, path)
+	}
+
+	// Delete credentials if requested (before stemcell upload and deploy)
+	if opts.DeleteCreds {
+		variableNames, err := extractManifestVariables(manifestPath, opsPaths)
+		if err != nil {
+			return fmt.Errorf("failed to extract variables from manifest: %w", err)
+		}
+		if err := deleteDeploymentCredentials(ui, "cf", variableNames, opts.DryRun); err != nil {
+			return fmt.Errorf("failed to delete credentials: %w", err)
+		}
+		ui.PrintLinef("")
+	}
+
+	if opts.DryRun {
+		ui.PrintLinef("Dry run - would deploy with these settings")
+		return nil
 	}
 
 	// Ensure required stemcells are uploaded before deploy
@@ -697,4 +710,77 @@ func getCFSystemDomain() (string, error) {
 	}
 
 	return "", fmt.Errorf("router instance not found in CF deployment")
+}
+
+// extractManifestVariables extracts variable names from a manifest using bosh interpolate
+func extractManifestVariables(manifestPath string, opsPaths []string) ([]string, error) {
+	// Build bosh interpolate command to extract variables section
+	args := []string{"interpolate", "--path", "/variables", manifestPath}
+	for _, opsPath := range opsPaths {
+		args = append(args, "-o", opsPath)
+	}
+
+	cmd := exec.Command("bosh", args...)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract variables from manifest: %w", err)
+	}
+
+	// Parse YAML output - it's a list of variable definitions
+	var variables []struct {
+		Name string `yaml:"name"`
+	}
+	if err := yaml.Unmarshal(output, &variables); err != nil {
+		return nil, fmt.Errorf("failed to parse variables output: %w", err)
+	}
+
+	// Extract just the names
+	names := make([]string, len(variables))
+	for i, v := range variables {
+		names[i] = v.Name
+	}
+
+	return names, nil
+}
+
+// deleteDeploymentCredentials deletes all credentials for a deployment from config-server
+func deleteDeploymentCredentials(ui UI, deploymentName string, variableNames []string, dryRun bool) error {
+	if len(variableNames) == 0 {
+		return nil
+	}
+
+	client, err := configserver.NewClientFromEnv()
+	if err != nil {
+		return fmt.Errorf("failed to create config-server client: %w", err)
+	}
+
+	if dryRun {
+		ui.PrintLinef("Would delete %d credentials:", len(variableNames))
+		for _, name := range variableNames {
+			credPath := fmt.Sprintf("/instant-bosh/%s/%s", deploymentName, name)
+			ui.PrintLinef("  %s", credPath)
+		}
+		return nil
+	}
+
+	ui.PrintLinef("Deleting %d credentials from config-server...", len(variableNames))
+
+	var deleted, notFound, failed int
+	for _, name := range variableNames {
+		credPath := fmt.Sprintf("/instant-bosh/%s/%s", deploymentName, name)
+		err := client.Delete(credPath)
+		if err != nil {
+			if strings.Contains(err.Error(), "credential not found") {
+				notFound++
+			} else {
+				ui.PrintLinef("  Warning: failed to delete %s: %v", credPath, err)
+				failed++
+			}
+		} else {
+			deleted++
+		}
+	}
+
+	ui.PrintLinef("Credentials deleted: %d, not found: %d, failed: %d", deleted, notFound, failed)
+	return nil
 }

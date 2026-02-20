@@ -662,6 +662,10 @@ Examples:
 								Name:  "skip-stemcell-upload",
 								Usage: "Skip automatic stemcell upload (use if stemcells are already uploaded)",
 							},
+							&cli.BoolFlag{
+								Name:  "delete-creds",
+								Usage: "Delete all deployment credentials before deploying (forces regeneration)",
+							},
 						},
 						Action: func(c *cli.Context) error {
 							ui, _ := initUIAndLogger(c)
@@ -670,6 +674,7 @@ Examples:
 								SystemDomain:       c.String("system-domain"),
 								DryRun:             c.Bool("dry-run"),
 								SkipStemcellUpload: c.Bool("skip-stemcell-upload"),
+								DeleteCreds:        c.Bool("delete-creds"),
 							}
 							return commands.CFDeployAction(ui, opts)
 						},
