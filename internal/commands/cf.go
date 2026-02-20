@@ -182,7 +182,6 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 		"use-compiled-releases.yml",
 		"set-router-static-ips.yml",
 		"fast-deploy-with-downtime-and-danger.yml",
-		"use-create-swap-delete-vm-strategy.yml",
 	}
 
 	var opsPaths []string

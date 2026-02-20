@@ -32,7 +32,6 @@ directories:
     - operations/use-compiled-releases.yml
     - operations/set-router-static-ips.yml
     - operations/experimental/fast-deploy-with-downtime-and-danger.yml
-    - operations/experimental/use-create-swap-delete-vm-strategy.yml
 - path: .github/scripts/deskrun
   contents:
   - path: .

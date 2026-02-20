@@ -54,7 +54,6 @@ func StandardCFOpsFiles() ([][]byte, error) {
 		{"use-compiled-releases.yml", false},
 		{"set-router-static-ips.yml", false},
 		{"fast-deploy-with-downtime-and-danger.yml", true},
-		{"use-create-swap-delete-vm-strategy.yml", true},
 	}
 
 	var result [][]byte
