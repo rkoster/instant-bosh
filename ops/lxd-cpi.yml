@@ -34,7 +34,9 @@
     network_name: ((lxd_network_name))
     storage_pool_name: ((lxd_storage_pool_name))
 
-# Ensure throttle_config.enabled is a proper boolean (spec default is incorrectly quoted)
+# Enable throttling with limit set to 1 concurrent operation
 - type: replace
-  path: /instance_groups/name=bosh/jobs/name=lxd_cpi/properties/lxd_cpi/throttle_config?/enabled
-  value: false
+  path: /instance_groups/name=bosh/jobs/name=lxd_cpi/properties/lxd_cpi/throttle_config?
+  value:
+    enabled: true
+    limit: 1
