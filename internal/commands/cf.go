@@ -174,7 +174,17 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 		return fmt.Errorf("failed to write manifest: %w", err)
 	}
 
-	// Write ops files
+	// Generate and write DNS ops file (applied first to inject bosh-dns)
+	dnsOpsContent, err := manifests.DNSOpsFile()
+	if err != nil {
+		return fmt.Errorf("failed to generate DNS ops file: %w", err)
+	}
+	dnsOpsPath := tmpDir + "/bosh-dns.yml"
+	if err := os.WriteFile(dnsOpsPath, dnsOpsContent, 0644); err != nil {
+		return fmt.Errorf("failed to write DNS ops file: %w", err)
+	}
+
+	// Write standard ops files
 	opsFiles, err := manifests.StandardCFOpsFiles()
 	if err != nil {
 		return fmt.Errorf("failed to read ops files: %w", err)
@@ -187,7 +197,8 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 		"fast-deploy-with-downtime-and-danger.yml",
 	}
 
-	var opsPaths []string
+	// Start with DNS ops file (applied first)
+	opsPaths := []string{dnsOpsPath}
 	for i, content := range opsFiles {
 		path := tmpDir + "/" + opsFilePaths[i]
 		if err := os.WriteFile(path, content, 0644); err != nil {

@@ -11,7 +11,6 @@ directories:
     - bosh.yml
     - docker/cpi.yml
     - docker/unix-sock.yml
-    - docker/cloud-config.yml
     - jumpbox-user.yml
     - misc/config-server.yml
   - path: uaa-lite-release
@@ -32,6 +31,14 @@ directories:
     - operations/use-compiled-releases.yml
     - operations/set-router-static-ips.yml
     - operations/experimental/fast-deploy-with-downtime-and-danger.yml
+- path: internal/manifests/bosh-deployment
+  contents:
+  - path: .
+    git:
+      url: https://github.com/cloudfoundry/bosh-deployment/
+      ref: origin/master
+    includePaths:
+    - runtime-configs/dns.yml
 - path: .github/scripts/deskrun
   contents:
   - path: .
