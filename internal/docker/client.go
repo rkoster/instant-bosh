@@ -744,6 +744,13 @@ func (c *Client) GetImageName() string {
 	return c.imageName
 }
 
+// SetImageName sets the image name to use for new containers.
+// This is typically called with a digest-pinned reference (e.g., "ghcr.io/repo@sha256:...")
+// to ensure consistent image tracking across container restarts.
+func (c *Client) SetImageName(imageName string) {
+	c.imageName = imageName
+}
+
 // GetContainerImageID returns the image ID that the specified container is running
 func (c *Client) GetContainerImageID(ctx context.Context, containerName string) (string, error) {
 	c.logger.Debug(c.logTag, "Getting image ID for container %s", containerName)

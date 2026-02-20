@@ -50,6 +50,32 @@ func StartActionWithWriter(
 	// Create registry client for CPI-agnostic image operations
 	registryClient := registry.NewClient(logger)
 
+	// Resolve the target image to a digest-pinned reference
+	// This ensures we track the exact image version, even with mutable tags like "latest"
+	targetImage := cpiInstance.GetTargetImageRef()
+	if opts.CustomImage != "" {
+		targetImage = opts.CustomImage
+	}
+
+	pinnedRef, digest, err := registryClient.ResolveImageRef(ctx, targetImage)
+	if err != nil {
+		logger.Debug("startCommand", "Failed to resolve image ref %s: %v", targetImage, err)
+		// Continue without pinning - fallback to tag-based ref
+		ui.PrintLinef("Using image: %s", targetImage)
+	} else {
+		// Set the resolved image on the CPI so it uses the digest-pinned ref
+		cpiInstance.SetResolvedImage(pinnedRef, digest)
+		logger.Debug("startCommand", "Resolved image %s to %s (digest: %s)", targetImage, pinnedRef, digest)
+
+		// Find tags for display
+		tags, _ := registryClient.FindTagsForDigest(ctx, targetImage, digest)
+		if len(tags) > 0 {
+			ui.PrintLinef("Using image: %s (tags: %s)", targetImage, strings.Join(tags, ", "))
+		} else {
+			ui.PrintLinef("Using image: %s", targetImage)
+		}
+	}
+
 	// Handle image management for running containers (upgrade scenario)
 	// This is CPI-agnostic and uses the registry client for manifest diffs
 	running, err := cpiInstance.IsRunning(ctx)
@@ -58,7 +84,7 @@ func StartActionWithWriter(
 	}
 
 	if running {
-		upgraded, err := handleRunningContainerUpgrade(ctx, ui, logger, cpiInstance, registryClient, opts)
+		upgraded, err := handleRunningContainerUpgrade(ctx, ui, logger, cpiInstance, registryClient, opts, pinnedRef, digest)
 		if err != nil {
 			return err
 		}
@@ -204,11 +230,14 @@ func handleRunningContainerUpgrade(
 	cpiInstance cpi.CPI,
 	registryClient registry.Client,
 	opts StartOptions,
+	targetPinnedRef string, // Digest-pinned ref (e.g., "ghcr.io/repo@sha256:...")
+	targetDigest string, // Target digest (e.g., "sha256:...")
 ) (bool, error) {
 	if opts.SkipUpdate {
 		return false, nil
 	}
 
+	// Use the original tag-based ref for display, but digest for comparison
 	targetImage := cpiInstance.GetTargetImageRef()
 	if opts.CustomImage != "" {
 		targetImage = opts.CustomImage
@@ -222,35 +251,32 @@ func handleRunningContainerUpgrade(
 		return false, nil
 	}
 
-	ui.PrintLinef("Checking for image updates for %s...", targetImage)
-
-	// Get the remote digest for the target image - this is the primary comparison
-	remoteDigest, err := registryClient.GetImageDigest(ctx, targetImage)
-	if err != nil {
-		logger.Debug("startCommand", "Failed to get remote digest: %v", err)
-		ui.PrintLinef("Warning: Could not get remote image digest: %v", err)
-		// Can't verify, skip upgrade check
-		return false, nil
-	}
+	ui.PrintLinef("Checking for image updates...")
 
 	// Compare digests - this is the primary decision maker
-	// If we have a local digest, compare directly
-	// If we don't have a local digest but refs are identical and it's a pinned ref, assume same image
 	currentDigest := currentInfo.Digest
-	if currentDigest == "" && currentInfo.Ref == targetImage {
-		// No local digest available (e.g., Incus with OCI images)
-		// For pinned image refs (sha-xxx, specific versions), same ref means same image
-		// For mutable tags like "latest", we should treat as different and check
-		if !strings.Contains(targetImage, ":latest") && !strings.Contains(targetImage, ":stable") {
-			logger.Debug("startCommand", "Same pinned image ref %s, skipping upgrade check", targetImage)
-			return false, nil
-		}
-		// For mutable tags without local digest, we can't compare - assume different if refs differ
-		// Fall through to show diff
-	} else if currentDigest == remoteDigest {
+	if currentDigest == targetDigest && targetDigest != "" {
 		// Digests match exactly, no upgrade needed
 		logger.Debug("startCommand", "Digests match (%s), no upgrade needed", currentDigest)
 		return false, nil
+	}
+
+	// If we don't have a current digest, we need to fetch it from registry
+	if currentDigest == "" {
+		// Try to get digest from registry for the current ref
+		currentDigest, err = registryClient.GetImageDigest(ctx, currentInfo.Ref)
+		if err != nil {
+			logger.Debug("startCommand", "Failed to get current image digest from registry: %v", err)
+			// If current ref is same as target and we can't get digest, assume same
+			if currentInfo.Ref == targetImage {
+				logger.Debug("startCommand", "Same image ref and no digest available, assuming no upgrade needed")
+				return false, nil
+			}
+		} else if currentDigest == targetDigest {
+			// Digests match after fetching
+			logger.Debug("startCommand", "Digests match after fetch (%s), no upgrade needed", currentDigest)
+			return false, nil
+		}
 	}
 
 	// For Docker, ensure the target image exists locally before comparing manifests
@@ -269,13 +295,19 @@ func handleRunningContainerUpgrade(
 	}
 
 	// Build ImageInfo for diff - show user what's changing
+	// Use digest-pinned refs for accurate extraction
 	currentImageInfo := registry.ImageInfo{
 		Ref:    currentInfo.Ref,
 		Digest: currentDigest,
 	}
 	newImageInfo := registry.ImageInfo{
-		Ref:    targetImage,
-		Digest: remoteDigest,
+		Ref:    targetPinnedRef,
+		Digest: targetDigest,
+	}
+
+	// If we don't have a pinned ref for target, use the original ref
+	if targetPinnedRef == "" {
+		newImageInfo.Ref = targetImage
 	}
 
 	// Show manifest diff using registry client (for user visibility)
@@ -286,16 +318,28 @@ func handleRunningContainerUpgrade(
 		// Still proceed with upgrade since digests differ
 	}
 
+	// Find tags for the target digest for display
+	var targetTags []string
+	if targetDigest != "" {
+		targetTags, _ = registryClient.FindTagsForDigest(ctx, targetImage, targetDigest)
+	}
+
 	ui.PrintLinef("")
 	if diff != "" {
 		ui.PrintLinef("Image changes:")
+		if len(targetTags) > 0 {
+			ui.PrintLinef("  Target tags: %s", strings.Join(targetTags, ", "))
+		}
 		ui.PrintLinef("")
 		ui.PrintLinef(diff)
 	} else {
 		// Digests differ but manifest content is the same - ops files or entrypoint changed
 		ui.PrintLinef("Image digest changed (ops files or entrypoint may have changed):")
 		ui.PrintLinef("  Current: %s", currentDigest)
-		ui.PrintLinef("  New:     %s", remoteDigest)
+		ui.PrintLinef("  New:     %s", targetDigest)
+		if len(targetTags) > 0 {
+			ui.PrintLinef("  Tags:    %s", strings.Join(targetTags, ", "))
+		}
 	}
 
 	ui.PrintLinef("")

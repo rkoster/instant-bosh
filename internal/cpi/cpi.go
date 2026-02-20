@@ -84,6 +84,14 @@ type CPI interface {
 
 	// GetTargetImageRef returns the OCI image reference that would be used for new containers.
 	GetTargetImageRef() string
+
+	// SetResolvedImage sets the resolved (digest-pinned) image reference for container creation.
+	// This should be called before Start() to ensure the container is created with a digest-pinned
+	// image reference, enabling accurate upgrade comparisons.
+	//
+	// pinnedRef: Digest-pinned reference (e.g., "ghcr.io/rkoster/instant-bosh@sha256:abc...")
+	// digest:    The digest (e.g., "sha256:abc...")
+	SetResolvedImage(pinnedRef, digest string)
 }
 
 type StartOptions struct {

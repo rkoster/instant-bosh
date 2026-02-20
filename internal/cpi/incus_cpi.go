@@ -92,7 +92,9 @@ compilation:
 )
 
 type IncusCPI struct {
-	client *incus.Client
+	client      *incus.Client
+	resolvedRef string // Digest-pinned image reference (e.g., "ghcr.io/repo@sha256:...")
+	resolvedDig string // Just the digest (e.g., "sha256:...")
 }
 
 func NewIncusCPI(client *incus.Client) *IncusCPI {
@@ -408,21 +410,32 @@ func (i *IncusCPI) UploadStemcell(ctx context.Context, directorClient boshdir.Di
 
 // GetCurrentImageInfo returns information about the OCI image the running container was created from.
 func (i *IncusCPI) GetCurrentImageInfo(ctx context.Context) (ImageInfo, error) {
-	imageRef, err := i.client.GetContainerImageRef(ctx)
+	imageRef, digest, err := i.client.GetContainerImageRef(ctx)
 	if err != nil {
 		return ImageInfo{}, fmt.Errorf("getting container image ref: %w", err)
 	}
 
-	// Incus doesn't store the OCI digest locally for OCI images,
-	// so we return an empty digest. The registry client can fetch the remote
-	// digest when needed for update checks.
 	return ImageInfo{
 		Ref:    imageRef,
-		Digest: "",
+		Digest: digest,
 	}, nil
 }
 
 // GetTargetImageRef returns the OCI image reference that would be used for new containers.
+// If a resolved (digest-pinned) image has been set, returns that; otherwise returns the original tag-based ref.
 func (i *IncusCPI) GetTargetImageRef() string {
+	if i.resolvedRef != "" {
+		return i.resolvedRef
+	}
 	return i.client.GetImageName()
+}
+
+// SetResolvedImage sets the resolved (digest-pinned) image reference for container creation.
+// This should be called before Start() to ensure the container is created with a digest-pinned
+// image reference, enabling accurate upgrade comparisons.
+func (i *IncusCPI) SetResolvedImage(pinnedRef, digest string) {
+	i.resolvedRef = pinnedRef
+	i.resolvedDig = digest
+	// Also update the incus client's image name so StartContainer uses the digest-pinned ref
+	i.client.SetImageName(pinnedRef)
 }
