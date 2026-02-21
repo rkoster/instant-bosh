@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-azure-cpi to version 53.1.2
-      sha: 64a630460e7ba41dc6aa8aed5e63d6422d208775
+      commitTitle: Bumping garden-runc to version 1.85.0
+      sha: 6a65a0310bd3458b4d3c471a4e3bba436cd6eb3e
       tags:
-      - last-xenial-4473-g64a63046
+      - last-xenial-4475-g6a65a031
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-azure-cpi to version 53.1.2
-      sha: 64a630460e7ba41dc6aa8aed5e63d6422d208775
+      commitTitle: Bumping garden-runc to version 1.85.0
+      sha: 6a65a0310bd3458b4d3c471a4e3bba436cd6eb3e
       tags:
-      - last-xenial-4473-g64a63046
+      - last-xenial-4475-g6a65a031
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
