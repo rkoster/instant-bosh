@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping garden-runc to version 1.85.0
-      sha: 6a65a0310bd3458b4d3c471a4e3bba436cd6eb3e
+      commitTitle: Bumping credhub to version 2.14.19
+      sha: bfb0febffaba2e5396d53b77f97563e78341e913
       tags:
-      - last-xenial-4475-g6a65a031
+      - last-xenial-4479-gbfb0febf
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v54.9.0
-      sha: fa00a30fd9404370de0b4dbf06fd6cf4c220ed5f
+      commitTitle: Update cf-deployment manifest version to v54.10.0
+      sha: 52932afd1a5fa64837b8ed65e7621b1fef11f566
       tags:
-      - v54.9.0
+      - v54.10.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping garden-runc to version 1.85.0
-      sha: 6a65a0310bd3458b4d3c471a4e3bba436cd6eb3e
+      commitTitle: Bumping credhub to version 2.14.19
+      sha: bfb0febffaba2e5396d53b77f97563e78341e913
       tags:
-      - last-xenial-4475-g6a65a031
+      - last-xenial-4479-gbfb0febf
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
