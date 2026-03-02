@@ -207,6 +207,18 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 		opsPaths = append(opsPaths, path)
 	}
 
+	// Generate and write stemcell pinning ops file (must be applied after use-compiled-releases.yml)
+	// This ensures the stemcell version matches the compiled releases to avoid recompilation
+	stemcellOpsContent, err := manifests.CompiledReleasesStemcellOpsFile()
+	if err != nil {
+		return fmt.Errorf("failed to generate stemcell ops file: %w", err)
+	}
+	stemcellOpsPath := tmpDir + "/compiled-releases-stemcell.yml"
+	if err := os.WriteFile(stemcellOpsPath, stemcellOpsContent, 0644); err != nil {
+		return fmt.Errorf("failed to write stemcell ops file: %w", err)
+	}
+	opsPaths = append(opsPaths, stemcellOpsPath)
+
 	// Delete credentials if requested (before stemcell upload and deploy)
 	if opts.DeleteCreds {
 		variableNames, err := extractManifestVariables(manifestPath, opsPaths)

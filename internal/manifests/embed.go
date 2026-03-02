@@ -134,3 +134,78 @@ func DNSOpsFile() ([]byte, error) {
 
 	return yaml.Marshal(ops)
 }
+
+// CompiledReleasesStemcellOpsFile generates an ops file that updates all compiled
+// releases to use the stemcell version from cf-deployment.yml. This allows
+// pre-compiled packages to be used with newer compatible stemcells.
+func CompiledReleasesStemcellOpsFile() ([]byte, error) {
+	// Read cf-deployment.yml and extract stemcell version
+	manifest, err := CFDeploymentManifest()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cf-deployment.yml: %w", err)
+	}
+
+	// Parse the manifest to get stemcell version
+	var manifestData struct {
+		Stemcells []struct {
+			Alias   string `yaml:"alias"`
+			OS      string `yaml:"os"`
+			Version string `yaml:"version"`
+		} `yaml:"stemcells"`
+	}
+	if err := yaml.Unmarshal(manifest, &manifestData); err != nil {
+		return nil, fmt.Errorf("failed to parse cf-deployment.yml: %w", err)
+	}
+
+	if len(manifestData.Stemcells) == 0 {
+		return nil, fmt.Errorf("no stemcells found in cf-deployment.yml")
+	}
+
+	// Get the stemcell version from the manifest (typically the "default" stemcell)
+	stemcellVersion := manifestData.Stemcells[0].Version
+	if stemcellVersion == "" {
+		return nil, fmt.Errorf("no stemcell version found in cf-deployment.yml")
+	}
+
+	// Read use-compiled-releases.yml to get list of releases with stemcell sections
+	compiledReleases, err := CFDeploymentOpsFile("use-compiled-releases.yml")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read use-compiled-releases.yml: %w", err)
+	}
+
+	// Parse the ops file YAML to extract release names that have stemcell sections
+	// Structure: [{type, path, value: {name, sha1, stemcell: {os, version}, url, version}}]
+	var opsEntries []struct {
+		Type  string `yaml:"type"`
+		Path  string `yaml:"path"`
+		Value struct {
+			Name     string `yaml:"name"`
+			Stemcell struct {
+				OS      string `yaml:"os"`
+				Version string `yaml:"version"`
+			} `yaml:"stemcell"`
+		} `yaml:"value"`
+	}
+	if err := yaml.Unmarshal(compiledReleases, &opsEntries); err != nil {
+		return nil, fmt.Errorf("failed to parse use-compiled-releases.yml: %w", err)
+	}
+
+	// Generate ops file entries to update each release's stemcell version
+	var ops []map[string]interface{}
+	for _, entry := range opsEntries {
+		// Only process entries that have a stemcell section
+		if entry.Value.Name != "" && entry.Value.Stemcell.Version != "" {
+			ops = append(ops, map[string]interface{}{
+				"type":  "replace",
+				"path":  fmt.Sprintf("/releases/name=%s/stemcell/version", entry.Value.Name),
+				"value": stemcellVersion,
+			})
+		}
+	}
+
+	if len(ops) == 0 {
+		return nil, fmt.Errorf("no compiled releases with stemcell sections found")
+	}
+
+	return yaml.Marshal(ops)
+}
