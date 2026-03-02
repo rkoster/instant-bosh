@@ -120,74 +120,106 @@ type CFDeployOptions struct {
 	DeleteCreds        bool   // If true, delete all deployment credentials before deploying (forces regeneration)
 }
 
-// CFDeployAction deploys Cloud Foundry to the BOSH director
-func CFDeployAction(ui UI, opts CFDeployOptions) error {
-	ctx := context.Background()
+// CFManifestOptions contains options for CF manifest generation
+type CFManifestOptions struct {
+	RouterIP     string // Optional: specify router IP
+	SystemDomain string // Optional: specify system domain
+}
 
-	// Check that BOSH env vars are set
-	if err := checkBOSHEnv(); err != nil {
-		return err
+// CFManifestConfig contains resolved configuration for CF manifest generation
+type CFManifestConfig struct {
+	RouterIP     string
+	SystemDomain string
+}
+
+// CFManifestFiles contains paths to prepared CF manifest files
+type CFManifestFiles struct {
+	TmpDir       string   // Temporary directory (caller must clean up)
+	ManifestPath string   // Path to main cf-deployment.yml
+	OpsPaths     []string // Paths to ops files in order
+}
+
+// Cleanup removes the temporary directory and all manifest files
+func (f *CFManifestFiles) Cleanup() {
+	if f.TmpDir != "" {
+		os.RemoveAll(f.TmpDir)
 	}
+}
 
-	// Determine router IP
-	routerIP := opts.RouterIP
-	if routerIP == "" {
+// ResolveCFConfig determines the router IP and system domain for CF deployment.
+// If routerIP is empty, it tries to get from existing deployment or auto-selects from cloud-config.
+// If systemDomain is empty, it derives from routerIP as <routerIP>.sslip.io.
+// The ui parameter is used to print informational messages (to stderr via ErrorLinef).
+func ResolveCFConfig(ui UI, routerIP, systemDomain string) (*CFManifestConfig, error) {
+	resolvedIP := routerIP
+	if resolvedIP == "" {
 		// First, try to get the existing router IP from a running CF deployment
 		existingIP, err := getExistingRouterIP()
 		if err == nil && existingIP != "" {
-			routerIP = existingIP
-			ui.PrintLinef("Using existing router IP from CF deployment: %s", routerIP)
+			resolvedIP = existingIP
+			if ui != nil {
+				ui.ErrorLinef("Using existing router IP from CF deployment: %s", resolvedIP)
+			}
 		} else {
 			// No existing deployment, select a new IP
-			routerIP, err = selectRouterIP(ui)
+			resolvedIP, err = selectRouterIP(ui)
 			if err != nil {
-				return fmt.Errorf("failed to select router IP: %w", err)
+				return nil, fmt.Errorf("failed to select router IP: %w", err)
 			}
 		}
 	}
 
-	// Determine system domain
-	systemDomain := opts.SystemDomain
-	if systemDomain == "" {
-		systemDomain = fmt.Sprintf("%s.sslip.io", routerIP)
+	resolvedDomain := systemDomain
+	if resolvedDomain == "" {
+		resolvedDomain = fmt.Sprintf("%s.sslip.io", resolvedIP)
 	}
 
-	ui.PrintLinef("Deploying CF with:")
-	ui.PrintLinef("  Router IP:     %s", routerIP)
-	ui.PrintLinef("  System Domain: %s", systemDomain)
-	ui.PrintLinef("")
+	return &CFManifestConfig{
+		RouterIP:     resolvedIP,
+		SystemDomain: resolvedDomain,
+	}, nil
+}
 
+// PrepareCFManifestFiles creates a temporary directory with all CF manifest and ops files.
+// The caller must call Cleanup() on the returned struct when done.
+func PrepareCFManifestFiles() (*CFManifestFiles, error) {
 	// Create temporary directory for manifest files
-	tmpDir, err := os.MkdirTemp("", "cf-deploy-*")
+	tmpDir, err := os.MkdirTemp("", "cf-manifest-*")
 	if err != nil {
-		return fmt.Errorf("failed to create temp dir: %w", err)
+		return nil, fmt.Errorf("failed to create temp dir: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+
+	result := &CFManifestFiles{TmpDir: tmpDir}
 
 	// Write main manifest
 	manifest, err := manifests.CFDeploymentManifest()
 	if err != nil {
-		return fmt.Errorf("failed to read cf-deployment manifest: %w", err)
+		result.Cleanup()
+		return nil, fmt.Errorf("failed to read cf-deployment manifest: %w", err)
 	}
-	manifestPath := tmpDir + "/cf-deployment.yml"
-	if err := os.WriteFile(manifestPath, manifest, 0644); err != nil {
-		return fmt.Errorf("failed to write manifest: %w", err)
+	result.ManifestPath = tmpDir + "/cf-deployment.yml"
+	if err := os.WriteFile(result.ManifestPath, manifest, 0644); err != nil {
+		result.Cleanup()
+		return nil, fmt.Errorf("failed to write manifest: %w", err)
 	}
 
 	// Generate and write DNS ops file (applied first to inject bosh-dns)
 	dnsOpsContent, err := manifests.DNSOpsFile()
 	if err != nil {
-		return fmt.Errorf("failed to generate DNS ops file: %w", err)
+		result.Cleanup()
+		return nil, fmt.Errorf("failed to generate DNS ops file: %w", err)
 	}
 	dnsOpsPath := tmpDir + "/bosh-dns.yml"
 	if err := os.WriteFile(dnsOpsPath, dnsOpsContent, 0644); err != nil {
-		return fmt.Errorf("failed to write DNS ops file: %w", err)
+		result.Cleanup()
+		return nil, fmt.Errorf("failed to write DNS ops file: %w", err)
 	}
 
 	// Write standard ops files
 	opsFiles, err := manifests.StandardCFOpsFiles()
 	if err != nil {
-		return fmt.Errorf("failed to read ops files: %w", err)
+		result.Cleanup()
+		return nil, fmt.Errorf("failed to read ops files: %w", err)
 	}
 
 	opsFilePaths := []string{
@@ -198,30 +230,110 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 	}
 
 	// Start with DNS ops file (applied first)
-	opsPaths := []string{dnsOpsPath}
+	result.OpsPaths = []string{dnsOpsPath}
 	for i, content := range opsFiles {
 		path := tmpDir + "/" + opsFilePaths[i]
 		if err := os.WriteFile(path, content, 0644); err != nil {
-			return fmt.Errorf("failed to write ops file %s: %w", opsFilePaths[i], err)
+			result.Cleanup()
+			return nil, fmt.Errorf("failed to write ops file %s: %w", opsFilePaths[i], err)
 		}
-		opsPaths = append(opsPaths, path)
+		result.OpsPaths = append(result.OpsPaths, path)
 	}
 
 	// Generate and write stemcell pinning ops file (must be applied after use-compiled-releases.yml)
 	// This ensures the stemcell version matches the compiled releases to avoid recompilation
 	stemcellOpsContent, err := manifests.CompiledReleasesStemcellOpsFile()
 	if err != nil {
-		return fmt.Errorf("failed to generate stemcell ops file: %w", err)
+		result.Cleanup()
+		return nil, fmt.Errorf("failed to generate stemcell ops file: %w", err)
 	}
 	stemcellOpsPath := tmpDir + "/compiled-releases-stemcell.yml"
 	if err := os.WriteFile(stemcellOpsPath, stemcellOpsContent, 0644); err != nil {
-		return fmt.Errorf("failed to write stemcell ops file: %w", err)
+		result.Cleanup()
+		return nil, fmt.Errorf("failed to write stemcell ops file: %w", err)
 	}
-	opsPaths = append(opsPaths, stemcellOpsPath)
+	result.OpsPaths = append(result.OpsPaths, stemcellOpsPath)
+
+	return result, nil
+}
+
+// CFManifestAction outputs the interpolated CF deployment manifest to stdout.
+// Variables remain as placeholders (e.g. ((cf_admin_password))) but system_domain
+// and router_static_ips are substituted with resolved values.
+func CFManifestAction(ui UI, opts CFManifestOptions) error {
+	// Check BOSH env only if router IP not specified (needed for auto-selection)
+	if opts.RouterIP == "" {
+		if err := checkBOSHEnv(); err != nil {
+			return fmt.Errorf("BOSH environment required when --router-ip not specified: %w\n"+
+				"Either set BOSH env: eval \"$(ibosh docker print-env)\"\n"+
+				"Or specify --router-ip explicitly", err)
+		}
+	}
+
+	// Resolve configuration (router IP + system domain)
+	config, err := ResolveCFConfig(ui, opts.RouterIP, opts.SystemDomain)
+	if err != nil {
+		return err
+	}
+
+	// Prepare manifest files
+	files, err := PrepareCFManifestFiles()
+	if err != nil {
+		return err
+	}
+	defer files.Cleanup()
+
+	// Build bosh interpolate command
+	args := []string{
+		"interpolate", files.ManifestPath,
+		"-v", fmt.Sprintf("system_domain=%s", config.SystemDomain),
+		"-v", fmt.Sprintf("router_static_ips=[%s]", config.RouterIP),
+	}
+	for _, opsPath := range files.OpsPaths {
+		args = append(args, "-o", opsPath)
+	}
+
+	cmd := exec.Command("bosh", args...)
+	cmd.Stdout = os.Stdout // Manifest output goes to stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("bosh interpolate failed: %w", err)
+	}
+
+	return nil
+}
+
+// CFDeployAction deploys Cloud Foundry to the BOSH director
+func CFDeployAction(ui UI, opts CFDeployOptions) error {
+	ctx := context.Background()
+
+	// Check that BOSH env vars are set
+	if err := checkBOSHEnv(); err != nil {
+		return err
+	}
+
+	// Use shared config resolution
+	config, err := ResolveCFConfig(ui, opts.RouterIP, opts.SystemDomain)
+	if err != nil {
+		return err
+	}
+
+	ui.PrintLinef("Deploying CF with:")
+	ui.PrintLinef("  Router IP:     %s", config.RouterIP)
+	ui.PrintLinef("  System Domain: %s", config.SystemDomain)
+	ui.PrintLinef("")
+
+	// Use shared manifest preparation
+	files, err := PrepareCFManifestFiles()
+	if err != nil {
+		return err
+	}
+	defer files.Cleanup()
 
 	// Delete credentials if requested (before stemcell upload and deploy)
 	if opts.DeleteCreds {
-		variableNames, err := extractManifestVariables(manifestPath, opsPaths)
+		variableNames, err := extractManifestVariables(files.ManifestPath, files.OpsPaths)
 		if err != nil {
 			return fmt.Errorf("failed to extract variables from manifest: %w", err)
 		}
@@ -256,7 +368,7 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 			return fmt.Errorf("failed to create director client: %w", err)
 		}
 
-		err = EnsureStemcellsForCF(ctx, ui, directorClient, cpiInstance, manifestPath, opsPaths, systemDomain, routerIP)
+		err = EnsureStemcellsForCF(ctx, ui, directorClient, cpiInstance, files.ManifestPath, files.OpsPaths, config.SystemDomain, config.RouterIP)
 
 		// Clean up and restore env vars
 		directorCleanup()
@@ -271,14 +383,14 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 
 	// Build bosh deploy command
 	args := []string{
-		"deploy", manifestPath,
+		"deploy", files.ManifestPath,
 		"-d", "cf",
 		"-n", // non-interactive
-		"-v", fmt.Sprintf("system_domain=%s", systemDomain),
-		"-v", fmt.Sprintf("router_static_ips=[%s]", routerIP),
+		"-v", fmt.Sprintf("system_domain=%s", config.SystemDomain),
+		"-v", fmt.Sprintf("router_static_ips=[%s]", config.RouterIP),
 	}
 
-	for _, opsPath := range opsPaths {
+	for _, opsPath := range files.OpsPaths {
 		args = append(args, "-o", opsPath)
 	}
 
