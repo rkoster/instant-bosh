@@ -151,3 +151,40 @@ func TestDNSOpsFile(t *testing.T) {
 		t.Error("DNSOpsFile() should contain 'type: replace' operations")
 	}
 }
+
+func TestCompiledReleasesStemcellOpsFile(t *testing.T) {
+	opsFile, err := manifests.CompiledReleasesStemcellOpsFile()
+	if err != nil {
+		t.Fatalf("CompiledReleasesStemcellOpsFile() error = %v", err)
+	}
+
+	if len(opsFile) == 0 {
+		t.Error("CompiledReleasesStemcellOpsFile() returned empty content")
+	}
+
+	content := string(opsFile)
+
+	// Should contain ops for release stemcell versions (e.g., /releases/name=capi/stemcell/version)
+	if !strings.Contains(content, "/releases/name=") {
+		t.Error("CompiledReleasesStemcellOpsFile() should contain '/releases/name=' paths")
+	}
+
+	if !strings.Contains(content, "/stemcell/version") {
+		t.Error("CompiledReleasesStemcellOpsFile() should contain '/stemcell/version' paths")
+	}
+
+	// Should be valid ops file format (type: replace)
+	if !strings.Contains(content, "type: replace") {
+		t.Error("CompiledReleasesStemcellOpsFile() should contain 'type: replace' operations")
+	}
+
+	// Should contain multiple release entries (there are many compiled releases)
+	if strings.Count(content, "path: /releases/name=") < 10 {
+		t.Error("CompiledReleasesStemcellOpsFile() should contain multiple release entries")
+	}
+
+	// Should contain a version value (the stemcell version from cf-deployment.yml)
+	if !strings.Contains(content, "value:") {
+		t.Error("CompiledReleasesStemcellOpsFile() should contain version values")
+	}
+}
