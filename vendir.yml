@@ -24,7 +24,9 @@ directories:
   - path: .
     git:
       url: https://github.com/cloudfoundry/cf-deployment
-      ref: origin/main
+      refSelection:
+        semver:
+          constraints: ">=0.0.0"
     includePaths:
     - cf-deployment.yml
     - operations/scale-to-one-az.yml

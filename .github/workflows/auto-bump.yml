@@ -48,7 +48,7 @@ jobs:
       - name: Stage changes
         if: steps.check_changes.outputs.has_changes == 'true'
         run: |
-          git add manifests/ vendir.lock.yml
+          git add manifests/ internal/manifests/ vendir.lock.yml
 
       - name: Generate commit message
         if: steps.check_changes.outputs.has_changes == 'true'
