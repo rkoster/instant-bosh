@@ -1,6 +1,6 @@
 ---
 name: cf
-manifest_version: v54.10.0
+manifest_version: v54.11.0
 update:
   canaries: 1
   canary_watch_time: 30000-1200000
@@ -838,7 +838,7 @@ instance_groups:
       cloud_controller: {as: cloud_controller, shared: true}
     properties:
       name: cf-deployment
-      build: v54.10.0 # AUTO-POPULATED; DO NOT EDIT
+      build: v54.11.0 # AUTO-POPULATED; DO NOT EDIT
       version: 54 # AUTO-POPULATED; DO NOT EDIT
       router:
         route_services_secret: "((router_route_services_secret))"
@@ -1054,6 +1054,11 @@ instance_groups:
       bpm:
         enabled: true
       enable_consul_service_registration: false
+      https_server_enabled: true
+      tls:
+        cert: ((file_server_cert.certificate))
+        key: ((file_server_cert.private_key))
+        client_ca_cert: ((file_server_cert.ca))
       loggregator: *diego_loggregator_client_properties
   - name: routing-api
     release: routing
@@ -2804,6 +2809,17 @@ variables:
     extended_key_usage:
     - server_auth
 
+- name: file_server_cert
+  type: certificate
+  update_mode: converge
+  options:
+    ca: service_cf_internal_ca
+    common_name: file-server.service.cf.internal
+    alternative_names:
+    - file-server.service.cf.internal
+    extended_key_usage:
+    - server_auth
+
 releases:
 - name: binary-buildpack
   url: https://bosh.io/d/github.com/cloudfoundry/binary-buildpack-release?v=1.1.21
@@ -2814,25 +2830,25 @@ releases:
   version: 1.4.26
   sha1: sha256:40af85114d2a8a67812bf65212076581ea42cefcf67ee6b8d78d778ed1ca2b85
 - name: capi
-  url: https://bosh.io/d/github.com/cloudfoundry/capi-release?v=1.228.0
-  version: 1.228.0
-  sha1: sha256:071e3a3f73a8303ba2cc9062a087b84faa586a6a118a73a380f1fa706ca08abf
+  url: https://bosh.io/d/github.com/cloudfoundry/capi-release?v=1.229.0
+  version: 1.229.0
+  sha1: sha256:a8e40d79b8113cb8d6dcc53b31448e97135235dc4a558b41339a72e7982385ea
 - name: cf-networking
-  url: https://bosh.io/d/github.com/cloudfoundry/cf-networking-release?v=3.102.0
-  version: 3.102.0
-  sha1: sha256:6e64b6299fbba8637410146ef7a64f88a7bdda86c2b6d6188c517fa8e825db98
+  url: https://bosh.io/d/github.com/cloudfoundry/cf-networking-release?v=3.103.0
+  version: 3.103.0
+  sha1: sha256:4fa711e1cd8be77edf62d6ed0b0cfd83754a4515d79058849202d8fc09b7ac6a
 - name: cf-smoke-tests
   url: https://bosh.io/d/github.com/cloudfoundry/cf-smoke-tests-release?v=42.0.252
   version: 42.0.252
   sha1: sha256:533d7c2f5fd8f77605c59e574879310f13181db61090db4202b8dd334901d04e
 - name: cflinuxfs4
-  url: https://bosh.io/d/github.com/cloudfoundry/cflinuxfs4-release?v=1.311.0
-  version: 1.311.0
-  sha1: sha256:d261d38d91cf269a72359df30653be4ea220ee40e7bd07606a45fb443e6d00a7
+  url: https://bosh.io/d/github.com/cloudfoundry/cflinuxfs4-release?v=1.315.0
+  version: 1.315.0
+  sha1: sha256:86f1d9cba2b7d377a330519b99ccf02203c661772528a474090d4e0ddc2d9fd5
 - name: credhub
-  url: https://bosh.io/d/github.com/pivotal-cf/credhub-release?v=2.14.18
-  version: 2.14.18
-  sha1: sha256:7e4541ec577afe6eb7bd05255e11cbbf9325c95f2a33455c5241afad61d53555
+  url: https://bosh.io/d/github.com/pivotal-cf/credhub-release?v=2.15.0
+  version: 2.15.0
+  sha1: sha256:f7150ffb0833c19de9093ec44dc9f60b290c880d392316804b401f0b8eae1256
 - name: diego
   url: https://bosh.io/d/github.com/cloudfoundry/diego-release?v=2.129.0
   version: 2.129.0
@@ -2846,9 +2862,9 @@ releases:
   version: 1.85.0
   sha1: sha256:3c6dd1a5d4abeb0090c22943868bbd6662ce74bfa2acf4140ccf626a385013b8
 - name: go-buildpack
-  url: https://bosh.io/d/github.com/cloudfoundry/go-buildpack-release?v=1.10.43
-  version: 1.10.43
-  sha1: sha256:142b70da8b4338182d10f4b45743a690e376d697d2cd96c62ac521420a24aed5
+  url: https://bosh.io/d/github.com/cloudfoundry/go-buildpack-release?v=1.10.44
+  version: 1.10.44
+  sha1: sha256:0433c5cb0e8e6d4236b76aaf9292168157b995b7fff3719abd955ec7df2ec423
 - name: java-buildpack
   url: https://bosh.io/d/github.com/cloudfoundry/java-buildpack-release?v=4.77.0
   version: 4.77.0
@@ -2858,21 +2874,21 @@ releases:
   version: 107.0.25
   sha1: sha256:313bf7ce98251f4d7be67d58c818205fb0cddd1033226ca3b3a59602e9d5bd17
 - name: nats
-  url: https://bosh.io/d/github.com/cloudfoundry/nats-release?v=56.75.0
-  version: 56.75.0
-  sha1: sha256:b57346f8694d60e2b5c5e7a734d02c415cf2b6115344d54873463942a9efc73f
+  url: https://bosh.io/d/github.com/cloudfoundry/nats-release?v=56.76.0
+  version: 56.76.0
+  sha1: sha256:4f1ea875226f952f3ea55b1eb0b669d125d38c601bf18b300dc90e757a79c35e
 - name: nginx-buildpack
-  url: https://bosh.io/d/github.com/cloudfoundry/nginx-buildpack-release?v=1.2.34
-  version: 1.2.34
-  sha1: sha256:1d1bad6ce4d86c709497e457b44c860e00cd05ab022ec68043f17415931f2bf1
+  url: https://bosh.io/d/github.com/cloudfoundry/nginx-buildpack-release?v=1.2.35
+  version: 1.2.35
+  sha1: sha256:d9ff77ae872a80b007f6ac6cecb9285cadc4e22fa1b9635467315650ee4375fc
 - name: r-buildpack
   url: https://bosh.io/d/github.com/cloudfoundry/r-buildpack-release?v=1.2.26
   version: 1.2.26
   sha1: sha256:a0329471265c3b29d5e48f41859aaecec61a8b0fab15f689d0074653e8980a8f
 - name: nodejs-buildpack
-  url: https://bosh.io/d/github.com/cloudfoundry/nodejs-buildpack-release?v=1.8.43
-  version: 1.8.43
-  sha1: sha256:8a1f69cb7442bdfa7cb7363d52898c117476793036b9947e51db96fc7c77feca
+  url: https://bosh.io/d/github.com/cloudfoundry/nodejs-buildpack-release?v=1.8.44
+  version: 1.8.44
+  sha1: sha256:c4253f878aec444b816d232af0e8d53331084e4cd5a0efcef2043b23cce533e8
 - name: php-buildpack
   url: https://bosh.io/d/github.com/cloudfoundry/php-buildpack-release?v=5.0.1
   version: 5.0.1
@@ -2886,17 +2902,17 @@ releases:
   version: 1.8.43
   sha1: sha256:36f56eea5e53ff5ef9471f521882284079ada8bb68d2a53e7c178637e3c528b3
 - name: routing
-  url: https://bosh.io/d/github.com/cloudfoundry/routing-release?v=0.366.0
-  version: 0.366.0
-  sha1: sha256:7a612f5cf1e478957a44423d0eb0a2ef19a375d7cc8f0f8022287f3f7507b87e
+  url: https://bosh.io/d/github.com/cloudfoundry/routing-release?v=0.367.0
+  version: 0.367.0
+  sha1: sha256:d5d4b41b7359675099fc370f0be3d9cc1be283a42a898b0fd85a3a43b7955894
 - name: ruby-buildpack
   url: https://bosh.io/d/github.com/cloudfoundry/ruby-buildpack-release?v=1.10.29
   version: 1.10.29
   sha1: sha256:541b9f2c8361b1011280c97e9d11f404913a4c10236070ffaaef1380c87c0a06
 - name: silk
-  url: https://bosh.io/d/github.com/cloudfoundry/silk-release?v=3.101.0
-  version: 3.101.0
-  sha1: sha256:82920486674db31e93a211e978b5efebf6171dccd34550fd14e915a65da5ea62
+  url: https://bosh.io/d/github.com/cloudfoundry/silk-release?v=3.103.0
+  version: 3.103.0
+  sha1: sha256:2a89c24928a5fff0f1d0869a3a6108774744c839b99981289f100952ce3cdfa0
 - name: staticfile-buildpack
   url: https://bosh.io/d/github.com/cloudfoundry/staticfile-buildpack-release?v=1.6.35
   version: 1.6.35
@@ -2906,9 +2922,9 @@ releases:
   version: 1.11.52
   sha1: sha256:d088cfca4c8cfc758521827c5925f42ccfc50fa1d3be3fcb4cdf18f170b80b9a
 - name: uaa
-  url: https://bosh.io/d/github.com/cloudfoundry/uaa-release?v=78.7.0
-  version: 78.7.0
-  sha1: sha256:740bf7270abf88153ffd8f86dc26df66575df6e467e8b51adc059550fba956e0
+  url: https://bosh.io/d/github.com/cloudfoundry/uaa-release?v=78.8.0
+  version: 78.8.0
+  sha1: sha256:baca92673a86a5f87d7bf3ed0ee295df5b10246a4a6bf2c7969bc3798fa8fa99
 - name: loggregator-agent
   url: https://bosh.io/d/github.com/cloudfoundry/loggregator-agent-release?v=8.3.15
   version: 8.3.15
