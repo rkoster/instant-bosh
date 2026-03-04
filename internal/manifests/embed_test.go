@@ -46,13 +46,29 @@ func TestCFDeploymentOpsFileExperimental(t *testing.T) {
 	}
 }
 
+func TestCFOpsFile(t *testing.T) {
+	opsFile, err := manifests.CFOpsFile("skip-rep-drain.yml")
+	if err != nil {
+		t.Fatalf("CFOpsFile() error = %v", err)
+	}
+
+	if len(opsFile) == 0 {
+		t.Error("CFOpsFile() returned empty content")
+	}
+
+	content := string(opsFile)
+	if !strings.Contains(content, "evacuation_timeout_in_seconds") {
+		t.Error("CFOpsFile() should contain 'evacuation_timeout_in_seconds'")
+	}
+}
+
 func TestStandardCFOpsFiles(t *testing.T) {
 	opsFiles, err := manifests.StandardCFOpsFiles()
 	if err != nil {
 		t.Fatalf("StandardCFOpsFiles() error = %v", err)
 	}
 
-	expectedCount := 4 // scale-to-one-az, use-compiled-releases, set-router-static-ips, fast-deploy
+	expectedCount := 5 // scale-to-one-az, use-compiled-releases, set-router-static-ips, fast-deploy, skip-rep-drain
 	if len(opsFiles) != expectedCount {
 		t.Errorf("StandardCFOpsFiles() returned %d ops files, expected %d", len(opsFiles), expectedCount)
 	}

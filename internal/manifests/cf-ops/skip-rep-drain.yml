@@ -1,0 +1,8 @@
+---
+# Skip Diego rep drain timeout to speed up CF deployments
+# Sets evacuation_timeout_in_seconds to 0 (default is 600 seconds / 10 minutes)
+# WARNING: This may cause container evacuation issues in production environments
+
+- type: replace
+  path: /instance_groups/name=diego-cell/jobs/name=rep/properties/diego/rep/evacuation_timeout_in_seconds?
+  value: 0

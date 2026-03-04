@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/incus"
 	"github.com/rkoster/instant-bosh/internal/manifests"
+	"github.com/rkoster/instant-bosh/internal/uploadedrelease"
 	"gopkg.in/yaml.v3"
 )
 
@@ -227,6 +229,7 @@ func PrepareCFManifestFiles() (*CFManifestFiles, error) {
 		"use-compiled-releases.yml",
 		"set-router-static-ips.yml",
 		"fast-deploy-with-downtime-and-danger.yml",
+		"skip-rep-drain.yml",
 	}
 
 	// Start with DNS ops file (applied first)
@@ -260,14 +263,17 @@ func PrepareCFManifestFiles() (*CFManifestFiles, error) {
 // CFManifestAction outputs the interpolated CF deployment manifest to stdout.
 // Variables remain as placeholders (e.g. ((cf_admin_password))) but system_domain
 // and router_static_ips are substituted with resolved values.
+// If BOSH environment is configured, releases that are already uploaded to the
+// director will have their url and sha1 fields removed.
 func CFManifestAction(ui UI, opts CFManifestOptions) error {
+	ctx := context.Background()
+
 	// Check BOSH env only if router IP not specified (needed for auto-selection)
-	if opts.RouterIP == "" {
-		if err := checkBOSHEnv(); err != nil {
-			return fmt.Errorf("BOSH environment required when --router-ip not specified: %w\n"+
-				"Either set BOSH env: eval \"$(ibosh docker print-env)\"\n"+
-				"Or specify --router-ip explicitly", err)
-		}
+	hasBOSHEnv := checkBOSHEnv() == nil
+	if opts.RouterIP == "" && !hasBOSHEnv {
+		return fmt.Errorf("BOSH environment required when --router-ip not specified:\n" +
+			"Either set BOSH env: eval \"$(ibosh docker print-env)\"\n" +
+			"Or specify --router-ip explicitly")
 	}
 
 	// Resolve configuration (router IP + system domain)
@@ -294,12 +300,38 @@ func CFManifestAction(ui UI, opts CFManifestOptions) error {
 	}
 
 	cmd := exec.Command("bosh", args...)
-	cmd.Stdout = os.Stdout // Manifest output goes to stdout
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("bosh interpolate failed: %w", err)
 	}
+
+	manifest := stdout.Bytes()
+
+	// If BOSH environment is configured, filter out already-uploaded releases
+	if hasBOSHEnv {
+		savedEnv := saveBOSHEnvVars()
+
+		cpiInstance, cpiCleanup, err := createCPIAndDirectorClient(ctx)
+		if err == nil {
+			directorClient, directorCleanup, err := createDirectorClient(ctx, cpiInstance)
+			if err == nil {
+				filtered, err := uploadedrelease.Filter(manifest, directorClient)
+				if err == nil {
+					manifest = filtered
+				}
+				directorCleanup()
+			}
+			cpiCleanup()
+		}
+
+		restoreBOSHEnvVars(savedEnv)
+	}
+
+	// Output the manifest to stdout
+	os.Stdout.Write(manifest)
 
 	return nil
 }
@@ -348,50 +380,80 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 		return nil
 	}
 
+	// Save BOSH env vars before creating clients (createDirectorClient unsets them)
+	savedEnv := saveBOSHEnvVars()
+
+	cpiInstance, cpiCleanup, err := createCPIAndDirectorClient(ctx)
+	if err != nil {
+		restoreBOSHEnvVars(savedEnv)
+		return fmt.Errorf("failed to create CPI client: %w", err)
+	}
+	defer cpiCleanup()
+
+	directorClient, directorCleanup, err := createDirectorClient(ctx, cpiInstance)
+	if err != nil {
+		restoreBOSHEnvVars(savedEnv)
+		return fmt.Errorf("failed to create director client: %w", err)
+	}
+	defer directorCleanup()
+
 	// Ensure required stemcells are uploaded before deploy
 	if !opts.SkipStemcellUpload {
 		ui.PrintLinef("Checking and uploading required stemcells...")
 
-		// Save BOSH env vars before stemcell upload (createDirectorClient unsets them)
-		savedEnv := saveBOSHEnvVars()
-
-		cpiInstance, cpiCleanup, err := createCPIAndDirectorClient(ctx)
-		if err != nil {
-			restoreBOSHEnvVars(savedEnv)
-			return fmt.Errorf("failed to create CPI client: %w", err)
-		}
-
-		directorClient, directorCleanup, err := createDirectorClient(ctx, cpiInstance)
-		if err != nil {
-			cpiCleanup()
-			restoreBOSHEnvVars(savedEnv)
-			return fmt.Errorf("failed to create director client: %w", err)
-		}
-
 		err = EnsureStemcellsForCF(ctx, ui, directorClient, cpiInstance, files.ManifestPath, files.OpsPaths, config.SystemDomain, config.RouterIP)
-
-		// Clean up and restore env vars
-		directorCleanup()
-		cpiCleanup()
-		restoreBOSHEnvVars(savedEnv)
-
 		if err != nil {
+			restoreBOSHEnvVars(savedEnv)
 			return fmt.Errorf("failed to ensure stemcells: %w", err)
 		}
 		ui.PrintLinef("")
 	}
 
-	// Build bosh deploy command
-	args := []string{
-		"deploy", files.ManifestPath,
-		"-d", "cf",
-		"-n", // non-interactive
+	// Interpolate the manifest with all ops files to get the final manifest
+	ui.PrintLinef("Interpolating manifest...")
+	interpolateArgs := []string{
+		"interpolate", files.ManifestPath,
 		"-v", fmt.Sprintf("system_domain=%s", config.SystemDomain),
 		"-v", fmt.Sprintf("router_static_ips=[%s]", config.RouterIP),
 	}
-
 	for _, opsPath := range files.OpsPaths {
-		args = append(args, "-o", opsPath)
+		interpolateArgs = append(interpolateArgs, "-o", opsPath)
+	}
+
+	interpolateCmd := exec.Command("bosh", interpolateArgs...)
+	var interpolateOut bytes.Buffer
+	var interpolateErr bytes.Buffer
+	interpolateCmd.Stdout = &interpolateOut
+	interpolateCmd.Stderr = &interpolateErr
+
+	if err := interpolateCmd.Run(); err != nil {
+		restoreBOSHEnvVars(savedEnv)
+		return fmt.Errorf("bosh interpolate failed: %w\n%s", err, interpolateErr.String())
+	}
+
+	// Filter the manifest to remove url/sha1 from already-uploaded releases
+	ui.PrintLinef("Checking for already uploaded releases...")
+
+	filteredManifest, err := uploadedrelease.Filter(interpolateOut.Bytes(), directorClient)
+	if err != nil {
+		restoreBOSHEnvVars(savedEnv)
+		return fmt.Errorf("failed to filter releases: %w", err)
+	}
+
+	// Restore env vars before running bosh deploy (it needs them)
+	restoreBOSHEnvVars(savedEnv)
+
+	// Write the filtered manifest to a file
+	filteredManifestPath := files.TmpDir + "/cf-deployment-filtered.yml"
+	if err := os.WriteFile(filteredManifestPath, filteredManifest, 0644); err != nil {
+		return fmt.Errorf("failed to write filtered manifest: %w", err)
+	}
+
+	// Build bosh deploy command with pre-interpolated manifest (no ops files needed)
+	args := []string{
+		"deploy", filteredManifestPath,
+		"-d", "cf",
+		"-n", // non-interactive
 	}
 
 	ui.PrintLinef("Running: bosh %s", strings.Join(args, " "))

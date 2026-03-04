@@ -15,6 +15,9 @@ var cfDeploymentFS embed.FS
 //go:embed bosh-deployment
 var boshDeploymentFS embed.FS
 
+//go:embed cf-ops
+var cfOpsFS embed.FS
+
 // CFDeploymentManifest returns the main cf-deployment.yml manifest
 func CFDeploymentManifest() ([]byte, error) {
 	return cfDeploymentFS.ReadFile("cf-deployment/cf-deployment.yml")
@@ -30,6 +33,12 @@ func CFDeploymentOpsFile(name string) ([]byte, error) {
 func CFDeploymentOpsFileExperimental(name string) ([]byte, error) {
 	path := filepath.Join("cf-deployment/operations/experimental", name)
 	return cfDeploymentFS.ReadFile(path)
+}
+
+// CFOpsFile returns a specific ops file from the cf-ops directory (instant-bosh specific)
+func CFOpsFile(name string) ([]byte, error) {
+	path := filepath.Join("cf-ops", name)
+	return cfOpsFS.ReadFile(path)
 }
 
 // ListCFDeploymentOpsFiles lists all available ops files
@@ -75,6 +84,19 @@ func StandardCFOpsFiles() ([][]byte, error) {
 		}
 		result = append(result, content)
 	}
+
+	// Add instant-bosh specific CF ops files
+	iboshOpsFiles := []string{
+		"skip-rep-drain.yml",
+	}
+	for _, name := range iboshOpsFiles {
+		content, err := CFOpsFile(name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read ops file %s: %w", name, err)
+		}
+		result = append(result, content)
+	}
+
 	return result, nil
 }
 
