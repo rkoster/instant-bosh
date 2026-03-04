@@ -49,9 +49,6 @@ networks:
 vm_extensions:
 - name: 50GB_ephemeral_disk
 - name: 100GB_ephemeral_disk
-- name: diego-ssh-proxy-network-properties
-- name: cf-router-network-properties
-- name: cf-tcp-router-network-properties
 
 compilation:
   workers: 4

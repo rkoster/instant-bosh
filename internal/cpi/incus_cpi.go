@@ -75,12 +75,6 @@ vm_extensions:
 - name: 100GB_ephemeral_disk
   cloud_properties:
     ephemeral_disk: 102400
-- name: diego-ssh-proxy-network-properties
-  cloud_properties: {}
-- name: cf-router-network-properties
-  cloud_properties: {}
-- name: cf-tcp-router-network-properties
-  cloud_properties: {}
 
 compilation:
   workers: 4

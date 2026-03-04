@@ -31,7 +31,7 @@ directories:
     - cf-deployment.yml
     - operations/scale-to-one-az.yml
     - operations/use-compiled-releases.yml
-    - operations/set-router-static-ips.yml
+    - operations/use-haproxy.yml
     - operations/experimental/fast-deploy-with-downtime-and-danger.yml
 - path: internal/manifests/bosh-deployment
   contents:

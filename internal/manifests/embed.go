@@ -66,7 +66,7 @@ func StandardCFOpsFiles() ([][]byte, error) {
 	}{
 		{"scale-to-one-az.yml", false},
 		{"use-compiled-releases.yml", false},
-		{"set-router-static-ips.yml", false},
+		{"use-haproxy.yml", false},
 		{"fast-deploy-with-downtime-and-danger.yml", true},
 	}
 
