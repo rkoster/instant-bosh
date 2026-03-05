@@ -3,9 +3,9 @@ directories:
 - contents:
   - git:
       commitTitle: Bumping bosh to version 282.1.2
-      sha: c5735f2b502c7c242f1b46a26a844855f4545946
+      sha: ead3e9793df315ad33001be258301e137b28a420
       tags:
-      - last-xenial-4535-gc5735f2b
+      - last-xenial-4567-gead3e979
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -23,9 +23,9 @@ directories:
 - contents:
   - git:
       commitTitle: Bumping bosh to version 282.1.2
-      sha: c5735f2b502c7c242f1b46a26a844855f4545946
+      sha: ead3e9793df315ad33001be258301e137b28a420
       tags:
-      - last-xenial-4535-gc5735f2b
+      - last-xenial-4567-gead3e979
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
