@@ -1,0 +1,126 @@
+# Dockerfile for patching instant-bosh director for Apple Silicon
+#
+# This patches the BOSH director release templates to work under Rosetta
+# x86_64 emulation on Apple Silicon Macs.
+#
+# The main issue is that seccomp filters are architecture-specific and fail
+# under Rosetta with "error loading seccomp filter: invalid argument".
+#
+# Solution:
+# 1. Enable privileged mode in BPM configs (disables seccomp)
+# 2. Drop privileges back to vcap user in startup scripts (since privileged
+#    mode runs processes as root, but most services should run as vcap)
+#
+# Usage:
+#   docker build --build-arg BASE_IMAGE=ghcr.io/rkoster/instant-bosh:sha-xxx \
+#                -t my-patched-instant-bosh .
+#
+# Or use the build.sh script:
+#   ./build.sh ghcr.io/rkoster/instant-bosh:sha-xxx
+
+ARG BASE_IMAGE=ghcr.io/rkoster/instant-bosh:latest
+FROM ${BASE_IMAGE}
+
+LABEL maintainer="instant-bosh"
+LABEL description="instant-bosh patched for Apple Silicon (Rosetta x86_64 emulation)"
+
+# ============================================================================
+# STEP 1: Patch BPM templates to enable privileged mode
+# ============================================================================
+# This disables seccomp filters which fail under Rosetta due to architecture
+# mismatch (x86_64 filters on arm64 kernel)
+#
+# For configs that already have an "unsafe" block, we add "privileged" => true
+# inside that block. For configs without "unsafe", we add a new block.
+
+# Patch director bpm.yml template:
+# - director_config already has unsafe block with unrestricted_volumes, add privileged there
+# - nginx_config, scheduler_config, sync_dns_config, metrics_server_config need new unsafe blocks
+RUN sed -i 's/"unrestricted_volumes" => \[{"path" => "\/var\/vcap\/bosh\/etc"}\]/"privileged" => true, "unrestricted_volumes" => [{"path" => "\/var\/vcap\/bosh\/etc"}]/' \
+        /var/vcap/jobs/director/templates/bpm.yml && \
+    sed -i 's/nginx_config = {/nginx_config = {\n  "unsafe" => { "privileged" => true },/' \
+        /var/vcap/jobs/director/templates/bpm.yml && \
+    sed -i 's/scheduler_config = {/scheduler_config = {\n  "unsafe" => { "privileged" => true },/' \
+        /var/vcap/jobs/director/templates/bpm.yml && \
+    sed -i 's/sync_dns_config = {/sync_dns_config = {\n  "unsafe" => { "privileged" => true },/' \
+        /var/vcap/jobs/director/templates/bpm.yml && \
+    sed -i 's/metrics_server_config = {/metrics_server_config = {\n  "unsafe" => { "privileged" => true },/' \
+        /var/vcap/jobs/director/templates/bpm.yml
+
+# Patch postgres bpm.yml template - no existing unsafe block
+RUN sed -i 's/postgres_config = {/postgres_config = {\n  "unsafe" => { "privileged" => true },/' \
+        /var/vcap/jobs/postgres/templates/bpm.yml
+
+# Patch nats bpm.yml template:
+# - nats_config has no unsafe block, add one
+# - bosh_nats_sync already has unsafe block with host_pid_namespace, add privileged there
+RUN sed -i 's/nats_config = {/nats_config = {\n  "unsafe" => { "privileged" => true },/' \
+        /var/vcap/jobs/nats/templates/bpm.yml && \
+    sed -i 's/"host_pid_namespace" => true/"privileged" => true, "host_pid_namespace" => true/' \
+        /var/vcap/jobs/nats/templates/bpm.yml
+
+# Patch health_monitor bpm.yml template - already has unsafe block with unrestricted_volumes
+RUN sed -i 's/"unrestricted_volumes" => \[/"privileged" => true,\n    "unrestricted_volumes" => [/' \
+        /var/vcap/jobs/health_monitor/templates/bpm.yml
+
+# Patch blobstore bpm.yml template - no existing unsafe block
+RUN sed -i 's/blobstore_config = {/blobstore_config = {\n  "unsafe" => { "privileged" => true },/' \
+        /var/vcap/jobs/blobstore/templates/bpm.yml
+
+# ============================================================================
+# STEP 2: Patch startup scripts to drop privileges to vcap user
+# ============================================================================
+# BPM privileged mode runs processes as root, but most services should run
+# as vcap for proper file ownership and security.
+
+# Patch postgres startup - PostgreSQL explicitly refuses to run as root
+RUN sed -i 's|^exec \$PACKAGE_DIR/bin/postgres|# Drop privileges to vcap (postgres refuses to run as root)\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec $PACKAGE_DIR/bin/postgres -h $HOST -p $PORT -D $DATA_DIR"\nfi\nexec $PACKAGE_DIR/bin/postgres|' \
+        /var/vcap/jobs/postgres/templates/postgres.erb
+
+# Patch director startup - drop to vcap
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director|' \
+        /var/vcap/jobs/director/templates/director
+
+# Patch scheduler startup - drop to vcap
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-scheduler|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director-scheduler -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-scheduler|' \
+        /var/vcap/jobs/director/templates/scheduler
+
+# Patch sync-dns startup - drop to vcap
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-sync-dns|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director-sync-dns -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-sync-dns|' \
+        /var/vcap/jobs/director/templates/sync-dns
+
+# Patch metrics-server startup - drop to vcap
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-metrics-server|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director-metrics-server -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-metrics-server|' \
+        /var/vcap/jobs/director/templates/metrics-server
+
+# Patch nats startup script (it's a wrapper that sources env and execs)
+RUN if [ -f /var/vcap/jobs/nats/templates/nats.erb ]; then \
+        sed -i 's|^exec /var/vcap/packages/nats/bin/nats-server|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/nats/bin/nats-server -c /var/vcap/jobs/nats/config/nats.cfg"\nfi\nexec /var/vcap/packages/nats/bin/nats-server|' \
+            /var/vcap/jobs/nats/templates/nats.erb; \
+    fi
+
+# Patch bosh_nats_sync startup
+RUN if [ -f /var/vcap/jobs/nats/templates/bosh_nats_sync.erb ]; then \
+        sed -i 's|^exec /var/vcap/packages/nats/bin/bosh-nats-sync|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "source /var/vcap/packages/director-ruby-3.3/bosh/runtime.env \&\& exec /var/vcap/packages/nats/bin/bosh-nats-sync -c /var/vcap/jobs/nats/config/bosh_nats_sync_config.yml"\nfi\nexec /var/vcap/packages/nats/bin/bosh-nats-sync|' \
+            /var/vcap/jobs/nats/templates/bosh_nats_sync.erb; \
+    fi
+
+# Patch health_monitor startup
+RUN if [ -f /var/vcap/jobs/health_monitor/templates/health_monitor.erb ]; then \
+        sed -i 's|^exec /var/vcap/packages/health_monitor/bin/bosh-monitor|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "source /var/vcap/packages/director-ruby-3.3/bosh/runtime.env \&\& exec /var/vcap/packages/health_monitor/bin/bosh-monitor -c /var/vcap/jobs/health_monitor/config/health_monitor.yml"\nfi\nexec /var/vcap/packages/health_monitor/bin/bosh-monitor|' \
+            /var/vcap/jobs/health_monitor/templates/health_monitor.erb; \
+    fi
+
+# ============================================================================
+# STEP 3: Notes on other processes
+# ============================================================================
+# - worker_ctl: Already uses chpst to run as RUNAS=vcap, no changes needed
+# - nginx: Needs root to bind ports, drops to 'nobody' via its config, no changes needed
+# - blobstore nginx: Same as above
+
+# Verify key patches were applied
+RUN grep -q "privileged" /var/vcap/jobs/director/templates/bpm.yml && \
+    grep -q "privileged" /var/vcap/jobs/postgres/templates/bpm.yml && \
+    grep -q "id -u" /var/vcap/jobs/postgres/templates/postgres.erb && \
+    grep -q "id -u" /var/vcap/jobs/director/templates/director && \
+    echo "All patches verified successfully"
