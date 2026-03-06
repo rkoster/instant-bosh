@@ -26,16 +26,18 @@ import (
 )
 
 const (
-	ContainerName  = "instant-bosh"
-	NetworkName    = "instant-bosh"
-	VolumeStore    = "instant-bosh-store"
-	VolumeData     = "instant-bosh-data"
-	ImageName      = "ghcr.io/rkoster/instant-bosh:latest"
-	NetworkSubnet  = "10.245.0.0/16"
-	NetworkGateway = "10.245.0.1"
-	ContainerIP    = "10.245.0.10"
-	DirectorPort   = "25555"
-	SSHPort        = "2222"
+	ContainerName    = "instant-bosh"
+	NetworkName      = "instant-bosh"
+	VolumeStore      = "instant-bosh-store"
+	VolumeData       = "instant-bosh-data"
+	ImageName        = "ghcr.io/rkoster/instant-bosh:latest"
+	NetworkSubnet    = "10.245.0.0/16"
+	NetworkGateway   = "10.245.0.1"
+	ContainerIP      = "10.245.0.10"
+	DirectorPort     = "25555"
+	SSHPort          = "2222"
+	UAAPort          = "8443"
+	ConfigServerPort = "8081"
 )
 
 // ClientFactory is an interface for creating Docker clients.
@@ -304,6 +306,8 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		ExposedPorts: nat.PortSet{
 			"25555/tcp": struct{}{},
 			"22/tcp":    struct{}{},
+			"8443/tcp":  struct{}{},
+			"8081/tcp":  struct{}{},
 		},
 	}
 
@@ -314,6 +318,8 @@ func (c *Client) StartContainer(ctx context.Context) error {
 		PortBindings: nat.PortMap{
 			"25555/tcp": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: DirectorPort}},
 			"22/tcp":    []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: SSHPort}},
+			"8443/tcp":  []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: UAAPort}},
+			"8081/tcp":  []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: ConfigServerPort}},
 		},
 		Binds: []string{
 			// NOTE: The socket bind mount should always be /var/run/docker.sock:/var/run/docker.sock

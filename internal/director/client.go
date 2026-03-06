@@ -239,20 +239,28 @@ func NewDirector(config *Config, logger boshlog.Logger) (boshdir.Director, error
 	// Protect global state manipulation with a mutex for thread safety
 	dialerMutex.Lock()
 
-	// Unset all BOSH environment variables to ensure the bosh-cli library
+	// Clear stale BOSH environment variables to ensure the bosh-cli library
 	// uses only our explicitly provided configuration, not stale shell env vars.
 	// This is critical because the user may have BOSH_* vars set from a previous
 	// session (e.g., via `eval $(ibosh print-env)`), which would override our
 	// programmatic configuration.
-	os.Unsetenv("BOSH_ALL_PROXY")
 	os.Unsetenv("BOSH_CLIENT")
 	os.Unsetenv("BOSH_CLIENT_SECRET")
 	os.Unsetenv("BOSH_CA_CERT")
 	os.Unsetenv("BOSH_ENVIRONMENT")
 
+	// Set BOSH_ALL_PROXY if configured, otherwise unset it.
+	// The bosh-utils library reads this environment variable to configure
+	// the HTTP client's dialer for SOCKS5 proxy support (e.g., via SSH jumpbox).
+	if config.AllProxy != "" {
+		os.Setenv("BOSH_ALL_PROXY", config.AllProxy)
+	} else {
+		os.Unsetenv("BOSH_ALL_PROXY")
+	}
+
 	// Reset the HTTP client dialer to pick up the environment variable change.
 	// The bosh-utils library caches the dialer with proxy settings at package init time,
-	// so we must explicitly reset it after unsetting BOSH_ALL_PROXY.
+	// so we must explicitly reset it after changing BOSH_ALL_PROXY.
 	boshhttp.ResetDialerContext()
 
 	dialerMutex.Unlock()
