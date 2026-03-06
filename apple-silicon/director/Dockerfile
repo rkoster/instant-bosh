@@ -51,6 +51,12 @@ RUN sed -i 's/"unrestricted_volumes" => \[{"path" => "\/var\/vcap\/bosh\/etc"}\]
 RUN sed -i 's/postgres_config = {/postgres_config = {\n  "unsafe" => { "privileged" => true },/' \
         /var/vcap/jobs/postgres/templates/bpm.yml
 
+# Patch create-database.erb - use vcap user for oid2name check instead of ${USER}
+# When postgres runs as vcap (via su), initdb creates the superuser as 'vcap', not 'postgres'.
+# The oid2name check must use vcap to verify postgres is running before the postgres role is created.
+RUN sed -i 's/oid2name -H \${HOST} -U \${USER}/oid2name -H ${HOST} -U vcap/' \
+        /var/vcap/jobs/postgres/templates/create-database.erb
+
 # Patch nats bpm.yml template:
 # - nats_config has no unsafe block, add one
 # - bosh_nats_sync already has unsafe block with host_pid_namespace, add privileged there
@@ -77,20 +83,28 @@ RUN sed -i 's/blobstore_config = {/blobstore_config = {\n  "unsafe" => { "privil
 RUN sed -i 's|^exec \$PACKAGE_DIR/bin/postgres|# Drop privileges to vcap (postgres refuses to run as root)\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec $PACKAGE_DIR/bin/postgres -h $HOST -p $PORT -D $DATA_DIR"\nfi\nexec $PACKAGE_DIR/bin/postgres|' \
         /var/vcap/jobs/postgres/templates/postgres.erb
 
-# Patch director startup - drop to vcap
-RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director|' \
+# Patch director startup - wait for postgres role and drop to vcap
+# The create-database script runs in the background and creates the postgres role.
+# We need to wait for it before running migrations.
+COPY wait-for-postgres-role.sh /usr/local/bin/wait-for-postgres-role.sh
+RUN chmod +x /usr/local/bin/wait-for-postgres-role.sh && \
+    sed -i 's|/var/vcap/packages/director/bin/bosh-director-migrate|/usr/local/bin/wait-for-postgres-role.sh\n\n/var/vcap/packages/director/bin/bosh-director-migrate|' \
         /var/vcap/jobs/director/templates/director
 
-# Patch scheduler startup - drop to vcap
-RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-scheduler|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director-scheduler -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-scheduler|' \
+# Patch director startup - drop to vcap with environment preserved
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "source /var/vcap/jobs/director/env \&\& exec /var/vcap/packages/director/bin/bosh-director -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director|' \
+        /var/vcap/jobs/director/templates/director
+
+# Patch scheduler startup - drop to vcap with environment preserved
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-scheduler|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "source /var/vcap/jobs/director/env \&\& exec /var/vcap/packages/director/bin/bosh-director-scheduler -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-scheduler|' \
         /var/vcap/jobs/director/templates/scheduler
 
-# Patch sync-dns startup - drop to vcap
-RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-sync-dns|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director-sync-dns -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-sync-dns|' \
+# Patch sync-dns startup - drop to vcap with environment preserved
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-sync-dns|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "source /var/vcap/jobs/director/env \&\& exec /var/vcap/packages/director/bin/bosh-director-sync-dns -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-sync-dns|' \
         /var/vcap/jobs/director/templates/sync-dns
 
-# Patch metrics-server startup - drop to vcap
-RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-metrics-server|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "exec /var/vcap/packages/director/bin/bosh-director-metrics-server -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-metrics-server|' \
+# Patch metrics-server startup - drop to vcap with environment preserved
+RUN sed -i 's|^exec /var/vcap/packages/director/bin/bosh-director-metrics-server|# Drop privileges to vcap when running as root\nif [ "$(id -u)" = "0" ]; then\n    exec su -s /bin/bash vcap -c "source /var/vcap/jobs/director/env \&\& exec /var/vcap/packages/director/bin/bosh-director-metrics-server -c /var/vcap/jobs/director/config/director.yml"\nfi\nexec /var/vcap/packages/director/bin/bosh-director-metrics-server|' \
         /var/vcap/jobs/director/templates/metrics-server
 
 # Patch nats startup script (it's a wrapper that sources env and execs)
@@ -112,10 +126,36 @@ RUN if [ -f /var/vcap/jobs/health_monitor/templates/health_monitor.erb ]; then \
     fi
 
 # ============================================================================
-# STEP 3: Notes on other processes
+# STEP 3: Fix nginx tmp directory permissions
+# ============================================================================
+# Nginx workers run as 'nobody' but the tmp directories are created by BPM as 'vcap'.
+# We need to make these directories writable by 'nobody' so file uploads work.
+# Patch the director's pre-start script to fix permissions before nginx starts.
+
+RUN sed -i '/^ln -fs \$TMPDIR\/proxy/a\\n# Fix nginx tmp directory permissions for nobody user (nginx worker)\nchmod -R 777 $TMPDIR' \
+        /var/vcap/jobs/director/templates/pre-start.erb
+
+# Also fix the nginx upload_store_access to make uploaded files readable by all users
+# (nginx runs as nobody but workers run as vcap)
+RUN sed -i 's/upload_store_access user:r;/upload_store_access all:rw;/' \
+        /var/vcap/jobs/director/templates/nginx.conf.erb
+
+# ============================================================================
+# STEP 3b: Fix blobstore directory permissions
+# ============================================================================
+# Blobstore nginx workers run as 'nobody' but need to write to:
+# - /var/vcap/store/blobstore/store/ (blob storage)
+# - /var/vcap/data/blobstore/tmp/ (client_body temp files)
+# Both directories are owned by vcap. Patch the blobstore pre-start script to fix permissions.
+
+RUN sed -i '/^fi$/a\\n# Fix blobstore directory permissions for nobody user (nginx worker)\nmkdir -p /var/vcap/store/blobstore/store\nchmod -R 777 /var/vcap/store/blobstore\nchmod -R 777 /var/vcap/data/blobstore/tmp' \
+        /var/vcap/jobs/blobstore/templates/pre-start
+
+# ============================================================================
+# STEP 4: Notes on other processes
 # ============================================================================
 # - worker_ctl: Already uses chpst to run as RUNAS=vcap, no changes needed
-# - nginx: Needs root to bind ports, drops to 'nobody' via its config, no changes needed
+# - nginx: Needs root to bind ports, drops to 'nobody' via its config
 # - blobstore nginx: Same as above
 
 # Verify key patches were applied
