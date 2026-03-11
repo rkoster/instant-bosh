@@ -86,6 +86,11 @@ func NewClient(opts ...ClientOption) *Client {
 // For version="latest", returns the most recent version
 // stemcellName is the full stemcell name, e.g., "bosh-openstack-kvm-ubuntu-jammy-go_agent"
 func (c *Client) ResolveStemcell(ctx context.Context, stemcellName, version string) (*StemcellInfo, error) {
+	return c.resolveStemcellWithName(ctx, stemcellName, version)
+}
+
+// resolveStemcellWithName resolves stemcell metadata for a specific stemcell name
+func (c *Client) resolveStemcellWithName(ctx context.Context, stemcellName, version string) (*StemcellInfo, error) {
 	url := fmt.Sprintf("%s/stemcells/%s", c.baseURL, stemcellName)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -155,6 +160,22 @@ func (c *Client) ResolveStemcell(ctx context.Context, stemcellName, version stri
 	}
 
 	return nil, fmt.Errorf("no download URL found for stemcell %q version %q", stemcellName, selected.Version)
+}
+
+// ResolveOpenStackStemcell resolves an OpenStack stemcell by OS name from bosh.io
+// It tries without the -go_agent suffix first (for newer stemcells like Noble),
+// and falls back to with the suffix (for older stemcells like Jammy)
+func (c *Client) ResolveOpenStackStemcell(ctx context.Context, osName, version string) (*StemcellInfo, error) {
+	// Try without -go_agent suffix first (Noble and newer)
+	stemcellName := fmt.Sprintf("bosh-openstack-kvm-%s", osName)
+	info, err := c.resolveStemcellWithName(ctx, stemcellName, version)
+	if err == nil {
+		return info, nil
+	}
+
+	// Fall back to with -go_agent suffix (Jammy and older)
+	stemcellNameWithAgent := fmt.Sprintf("bosh-openstack-kvm-%s-go_agent", osName)
+	return c.resolveStemcellWithName(ctx, stemcellNameWithAgent, version)
 }
 
 // OpenStackStemcellName converts an OS name to the OpenStack stemcell name

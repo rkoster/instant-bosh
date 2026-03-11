@@ -232,17 +232,15 @@ func UploadIncusStemcellActionWithFactories(
 		return fmt.Errorf("instant-bosh is not running. Please start it with 'ibosh incus start'")
 	}
 
-	// Build the OpenStack stemcell name (Incus uses OpenStack stemcells)
-	stemcellName := boshio.OpenStackStemcellName(osName)
-
 	ui.PrintLinef("Resolving stemcell from bosh.io:")
-	ui.PrintLinef("  Name:    %s", stemcellName)
+	ui.PrintLinef("  OS:      %s", osName)
 	ui.PrintLinef("  Version: %s", version)
 	ui.PrintLinef("")
 
 	// Resolve stemcell info from bosh.io
+	// This tries without -go_agent suffix first (Noble+), then falls back to with suffix (Jammy and older)
 	boshioClient := boshio.NewClient()
-	info, err := boshioClient.ResolveStemcell(ctx, stemcellName, version)
+	info, err := boshioClient.ResolveOpenStackStemcell(ctx, osName, version)
 	if err != nil {
 		return fmt.Errorf("failed to resolve stemcell from bosh.io: %w", err)
 	}
@@ -290,7 +288,7 @@ func UploadIncusStemcellActionWithFactories(
 		return fmt.Errorf("failed to upload stemcell: %w", err)
 	}
 
-	ui.PrintLinef("Successfully uploaded: %s version %s", stemcellName, info.Version)
+	ui.PrintLinef("Successfully uploaded: %s version %s", info.Name, info.Version)
 
 	return nil
 }
