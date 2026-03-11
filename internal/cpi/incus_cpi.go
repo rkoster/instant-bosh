@@ -384,12 +384,10 @@ func (i *IncusCPI) Close() error {
 // UploadStemcell uploads a stemcell to the BOSH director for Incus CPI
 // It resolves the stemcell from bosh.io and uploads it via URL
 func (i *IncusCPI) UploadStemcell(ctx context.Context, directorClient boshdir.Director, os, version string) error {
-	// Build the OpenStack stemcell name (Incus uses OpenStack stemcells)
-	stemcellName := boshio.OpenStackStemcellName(os)
-
 	// Resolve stemcell info from bosh.io
+	// This tries without -go_agent suffix first (Noble+), then falls back to with suffix (Jammy and older)
 	client := boshio.NewClient()
-	info, err := client.ResolveStemcell(ctx, stemcellName, version)
+	info, err := client.ResolveOpenStackStemcell(ctx, os, version)
 	if err != nil {
 		return fmt.Errorf("resolving stemcell from bosh.io: %w", err)
 	}
