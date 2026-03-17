@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'CI: use machine type available in europe-north{1,2}...'
-      sha: 3c4e540e620b47df6af953b20306fd82346b8bdd
+      commitTitle: Use GCP machine type that supports persisten disc
+      sha: 9c208c37d618e74090d3e65e5a66b686343468eb
       tags:
-      - last-xenial-4597-g3c4e540e
+      - last-xenial-4610-g9c208c37
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'CI: use machine type available in europe-north{1,2}...'
-      sha: 3c4e540e620b47df6af953b20306fd82346b8bdd
+      commitTitle: Use GCP machine type that supports persisten disc
+      sha: 9c208c37d618e74090d3e65e5a66b686343468eb
       tags:
-      - last-xenial-4597-g3c4e540e
+      - last-xenial-4610-g9c208c37
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
