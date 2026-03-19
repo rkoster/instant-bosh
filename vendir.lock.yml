@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Use GCP machine type that supports persisten disc
-      sha: 9c208c37d618e74090d3e65e5a66b686343468eb
+      commitTitle: Bumping bpm to version 1.4.27
+      sha: 2f767abd6179e2d8c827b1b19fa89665c555c1d2
       tags:
-      - last-xenial-4610-g9c208c37
+      - last-xenial-4619-g2f767abd
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Use GCP machine type that supports persisten disc
-      sha: 9c208c37d618e74090d3e65e5a66b686343468eb
+      commitTitle: Bumping bpm to version 1.4.27
+      sha: 2f767abd6179e2d8c827b1b19fa89665c555c1d2
       tags:
-      - last-xenial-4610-g9c208c37
+      - last-xenial-4619-g2f767abd
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
