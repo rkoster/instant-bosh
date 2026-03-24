@@ -22,22 +22,22 @@
   path: /releases/name=bpm
   value:
     name: bpm
-    sha1: sha256:35fe3812317aaa949ea605ded07feb792ade3efa9d7fef11177f238d08062225
+    sha1: sha256:099fb982029181222ec607898f077e9a1c4459fee02a5d43a7d53ec92b4aacba
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/bpm-1.4.26-ubuntu-jammy-1.423-20260212-191155-337716045.tgz
-    version: 1.4.26
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/bpm-1.4.27-ubuntu-jammy-1.423-20260319-010045-347012073.tgz
+    version: 1.4.27
 - type: replace
   path: /releases/name=capi
   value:
     name: capi
-    sha1: sha256:36a2f9a2604df62fd941e3b38db908a793766e2873a0929256cf9f0768458a68
+    sha1: sha256:23f96c428cdaa38f27e57c0be29f4a2458f2402c2c623f6d82d7f69626198854
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/capi-1.229.0-ubuntu-jammy-1.423-20260302-122815-07330624.tgz
-    version: 1.229.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/capi-1.230.0-ubuntu-jammy-1.423-20260316-105031-03815709.tgz
+    version: 1.230.0
 - type: replace
   path: /releases/name=cf-cli
   value:
@@ -52,12 +52,12 @@
   path: /releases/name=cf-networking
   value:
     name: cf-networking
-    sha1: sha256:f6ae17a4f0a68b54f2f91b14811192b96c03aa485ed7afbfa8e9be9d1f5bf8e6
+    sha1: sha256:536e21411107fca2d8670b71976fec59e2d98a496b29580cded0344c300eb124
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cf-networking-3.105.0-ubuntu-jammy-1.423-20260309-162715-084218831.tgz
-    version: 3.105.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cf-networking-3.107.0-ubuntu-jammy-1.423-20260317-225405-06785322.tgz
+    version: 3.107.0
 - type: replace
   path: /releases/name=cf-smoke-tests
   value:
@@ -72,32 +72,32 @@
   path: /releases/name=cflinuxfs4
   value:
     name: cflinuxfs4
-    sha1: sha256:43984b4eebdfab5623813bee1d8901774b52110d6fe820df76eff7b81e5003da
+    sha1: sha256:cbe2e226540a3609b1da5e0ab90a8bfe5e85442d67c24a0ca4db2a27dd94c308
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs4-1.317.0-ubuntu-jammy-1.423-20260309-190854-661858767.tgz
-    version: 1.317.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs4-1.320.0-ubuntu-jammy-1.423-20260318-173542-251818467.tgz
+    version: 1.320.0
 - type: replace
   path: /releases/name=credhub
   value:
     name: credhub
-    sha1: sha256:1538d6ec4853b2a23b7fc7459b1830aa4cd61b1514a5c340c6179e55904b220e
+    sha1: sha256:b2df540a16f5b9b7546c112bc27d998ba49944da261f22d63c69d101a5768b44
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/credhub-2.15.1-ubuntu-jammy-1.423-20260307-071632-284262204.tgz
-    version: 2.15.1
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/credhub-2.15.2-ubuntu-jammy-1.423-20260319-212624-906305088.tgz
+    version: 2.15.2
 - type: replace
   path: /releases/name=diego
   value:
     name: diego
-    sha1: sha256:16810173429915ccb517c23961fa9031a5967aeb2c499d4694acd6ec38436a1f
+    sha1: sha256:c462986933aebf3922b71f58642dcb4daa6b9c031a284a8ac3d0507a21e05794
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/diego-2.130.0-ubuntu-jammy-1.423-20260307-035921-666925244.tgz
-    version: 2.130.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/diego-2.133.0-ubuntu-jammy-1.423-20260320-231650-291520747.tgz
+    version: 2.133.0
 - type: replace
   path: /releases/name=dotnet-core-buildpack
   value:
@@ -172,12 +172,12 @@
   path: /releases/name=nats
   value:
     name: nats
-    sha1: sha256:33c0f2b432faa2d67cb6cd28a98d58f378422923b0ada72c6036a6c007c0860e
+    sha1: sha256:a899b3ad2d43360125cbd73a0c9b353522e47f6760c2c1dc485216485a96ea6e
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/nats-56.76.0-ubuntu-jammy-1.423-20260302-175508-691620403.tgz
-    version: 56.76.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/nats-57.1.0-ubuntu-jammy-1.423-20260316-170053-77912027.tgz
+    version: 57.1.0
 - type: replace
   path: /releases/name=nginx-buildpack
   value:
@@ -212,12 +212,12 @@
   path: /releases/name=pxc
   value:
     name: pxc
-    sha1: sha256:db94e592bef60daf99a359c7ef3ab055e6b2b16e9de77fda027ab81c965240a8
+    sha1: sha256:b0d5f29893fa756a921edc441e946d98514c292dc0f55220c0c36150340adad8
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/pxc-2.0.0-ubuntu-jammy-1.423-20260214-035404-115223527.tgz
-    version: 2.0.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/pxc-2.0.1-ubuntu-jammy-1.423-20260319-152948-725618791.tgz
+    version: 2.0.1
 - type: replace
   path: /releases/name=python-buildpack
   value:
@@ -242,12 +242,12 @@
   path: /releases/name=routing
   value:
     name: routing
-    sha1: sha256:bdc8a735f5ffca7e187e8c49e6f5d00532a9e11957b791a6f9a5cf112b13b14b
+    sha1: sha256:901283fce6aa82fe1fdd2c07c4258bed549404864d1cdac9b2eb253ebfb3b253
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/routing-0.368.0-ubuntu-jammy-1.423-20260309-165745-269072448.tgz
-    version: 0.368.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/routing-0.372.0-ubuntu-jammy-1.423-20260323-075323-674639192.tgz
+    version: 0.372.0
 - type: replace
   path: /releases/name=ruby-buildpack
   value:
@@ -262,12 +262,12 @@
   path: /releases/name=silk
   value:
     name: silk
-    sha1: sha256:7d59065ada5243fbfc50417be35827076dcfa27321cf26a4d8ad0b467408eea4
+    sha1: sha256:a0c6524fece2d5e94e9652bb4f6e8b6b0b03f743bb1f022d2416788cc283c25a
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/silk-3.105.0-ubuntu-jammy-1.423-20260309-163016-082140481.tgz
-    version: 3.105.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/silk-3.107.0-ubuntu-jammy-1.423-20260317-231647-411896681.tgz
+    version: 3.107.0
 - type: replace
   path: /releases/name=staticfile-buildpack
   value:
@@ -292,9 +292,9 @@
   path: /releases/name=uaa
   value:
     name: uaa
-    sha1: sha256:bd9e67ab35b3bbd71f9bcaff323952525ea0dfa68c9808b4f94df7133d60c847
+    sha1: sha256:154df3ad77a6e46643485ceccf2beee48881e8df2d54b575982354c9fb83b1d5
     stemcell:
       os: ubuntu-jammy
       version: "1.423"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/uaa-78.8.0-ubuntu-jammy-1.423-20260226-184830-272753808.tgz
-    version: 78.8.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/uaa-78.10.0-ubuntu-jammy-1.423-20260320-101448-420839755.tgz
+    version: 78.10.0
