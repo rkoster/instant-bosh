@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh-warden-cpi to version 45.1.0
-      sha: 9c552a71672eac61ca5e2b8592dae1493994b951
+      commitTitle: Bumping bosh to version 282.1.5
+      sha: 162191ba09aba9f44283e49505eb32842fe792e1
       tags:
-      - last-xenial-4631-g9c552a71
+      - last-xenial-4657-g162191ba
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping bosh-warden-cpi to version 45.1.0
-      sha: 9c552a71672eac61ca5e2b8592dae1493994b951
+      commitTitle: Bumping bosh to version 282.1.5
+      sha: 162191ba09aba9f44283e49505eb32842fe792e1
       tags:
-      - last-xenial-4631-g9c552a71
+      - last-xenial-4657-g162191ba
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
