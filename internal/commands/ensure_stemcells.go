@@ -123,7 +123,7 @@ func EnsureStemcellsForCF(
 ) error {
 	varFlags := []string{
 		fmt.Sprintf("system_domain=%s", systemDomain),
-		fmt.Sprintf("router_static_ips=[%s]", routerIP),
+		fmt.Sprintf("router_static_ip=%s", routerIP),
 	}
 
 	return EnsureStemcells(ctx, ui, directorClient, cpiInstance, EnsureStemcellsOptions{

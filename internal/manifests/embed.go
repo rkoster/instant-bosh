@@ -66,7 +66,6 @@ func StandardCFOpsFiles() ([][]byte, error) {
 	}{
 		{"scale-to-one-az.yml", false},
 		{"use-compiled-releases.yml", false},
-		{"use-haproxy.yml", false},
 		{"fast-deploy-with-downtime-and-danger.yml", true},
 	}
 
@@ -87,6 +86,8 @@ func StandardCFOpsFiles() ([][]byte, error) {
 
 	// Add instant-bosh specific CF ops files
 	iboshOpsFiles := []string{
+		"fix-colocation-port-conflicts.yml",
+		"use-gorouter-static-ip.yml",
 		"skip-rep-drain.yml",
 	}
 	for _, name := range iboshOpsFiles {

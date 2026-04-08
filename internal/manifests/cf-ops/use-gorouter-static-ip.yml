@@ -1,0 +1,19 @@
+---
+# Assign a static IP to the router instance group and remove load-balancer
+# vm_extensions that are not needed in instant-bosh deployments.
+# This replaces use-haproxy.yml: the gorouter handles inbound TLS termination
+# directly on this static IP.
+
+# Remove IaaS load-balancer vm_extensions (not needed in single-node deployments)
+- type: remove
+  path: /instance_groups/name=router/vm_extensions
+- type: remove
+  path: /instance_groups/name=tcp-router/vm_extensions
+- type: remove
+  path: /instance_groups/name=scheduler/vm_extensions
+
+# Assign the static IP so it survives post-processing consolidation
+- type: replace
+  path: /instance_groups/name=router/networks/name=default/static_ips?
+  value:
+  - ((router_static_ip))
