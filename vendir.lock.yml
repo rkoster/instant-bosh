@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping backup-and-restore-sdk to version 1.19.53
-      sha: 444fb1795d33218b6f7fe04de8352fe9c1372127
+      commitTitle: Bumping CPI bosh-warden-cpi to version 45.1.1
+      sha: f9b69883c561561c776010f11d72a1c0ad08e67d
       tags:
-      - last-xenial-4669-g444fb179
+      - last-xenial-4677-gf9b69883
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping backup-and-restore-sdk to version 1.19.53
-      sha: 444fb1795d33218b6f7fe04de8352fe9c1372127
+      commitTitle: Bumping CPI bosh-warden-cpi to version 45.1.1
+      sha: f9b69883c561561c776010f11d72a1c0ad08e67d
       tags:
-      - last-xenial-4669-g444fb179
+      - last-xenial-4677-gf9b69883
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
