@@ -135,7 +135,6 @@ type InstanceGroup struct {
 	Networks           []Network              `yaml:"networks"`
 	Jobs               []Job                  `yaml:"jobs"`
 	Env                map[string]interface{} `yaml:"env,omitempty"`
-	MigratedFrom       []map[string]string    `yaml:"migrated_from,omitempty"`
 }
 
 // Network is a network attachment entry.
@@ -236,12 +235,9 @@ type consolidated struct {
 	seenJobs          map[string]int // tracks job names already added; value is index into jobs slice
 	hasPersistentDisk bool
 	persistentDisk    string
-	migratedFrom      []map[string]string
 	staticIPs         []string
 	vmExtensions      []string        // union of vm_extensions from all source IGs
 	seenVMExtensions  map[string]bool // deduplication for vm_extensions
-	errands           []InstanceGroup // errand lifecycle groups kept as-is structurally
-	hasErrand         bool
 }
 
 // addJob appends job to the consolidated state. For most jobs, duplicates by name
@@ -304,6 +300,12 @@ func (c *consolidated) addVMExtension(ext string) {
 
 // buildConsolidated merges source instance groups into the target groups and returns
 // the ordered list of resulting InstanceGroup values.
+//
+// Errand source instance groups (lifecycle: errand) have their jobs merged into the
+// corresponding long-running consolidated group just like any other source IG. The
+// consolidated VMs are always running, so errand jobs become persistent co-located
+// processes rather than one-off errand runs. The source IG's lifecycle field is not
+// carried over.
 func buildConsolidated(sources []InstanceGroup) ([]InstanceGroup, error) {
 	// Working state per target group.
 	state := map[targetGroup]*consolidated{}
@@ -342,8 +344,81 @@ func buildConsolidated(sources []InstanceGroup) ([]InstanceGroup, error) {
 			}
 		}
 
-		// Collect migrated_from entries.
-		s.migratedFrom = append(s.migratedFrom, src.MigratedFrom...)
+		// Handle scheduler specially: extract ssh_proxy to router.
+		if src.Name == "scheduler" {
+			routerState := state[groupRouter]
+			for _, job := range src.Jobs {
+				if jobsExtractedFromScheduler[job.Name] {
+					routerState.addJob(job)
+				} else {
+					s.addJob(job)
+				}
+			}
+			continue
+		}
+
+		// Handle api specially: extract file_server to compute.
+		if src.Name == "api" {
+			computeState := state[groupCompute]
+			for _, job := range src.Jobs {
+				if jobsExtractedFromAPI[job.Name] {
+					computeState.addJob(job)
+				} else {
+					s.addJob(job)
+				}
+			}
+			continue
+		}
+
+		// All other source IGs: merge jobs into the consolidated group.
+		// This includes errand source IGs (smoke-tests, rotate-cc-database-key):
+		// their jobs are merged into the long-running consolidated VM so they run
+		// as persistent co-located processes, not one-off errand runs.
+		for _, job := range src.Jobs {
+			s.addJob(job)
+		}
+	}
+
+	// Errand IGs are passed through as-is (not merged into long-running groups).
+	var passThroughErrands []InstanceGroup
+
+	for _, src := range sources {
+		tg := sourceMapping[src.Name]
+		if tg == "" {
+			// Explicitly removed (e.g. haproxy).
+			continue
+		}
+
+		// Errand IGs cannot be merged into long-running groups. Pass them through
+		// unchanged so their lifecycle:errand field is preserved.
+		if src.Lifecycle == "errand" {
+			passThroughErrands = append(passThroughErrands, src)
+			continue
+		}
+
+		s := state[tg]
+
+		// Collect persistent disk info for database/blobstore groups.
+		if src.PersistentDiskType != "" {
+			s.hasPersistentDisk = true
+			// Use the first disk type we encounter (they should all be compatible
+			// within a group, or the ops file author needs to reconcile).
+			if s.persistentDisk == "" {
+				s.persistentDisk = src.PersistentDiskType
+			}
+		}
+
+		// Collect vm_extensions (e.g. 100GB_ephemeral_disk on diego-cell).
+		for _, ext := range src.VMExtensions {
+			s.addVMExtension(ext)
+		}
+
+		// Collect static IPs from network configs (for router).
+		for _, net := range src.Networks {
+			if len(net.StaticIPs) > 0 {
+				s.staticIPs = append(s.staticIPs, net.StaticIPs...)
+			}
+		}
 
 		// Handle scheduler specially: extract ssh_proxy to router.
 		if src.Name == "scheduler" {
@@ -372,9 +447,6 @@ func buildConsolidated(sources []InstanceGroup) ([]InstanceGroup, error) {
 		}
 
 		// All other groups: append jobs directly, deduplicating by job name.
-		// Errands (smoke-tests, rotate-cc-database-key) are regular jobs inside
-		// the control group — we flatten them as jobs (the group-level lifecycle
-		// errand flag is not needed since the consolidated group is a long-running VM).
 		for _, job := range src.Jobs {
 			s.addJob(job)
 		}
@@ -475,7 +547,7 @@ func filterHaproxyReleases(releases []interface{}) []interface{} {
 // domainOverrides maps specific DNS alias domains to a consolidated group name,
 // overriding the default sourceMapping lookup. This is needed for cases where a
 // job was extracted from its source IG into a different consolidated group (e.g.
-// ssh_proxy is extracted from scheduler→control, but actually lives in router).
+// ssh_proxy is extracted from scheduler→router, but scheduler itself maps to control).
 var domainOverrides = map[string]targetGroup{
 	"ssh-proxy.service.cf.internal":   groupRouter,
 	"file-server.service.cf.internal": groupCompute,

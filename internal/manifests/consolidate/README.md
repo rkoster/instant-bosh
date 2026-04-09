@@ -7,15 +7,17 @@ groups suitable for a single-node instant-bosh deployment.
 
 | Group | vm_type | Source instance groups |
 |---|---|---|
-| `control` | medium | diego-api, uaa, api, cc-worker, scheduler\*, log-cache, doppler, log-api, rotate-cc-database-key |
+| `control` | medium | diego-api, uaa, api, cc-worker, scheduler\*, log-cache, **credhub**†, log-api, rotate-cc-database-key |
 | `compute` | small-highmem | diego-cell |
-| `database` | small | database, credhub, **nats**† |
-| `router` | minimal | router, tcp-router, ssh_proxy\*, **smoke-tests**‡ |
-| `blobstore` | small | singleton-blobstore |
+| `database` | small | database, **nats**‡ |
+| `router` | minimal | router, tcp-router, ssh_proxy\*, **smoke-tests**§ |
+| `blobstore` | small | singleton-blobstore, **doppler**¶ |
 
 \* `ssh_proxy` is extracted from `scheduler` and placed in `router`.  
-† `nats` is in `database` (not `control`) to avoid a `pid_utils` package name collision between the `nats` and `diego` releases.  
-‡ `smoke-tests` is in `router` (not `control`) to avoid a `golang-1-linux` package name collision between the `cf-smoke-tests` and `capi` releases.
+† `credhub` is in `control` (not `database`) because credhub's start script (`wait_for_uaa`) requires UAA to be up first; UAA is also in `control`.  
+‡ `nats` is in `database` (not `control`) to avoid a `pid_utils` package name collision between the `nats` and `diego` releases.  
+§ `smoke-tests` is in `router` (not `control`) to avoid a `golang-1-linux` package name collision between the `cf-smoke-tests` and `capi` releases.  
+¶ `doppler` is in `blobstore` (not `control`) because both `doppler` and `reverse_log_proxy` (from `log-api`) default to port 8082; keeping them on separate VMs avoids the bind conflict.
 
 ## BOSH package name collisions
 
