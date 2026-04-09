@@ -1,0 +1,104 @@
+# Fix port conflicts that arise when CF instance groups are consolidated onto shared VMs.
+# These ops are applied BEFORE consolidation so each job gets a unique port.
+#
+# Conflict summary:
+#
+# --- control group ---
+# 1. log-cache :8080 vs uaa Java HTTP loopback :8080
+#    Fix: move log-cache listen port to 8090.
+#    NOTE: log-cache-gateway.gateway_addr is hardcoded (not link-driven), so it must
+#    be patched separately to match (see fix #2 below).
+#
+# 2. log-cache-gateway :8081 vs loggregator_trafficcontroller outgoing dropsonde :8081
+#    Fix: move log-cache-gateway listen addr to localhost:8091.
+#    log-cache-cf-auth-proxy connects to the gateway via the log-cache-gateway BOSH link
+#    (gateway_addr property), so it will auto-follow this change.
+#
+# 3. loggregator_trafficcontroller outgoing_dropsonde_port :8081 (default)
+#    This is the same port as log-cache-gateway above. Fix: change to 8087.
+#    The route_registrar in log-api also registers doppler routes pointing at tls_port 8081,
+#    so that must be updated to match.
+#
+# 4. cloud_controller_worker readiness port :9025 vs cloud_controller_ng nginx prom TLS :9025
+#    Fix: move cloud_controller_worker readiness port to 9026.
+#
+# 5. file_server listen_addr :8080 vs uaa Java HTTP loopback :8080 (both in control group)
+#    file_server runs an HTTP redirect server on 8080 by default; UAA's Java process also
+#    binds a loopback HTTP server on 8080.
+#    Fix: move file_server listen_addr to 0.0.0.0:8092.
+#
+# 6. file_server https_listen_addr :8443 vs uaa :8443 (both in control group)
+#    file_server binds 0.0.0.0:8443 by default; UAA also owns 0.0.0.0:8443.
+#    rep reaches file_server via BOSH DNS (file-server.service.cf.internal) so the
+#    port change is transparent to consumers.
+#    Fix: move file_server HTTPS listen addr to 0.0.0.0:8447.
+#
+# --- router group ---
+# 7. gorouter debug_addr :17002 vs tcp_router debug_address :17002
+#    Both default to 127.0.0.1:17002 for their pprof/debug server.
+#    Fix: move tcp_router debug_address to 127.0.0.1:17003.
+#
+# 8. tcp_router health_check_port :80 vs gorouter HTTP :80
+#    Fix: move tcp_router health_check_port to 8800.
+#
+# 9. tcp_router tls_health_check_port :443 vs gorouter HTTPS :443
+#    Fix: move tcp_router tls_health_check_port to 8801.
+
+# 1. log-cache port 8080 -> 8090
+- type: replace
+  path: /instance_groups/name=log-cache/jobs/name=log-cache/properties/port?
+  value: 8090
+
+# 2. log-cache-gateway listen addr localhost:8081 -> localhost:8091
+- type: replace
+  path: /instance_groups/name=log-cache/jobs/name=log-cache-gateway/properties/gateway_addr
+  value: localhost:8091
+
+# 3a. loggregator_trafficcontroller outgoing dropsonde port 8081 -> 8087
+- type: replace
+  path: /instance_groups/name=log-api/jobs/name=loggregator_trafficcontroller/properties/loggregator/outgoing_dropsonde_port?
+  value: 8087
+
+# 3b. route_registrar in log-api: update doppler route tls_port 8081 -> 8087
+- type: replace
+  path: /instance_groups/name=log-api/jobs/name=route_registrar/properties/route_registrar/routes/name=doppler/tls_port
+  value: 8087
+
+# 4. cloud_controller_worker readiness port 9025 -> 9026
+#    cc.readiness_port doesn't exist in the manifest by default, so set the whole map.
+- type: replace
+  path: /instance_groups/name=cc-worker/jobs/name=cloud_controller_worker/properties/cc/readiness_port?
+  value:
+    cloud_controller_worker: 9026
+
+# 5. file_server listen_addr 0.0.0.0:8080 -> 0.0.0.0:8092 (conflicts with UAA HTTP loopback in control group)
+- type: replace
+  path: /instance_groups/name=api/jobs/name=file_server/properties/diego?
+  value:
+    file_server:
+      listen_addr: 0.0.0.0:8092
+
+# 6. file_server https_listen_addr 0.0.0.0:8443 -> 0.0.0.0:8447 (conflicts with UAA HTTPS in control group)
+- type: replace
+  path: /instance_groups/name=api/jobs/name=file_server/properties/https_listen_addr?
+  value: 0.0.0.0:8447
+
+# 6b. file_server https_url (update to match https_listen_addr port change)
+- type: replace
+  path: /instance_groups/name=api/jobs/name=file_server/properties/https_url?
+  value: https://file-server.service.cf.internal:8447
+
+# 7. tcp_router debug_address 17002 -> 17003 (conflicts with gorouter debug_addr in router group)
+- type: replace
+  path: /instance_groups/name=tcp-router/jobs/name=tcp_router/properties/tcp_router/debug_address?
+  value: 127.0.0.1:17003
+
+# 8. tcp_router health_check_port 80 -> 8800 (conflicts with gorouter HTTP port in router group)
+- type: replace
+  path: /instance_groups/name=tcp-router/jobs/name=tcp_router/properties/tcp_router/health_check_port?
+  value: 8800
+
+# 9. tcp_router tls_health_check_port 443 -> 8801 (conflicts with gorouter HTTPS port in router group)
+- type: replace
+  path: /instance_groups/name=tcp-router/jobs/name=tcp_router/properties/tcp_router/tls_health_check_port?
+  value: 8801

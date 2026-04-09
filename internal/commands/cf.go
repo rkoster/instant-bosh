@@ -18,6 +18,7 @@ import (
 	"github.com/rkoster/instant-bosh/internal/docker"
 	"github.com/rkoster/instant-bosh/internal/incus"
 	"github.com/rkoster/instant-bosh/internal/manifests"
+	"github.com/rkoster/instant-bosh/internal/manifests/consolidate"
 	"github.com/rkoster/instant-bosh/internal/uploadedrelease"
 	"gopkg.in/yaml.v3"
 )
@@ -115,8 +116,8 @@ func (w *cpiContainerWrapper) Close() error {
 
 // CFDeployOptions contains options for CF deployment
 type CFDeployOptions struct {
-	HaproxyIP          string // Optional: specify haproxy IP, otherwise auto-select
-	SystemDomain       string // Optional: specify system domain, otherwise derive from haproxy IP
+	RouterIP           string // Optional: specify router IP, otherwise auto-select
+	SystemDomain       string // Optional: specify system domain, otherwise derive from router IP
 	DryRun             bool   // If true, show what would be deployed without deploying
 	SkipStemcellUpload bool   // If true, skip auto-uploading required stemcells
 	DeleteCreds        bool   // If true, delete all deployment credentials before deploying (forces regeneration)
@@ -124,13 +125,13 @@ type CFDeployOptions struct {
 
 // CFManifestOptions contains options for CF manifest generation
 type CFManifestOptions struct {
-	HaproxyIP    string // Optional: specify haproxy IP
+	RouterIP     string // Optional: specify router IP
 	SystemDomain string // Optional: specify system domain
 }
 
 // CFManifestConfig contains resolved configuration for CF manifest generation
 type CFManifestConfig struct {
-	HaproxyIP    string
+	RouterIP     string
 	SystemDomain string
 }
 
@@ -148,25 +149,25 @@ func (f *CFManifestFiles) Cleanup() {
 	}
 }
 
-// ResolveCFConfig determines the haproxy IP and system domain for CF deployment.
-// If haproxyIP is empty, it tries to get from existing deployment or auto-selects from cloud-config.
-// If systemDomain is empty, it derives from haproxyIP as <haproxyIP>.sslip.io.
+// ResolveCFConfig determines the router IP and system domain for CF deployment.
+// If routerIP is empty, it tries to get from existing deployment or auto-selects from cloud-config.
+// If systemDomain is empty, it derives from routerIP as <routerIP>.sslip.io.
 // The ui parameter is used to print informational messages (to stderr via ErrorLinef).
-func ResolveCFConfig(ui UI, haproxyIP, systemDomain string) (*CFManifestConfig, error) {
-	resolvedIP := haproxyIP
+func ResolveCFConfig(ui UI, routerIP, systemDomain string) (*CFManifestConfig, error) {
+	resolvedIP := routerIP
 	if resolvedIP == "" {
-		// First, try to get the existing haproxy IP from a running CF deployment
-		existingIP, err := getExistingHaproxyIP()
+		// First, try to get the existing router IP from a running CF deployment
+		existingIP, err := getExistingRouterIP()
 		if err == nil && existingIP != "" {
 			resolvedIP = existingIP
 			if ui != nil {
-				ui.ErrorLinef("Using existing haproxy IP from CF deployment: %s", resolvedIP)
+				ui.ErrorLinef("Using existing router IP from CF deployment: %s", resolvedIP)
 			}
 		} else {
 			// No existing deployment, select a new IP
-			resolvedIP, err = selectHaproxyIP(ui)
+			resolvedIP, err = selectRouterIP(ui)
 			if err != nil {
-				return nil, fmt.Errorf("failed to select haproxy IP: %w", err)
+				return nil, fmt.Errorf("failed to select router IP: %w", err)
 			}
 		}
 	}
@@ -177,7 +178,7 @@ func ResolveCFConfig(ui UI, haproxyIP, systemDomain string) (*CFManifestConfig, 
 	}
 
 	return &CFManifestConfig{
-		HaproxyIP:    resolvedIP,
+		RouterIP:     resolvedIP,
 		SystemDomain: resolvedDomain,
 	}, nil
 }
@@ -227,8 +228,9 @@ func PrepareCFManifestFiles() (*CFManifestFiles, error) {
 	opsFilePaths := []string{
 		"scale-to-one-az.yml",
 		"use-compiled-releases.yml",
-		"use-haproxy.yml",
 		"fast-deploy-with-downtime-and-danger.yml",
+		"fix-colocation-port-conflicts.yml",
+		"use-gorouter-static-ip.yml",
 		"skip-rep-drain.yml",
 	}
 
@@ -260,24 +262,25 @@ func PrepareCFManifestFiles() (*CFManifestFiles, error) {
 	return result, nil
 }
 
-// CFManifestAction outputs the interpolated CF deployment manifest to stdout.
+// CFManifestAction outputs the interpolated and consolidated CF deployment manifest to stdout.
 // Variables remain as placeholders (e.g. ((cf_admin_password))) but system_domain
-// and haproxy_private_ip are substituted with resolved values.
+// and router_static_ip are substituted with resolved values.
+// Instance groups are consolidated into the 5 target groups before output.
 // If BOSH environment is configured, releases that are already uploaded to the
 // director will have their url and sha1 fields removed.
 func CFManifestAction(ui UI, opts CFManifestOptions) error {
 	ctx := context.Background()
 
-	// Check BOSH env only if haproxy IP not specified (needed for auto-selection)
+	// Check BOSH env only if router IP not specified (needed for auto-selection)
 	hasBOSHEnv := checkBOSHEnv() == nil
-	if opts.HaproxyIP == "" && !hasBOSHEnv {
-		return fmt.Errorf("BOSH environment required when --haproxy-ip not specified:\n" +
+	if opts.RouterIP == "" && !hasBOSHEnv {
+		return fmt.Errorf("BOSH environment required when --router-ip not specified:\n" +
 			"Either set BOSH env: eval \"$(ibosh docker print-env)\"\n" +
-			"Or specify --haproxy-ip explicitly")
+			"Or specify --router-ip explicitly")
 	}
 
-	// Resolve configuration (haproxy IP + system domain)
-	config, err := ResolveCFConfig(ui, opts.HaproxyIP, opts.SystemDomain)
+	// Resolve configuration (router IP + system domain)
+	config, err := ResolveCFConfig(ui, opts.RouterIP, opts.SystemDomain)
 	if err != nil {
 		return err
 	}
@@ -293,7 +296,7 @@ func CFManifestAction(ui UI, opts CFManifestOptions) error {
 	args := []string{
 		"interpolate", files.ManifestPath,
 		"-v", fmt.Sprintf("system_domain=%s", config.SystemDomain),
-		"-v", fmt.Sprintf("haproxy_private_ip=%s", config.HaproxyIP),
+		"-v", fmt.Sprintf("router_static_ip=%s", config.RouterIP),
 	}
 	for _, opsPath := range files.OpsPaths {
 		args = append(args, "-o", opsPath)
@@ -308,7 +311,11 @@ func CFManifestAction(ui UI, opts CFManifestOptions) error {
 		return fmt.Errorf("bosh interpolate failed: %w", err)
 	}
 
-	manifest := stdout.Bytes()
+	// Consolidate instance groups into the 5 target groups
+	manifest, err := consolidate.ConsolidateInstanceGroups(stdout.Bytes())
+	if err != nil {
+		return fmt.Errorf("failed to consolidate instance groups: %w", err)
+	}
 
 	// If BOSH environment is configured, filter out already-uploaded releases
 	if hasBOSHEnv {
@@ -346,13 +353,13 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 	}
 
 	// Use shared config resolution
-	config, err := ResolveCFConfig(ui, opts.HaproxyIP, opts.SystemDomain)
+	config, err := ResolveCFConfig(ui, opts.RouterIP, opts.SystemDomain)
 	if err != nil {
 		return err
 	}
 
 	ui.PrintLinef("Deploying CF with:")
-	ui.PrintLinef("  Haproxy IP:    %s", config.HaproxyIP)
+	ui.PrintLinef("  Router IP:     %s", config.RouterIP)
 	ui.PrintLinef("  System Domain: %s", config.SystemDomain)
 	ui.PrintLinef("")
 
@@ -401,7 +408,7 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 	if !opts.SkipStemcellUpload {
 		ui.PrintLinef("Checking and uploading required stemcells...")
 
-		err = EnsureStemcellsForCF(ctx, ui, directorClient, cpiInstance, files.ManifestPath, files.OpsPaths, config.SystemDomain, config.HaproxyIP)
+		err = EnsureStemcellsForCF(ctx, ui, directorClient, cpiInstance, files.ManifestPath, files.OpsPaths, config.SystemDomain, config.RouterIP)
 		if err != nil {
 			restoreBOSHEnvVars(savedEnv)
 			return fmt.Errorf("failed to ensure stemcells: %w", err)
@@ -414,7 +421,7 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 	interpolateArgs := []string{
 		"interpolate", files.ManifestPath,
 		"-v", fmt.Sprintf("system_domain=%s", config.SystemDomain),
-		"-v", fmt.Sprintf("haproxy_private_ip=%s", config.HaproxyIP),
+		"-v", fmt.Sprintf("router_static_ip=%s", config.RouterIP),
 	}
 	for _, opsPath := range files.OpsPaths {
 		interpolateArgs = append(interpolateArgs, "-o", opsPath)
@@ -431,10 +438,19 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 		return fmt.Errorf("bosh interpolate failed: %w\n%s", err, interpolateErr.String())
 	}
 
+	// Consolidate instance groups into the 5 target groups (before release filtering
+	// so the release filter sees the already-consolidated structure)
+	ui.PrintLinef("Consolidating instance groups...")
+	consolidatedManifest, err := consolidate.ConsolidateInstanceGroups(interpolateOut.Bytes())
+	if err != nil {
+		restoreBOSHEnvVars(savedEnv)
+		return fmt.Errorf("failed to consolidate instance groups: %w", err)
+	}
+
 	// Filter the manifest to remove url/sha1 from already-uploaded releases
 	ui.PrintLinef("Checking for already uploaded releases...")
 
-	filteredManifest, err := uploadedrelease.Filter(interpolateOut.Bytes(), directorClient)
+	filteredManifest, err := uploadedrelease.Filter(consolidatedManifest, directorClient)
 	if err != nil {
 		restoreBOSHEnvVars(savedEnv)
 		return fmt.Errorf("failed to filter releases: %w", err)
@@ -675,8 +691,8 @@ func restoreBOSHEnvVars(saved boshEnvVars) {
 	}
 }
 
-// selectHaproxyIP selects an available IP from the cloud-config static range
-func selectHaproxyIP(ui UI) (string, error) {
+// selectRouterIP selects an available IP from the cloud-config static range
+func selectRouterIP(ui UI) (string, error) {
 	// Get cloud-config from BOSH
 	cmd := exec.Command("bosh", "cloud-config", "--json")
 	output, err := cmd.Output()
@@ -837,9 +853,9 @@ func getUsedIPs() (map[string]bool, error) {
 	return used, nil
 }
 
-// getExistingHaproxyIP returns the haproxy IP from an existing CF deployment, if any
-func getExistingHaproxyIP() (string, error) {
-	// Try to get from the CF deployment's haproxy instance
+// getExistingRouterIP returns the router IP from an existing CF deployment, if any
+func getExistingRouterIP() (string, error) {
+	// Try to get from the CF deployment's router instance
 	cmd := exec.Command("bosh", "-d", "cf", "instances", "--json")
 	output, err := cmd.Output()
 	if err != nil {
@@ -858,10 +874,10 @@ func getExistingHaproxyIP() (string, error) {
 		return "", err
 	}
 
-	// Find haproxy instance IP
+	// Find router instance IP
 	for _, table := range result.Tables {
 		for _, row := range table.Rows {
-			if strings.HasPrefix(row.Instance, "haproxy/") {
+			if strings.HasPrefix(row.Instance, "router/") {
 				ip := strings.TrimSpace(strings.Split(row.IPs, "\n")[0])
 				if ip != "" {
 					return ip, nil
@@ -870,12 +886,12 @@ func getExistingHaproxyIP() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("haproxy instance not found in CF deployment")
+	return "", fmt.Errorf("router instance not found in CF deployment")
 }
 
 // getCFSystemDomain determines the CF system domain from the deployment
 func getCFSystemDomain() (string, error) {
-	// Try to get from the CF deployment's haproxy instance
+	// Try to get from the CF deployment's router instance
 	cmd := exec.Command("bosh", "-d", "cf", "instances", "--json")
 	output, err := cmd.Output()
 	if err != nil {
@@ -894,10 +910,10 @@ func getCFSystemDomain() (string, error) {
 		return "", err
 	}
 
-	// Find haproxy instance IP
+	// Find router instance IP
 	for _, table := range result.Tables {
 		for _, row := range table.Rows {
-			if strings.HasPrefix(row.Instance, "haproxy/") {
+			if strings.HasPrefix(row.Instance, "router/") {
 				ip := strings.TrimSpace(strings.Split(row.IPs, "\n")[0])
 				if ip != "" {
 					return fmt.Sprintf("%s.sslip.io", ip), nil
@@ -906,7 +922,7 @@ func getCFSystemDomain() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("haproxy instance not found in CF deployment")
+	return "", fmt.Errorf("router instance not found in CF deployment")
 }
 
 // extractManifestVariables extracts variable names from a manifest using bosh interpolate
