@@ -14,10 +14,10 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v55.2.0
-      sha: 80df2f3e8d30d234e38a9dcf38fb703806569b72
+      commitTitle: Update cf-deployment manifest version to v55.3.0
+      sha: 5f5715da56c5e11dd384fa96113162e8cacd1856
       tags:
-      - v55.2.0
+      - v55.3.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
