@@ -308,26 +308,8 @@ func TestControlGroupDoesNotContainSSHProxy(t *testing.T) {
 	}
 }
 
-// TestComputeGroupContainsFileServer asserts file_server is extracted from the api
-// source IG and placed in the compute group (avoids port 8080/8443 conflict with
-// log-cache and UAA which also land in control).
-func TestComputeGroupContainsFileServer(t *testing.T) {
-	input := buildInterpolatedManifest(t)
-	out, err := consolidate.ConsolidateInstanceGroups(input)
-	if err != nil {
-		t.Fatalf("ConsolidateInstanceGroups() error = %v", err)
-	}
-	ig := findInstanceGroup(t, out, "compute")
-	if ig == nil {
-		t.Fatal("compute instance group not found")
-	}
-	if !containsJob(ig, "file_server") {
-		t.Errorf("compute group must contain file_server job, got: %v", jobNames(ig))
-	}
-}
-
-// TestControlGroupDoesNotContainFileServer asserts file_server is NOT in control.
-func TestControlGroupDoesNotContainFileServer(t *testing.T) {
+// TestControlGroupContainsFileServer asserts file_server is in the control group.
+func TestControlGroupContainsFileServer(t *testing.T) {
 	input := buildInterpolatedManifest(t)
 	out, err := consolidate.ConsolidateInstanceGroups(input)
 	if err != nil {
@@ -337,8 +319,24 @@ func TestControlGroupDoesNotContainFileServer(t *testing.T) {
 	if ig == nil {
 		t.Fatal("control instance group not found")
 	}
+	if !containsJob(ig, "file_server") {
+		t.Errorf("control group must contain file_server job, got: %v", jobNames(ig))
+	}
+}
+
+// TestComputeGroupDoesNotContainFileServer asserts file_server is NOT in compute.
+func TestComputeGroupDoesNotContainFileServer(t *testing.T) {
+	input := buildInterpolatedManifest(t)
+	out, err := consolidate.ConsolidateInstanceGroups(input)
+	if err != nil {
+		t.Fatalf("ConsolidateInstanceGroups() error = %v", err)
+	}
+	ig := findInstanceGroup(t, out, "compute")
+	if ig == nil {
+		t.Fatal("compute instance group not found")
+	}
 	if containsJob(ig, "file_server") {
-		t.Error("control group must NOT contain file_server (it belongs in compute)")
+		t.Error("compute group must NOT contain file_server (it belongs in control)")
 	}
 }
 
@@ -709,7 +707,7 @@ func TestAddonAliasesRewritten(t *testing.T) {
 		"blobstore.service.cf.internal":   "blobstore",
 		"doppler.service.cf.internal":     "blobstore", // doppler moved to blobstore (avoids port 8082 conflict)
 		"gorouter.service.cf.internal":    "router",
-		"file-server.service.cf.internal": "compute", // file_server extracted from api → compute (avoids port 8080/8443 conflict with log-cache/UAA)
+		"file-server.service.cf.internal": "control", // file_server stays in control (api → control)
 	}
 
 	var dnsAliasJob *struct {

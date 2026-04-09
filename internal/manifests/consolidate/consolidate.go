@@ -32,6 +32,9 @@ var sourceMapping = map[string]targetGroup{
 	// NOTE: "doppler" is in blobstore (not control) because both doppler and
 	// reverse_log_proxy (from log-api) default to port 8082; keeping them on
 	// separate VMs avoids the bind conflict.
+	// NOTE: file_server (in the api IG) binds 0.0.0.0:8443 by default, which
+	// conflicts with UAA. This is resolved via an ops file patch
+	// (fix-colocation-port-conflicts.yml) that moves file_server to 0.0.0.0:8447.
 	"diego-api":              groupControl,
 	"uaa":                    groupControl,
 	"api":                    groupControl,
@@ -70,17 +73,6 @@ var sourceMapping = map[string]targetGroup{
 // source instance group and placed directly into the router target group.
 var jobsExtractedFromScheduler = map[string]bool{
 	"ssh_proxy": true,
-}
-
-// jobsExtractedFromAPI lists job names that must be moved out of the api source
-// instance group and placed directly into the compute target group.
-// file_server is extracted here because it binds 0.0.0.0:8080 and 0.0.0.0:8443 by
-// default, which conflicts with UAA (also port 8443) when both land in control.
-// file_server is self-contained (serves lifecycle binaries baked into its own packages)
-// and has no dependency on the blobstore; compute is the right home since rep (the
-// consumer) lives there, and rep does not need file_server at startup.
-var jobsExtractedFromAPI = map[string]bool{
-	"file_server": true,
 }
 
 // groupSpec defines the properties of a consolidated instance group.
@@ -357,96 +349,10 @@ func buildConsolidated(sources []InstanceGroup) ([]InstanceGroup, error) {
 			continue
 		}
 
-		// Handle api specially: extract file_server to compute.
-		if src.Name == "api" {
-			computeState := state[groupCompute]
-			for _, job := range src.Jobs {
-				if jobsExtractedFromAPI[job.Name] {
-					computeState.addJob(job)
-				} else {
-					s.addJob(job)
-				}
-			}
-			continue
-		}
-
 		// All other source IGs: merge jobs into the consolidated group.
 		// This includes errand source IGs (smoke-tests, rotate-cc-database-key):
 		// their jobs are merged into the long-running consolidated VM so they run
 		// as persistent co-located processes, not one-off errand runs.
-		for _, job := range src.Jobs {
-			s.addJob(job)
-		}
-	}
-
-	// Errand IGs are passed through as-is (not merged into long-running groups).
-	var passThroughErrands []InstanceGroup
-
-	for _, src := range sources {
-		tg := sourceMapping[src.Name]
-		if tg == "" {
-			// Explicitly removed (e.g. haproxy).
-			continue
-		}
-
-		// Errand IGs cannot be merged into long-running groups. Pass them through
-		// unchanged so their lifecycle:errand field is preserved.
-		if src.Lifecycle == "errand" {
-			passThroughErrands = append(passThroughErrands, src)
-			continue
-		}
-
-		s := state[tg]
-
-		// Collect persistent disk info for database/blobstore groups.
-		if src.PersistentDiskType != "" {
-			s.hasPersistentDisk = true
-			// Use the first disk type we encounter (they should all be compatible
-			// within a group, or the ops file author needs to reconcile).
-			if s.persistentDisk == "" {
-				s.persistentDisk = src.PersistentDiskType
-			}
-		}
-
-		// Collect vm_extensions (e.g. 100GB_ephemeral_disk on diego-cell).
-		for _, ext := range src.VMExtensions {
-			s.addVMExtension(ext)
-		}
-
-		// Collect static IPs from network configs (for router).
-		for _, net := range src.Networks {
-			if len(net.StaticIPs) > 0 {
-				s.staticIPs = append(s.staticIPs, net.StaticIPs...)
-			}
-		}
-
-		// Handle scheduler specially: extract ssh_proxy to router.
-		if src.Name == "scheduler" {
-			routerState := state[groupRouter]
-			for _, job := range src.Jobs {
-				if jobsExtractedFromScheduler[job.Name] {
-					routerState.addJob(job)
-				} else {
-					s.addJob(job)
-				}
-			}
-			continue
-		}
-
-		// Handle api specially: extract file_server to compute.
-		if src.Name == "api" {
-			computeState := state[groupCompute]
-			for _, job := range src.Jobs {
-				if jobsExtractedFromAPI[job.Name] {
-					computeState.addJob(job)
-				} else {
-					s.addJob(job)
-				}
-			}
-			continue
-		}
-
-		// All other groups: append jobs directly, deduplicating by job name.
 		for _, job := range src.Jobs {
 			s.addJob(job)
 		}
@@ -549,8 +455,7 @@ func filterHaproxyReleases(releases []interface{}) []interface{} {
 // job was extracted from its source IG into a different consolidated group (e.g.
 // ssh_proxy is extracted from scheduler→router, but scheduler itself maps to control).
 var domainOverrides = map[string]targetGroup{
-	"ssh-proxy.service.cf.internal":   groupRouter,
-	"file-server.service.cf.internal": groupCompute,
+	"ssh-proxy.service.cf.internal": groupRouter,
 }
 
 // rewriteAddonAliases rewrites the bosh-dns-aliases addon so that every alias
