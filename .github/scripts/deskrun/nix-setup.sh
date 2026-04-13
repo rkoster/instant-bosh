@@ -194,21 +194,18 @@ mount --bind /nix/store-host /nix/store
 log_success "Host store mounted"
 
 # Mount daemon socket
-log_info "Mounting daemon socket..."
-log_info "DEBUG: Checking socket file before mount..."
+log_info "Setting up daemon socket..."
+log_info "DEBUG: Checking socket file from host..."
 ls -la /nix/var/nix/daemon-socket-host/ || log_warn "Cannot list daemon-socket-host directory"
 
-# Create parent directory for mount point
-mkdir -p /nix/var/nix
-# Remove any existing daemon-socket directory to ensure clean mount
-rm -rf /nix/var/nix/daemon-socket
-# Create empty directory for mount point
+# The ARC runner mounts the socket FILE directly at /nix/var/nix/daemon-socket-host/socket
+# We need to create the target directory and symlink the socket file
 mkdir -p /nix/var/nix/daemon-socket
+ln -sf /nix/var/nix/daemon-socket-host/socket /nix/var/nix/daemon-socket/socket
 
-mount --bind /nix/var/nix/daemon-socket-host /nix/var/nix/daemon-socket
-log_success "Daemon socket mounted"
-log_info "DEBUG: Checking socket file after mount..."
-ls -la /nix/var/nix/daemon-socket/ || log_warn "Cannot list daemon-socket directory after mount"
+log_success "Daemon socket symlinked"
+log_info "DEBUG: Checking socket symlink..."
+ls -la /nix/var/nix/daemon-socket/ || log_warn "Cannot list daemon-socket directory"
 
 # Find nix-env in host store (faster than find)
 log_info "Finding nix in host store..."
