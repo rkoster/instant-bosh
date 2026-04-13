@@ -114,15 +114,17 @@ for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sor
 done
 
 # Install busybox to /bin for persistence across GitHub Actions steps
+# This is CRITICAL because after we bind-mount /nix/store-host to /nix/store,
+# the original busybox from Nixery will be inaccessible. We need a copy in /bin.
 log_info "Installing busybox to /bin..."
-if ! cp "$BOOTSTRAP_DIR/busybox" /bin/busybox 2>/dev/null; then
-    log_warn "Failed to install busybox to /bin (permission or filesystem issue?). Continuing without /bin busybox."
-fi
+cp "$BOOTSTRAP_DIR/busybox" /bin/busybox
+chmod +x /bin/busybox
+
+# Create symlinks in /bin (not just /tmp/bootstrap/bin)
 for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
-    if ! ln -sf busybox "/bin/$cmd" 2>/dev/null; then
-        log_warn "Failed to create busybox symlink for '$cmd' in /bin. Continuing without this /bin command."
-    fi
+    ln -sf busybox "/bin/$cmd"
 done
+log_success "Busybox installed to /bin"
 
 # Copy SSL CA bundle
 log_info "Copying SSL certificates..."
@@ -135,8 +137,8 @@ else
     log_warn "SSL CA bundle not found - TLS may not work"
 fi
 
-# Add bootstrap dir to PATH
-export PATH="$BOOTSTRAP_DIR:$PATH"
+# Add bootstrap dir to PATH (but /bin will take precedence after mount)
+export PATH="/bin:$BOOTSTRAP_DIR:$PATH"
 log_success "Phase 0 complete - bootstrap environment ready"
 
 # ============================================================================
