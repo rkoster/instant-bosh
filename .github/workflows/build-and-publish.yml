@@ -14,6 +14,13 @@ on:
       - 'Makefile'
       - 'LICENSE'
       - '.github/workflows/build-and-publish.yml'
+  workflow_run:
+    workflows: ["Auto Bump Dependencies"]
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch: # Allow manual trigger
 
 env:
   REGISTRY: ghcr.io
@@ -21,6 +28,8 @@ env:
 
 jobs:
   build-and-push:
+    # Only run if triggered by push/workflow_dispatch, or if triggered by workflow_run and it was successful
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: instant-bosh-cached-privileged-kubernetes
     timeout-minutes: 60
     container:
