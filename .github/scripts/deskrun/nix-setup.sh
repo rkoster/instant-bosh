@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # nix-setup.sh - Core Nix Bootstrap
 # Purpose: Bootstrap nix/devbox environment using host's nix store (deskrun pattern)
 
@@ -33,7 +33,7 @@ fail() {
 }
 
 # ============================================================================
-# Phase 0: Copy Busybox and SSL Certificates Before Mounting
+# Phase 0: Get Static Busybox (works after /nix/store mount)
 # ============================================================================
 log_info "Phase 0: Preparing bootstrap environment..."
 
@@ -41,34 +41,59 @@ log_info "Phase 0: Preparing bootstrap environment..."
 BOOTSTRAP_DIR="/tmp/bootstrap/bin"
 mkdir -p "$BOOTSTRAP_DIR"
 
-# Find and copy busybox from Nixery's /nix/store
-log_info "Finding busybox in /nix/store..."
-BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
-if [ -z "$BUSYBOX_PATH" ]; then
-    fail "busybox not found in /nix/store - ensure using Nixery image with busybox"
+# Download static busybox from Alpine (doesn't depend on /nix/store)
+# This is needed because Nixery binaries depend on libraries in /nix/store,
+# which becomes inaccessible after we bind-mount /nix/store-host over it
+log_info "Downloading static busybox from Alpine..."
+BUSYBOX_URL="https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
+if command -v curl >/dev/null 2>&1; then
+    curl -fsSL -o "$BOOTSTRAP_DIR/busybox" "$BUSYBOX_URL" || {
+        log_warn "Failed to download busybox, falling back to Nix version"
+        BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
+        if [ -n "$BUSYBOX_PATH" ]; then
+            cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
+        else
+            fail "No busybox available"
+        fi
+    }
+elif command -v wget >/dev/null 2>&1; then
+    wget -q -O "$BOOTSTRAP_DIR/busybox" "$BUSYBOX_URL" || {
+        log_warn "Failed to download busybox, falling back to Nix version"
+        BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
+        if [ -n "$BUSYBOX_PATH" ]; then
+            cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
+        else
+            fail "No busybox available"
+        fi
+    }
+else
+    log_info "No curl/wget, using Nix busybox"
+    BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
+    if [ -n "$BUSYBOX_PATH" ]; then
+        cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
+    else
+        fail "No busybox available"
+    fi
 fi
 
-log_info "Copying busybox to $BOOTSTRAP_DIR..."
-# Use -L to follow symlinks and copy the actual binary
-cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
 chmod +x "$BOOTSTRAP_DIR/busybox"
 
 # Create symlinks for essential commands
 log_info "Creating busybox symlinks..."
-for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
+for cmd in sh mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
     ln -sf busybox "$BOOTSTRAP_DIR/$cmd"
 done
 
-# Install busybox to /bin for persistence across GitHub Actions steps
+# Install busybox to /bin so it works after /nix/store is mounted
 log_info "Installing busybox to /bin..."
-if ! cp "$BOOTSTRAP_DIR/busybox" /bin/busybox 2>/dev/null; then
-    log_warn "Failed to install busybox to /bin (permission or filesystem issue?). Continuing without /bin busybox."
-fi
-for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
-    if ! ln -sf busybox "/bin/$cmd" 2>/dev/null; then
-        log_warn "Failed to create busybox symlink for '$cmd' in /bin. Continuing without this /bin command."
-    fi
+cp "$BOOTSTRAP_DIR/busybox" /bin/busybox
+chmod +x /bin/busybox
+for cmd in sh mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
+    ln -sf busybox "/bin/$cmd"
 done
+# Also create ash symlink (busybox sh is actually ash)
+ln -sf busybox "/bin/ash"
+log_success "Busybox installed to /bin"
 
 # Copy SSL CA bundle
 log_info "Copying SSL certificates..."
@@ -81,8 +106,8 @@ else
     log_warn "SSL CA bundle not found - TLS may not work"
 fi
 
-# Add bootstrap dir to PATH
-export PATH="$BOOTSTRAP_DIR:$PATH"
+# Add bootstrap dir to PATH (but /bin will take precedence after mount)
+export PATH="/bin:$BOOTSTRAP_DIR:$PATH"
 log_success "Phase 0 complete - bootstrap environment ready"
 
 # ============================================================================
@@ -137,10 +162,13 @@ mount --bind /nix/store-host /nix/store
 log_success "Host store mounted"
 
 # Mount daemon socket
-log_info "Mounting daemon socket..."
+# Note: The ARC runner mounts the socket FILE directly at /nix/var/nix/daemon-socket-host/socket
+# Using bind mount on the directory would convert the socket from type 'srw-rw-rw-' to '-rw-r--r--'
+# Instead, we create a symlink to preserve the socket type
+log_info "Setting up daemon socket..."
 mkdir -p /nix/var/nix/daemon-socket
-mount --bind /nix/var/nix/daemon-socket-host /nix/var/nix/daemon-socket
-log_success "Daemon socket mounted"
+ln -sf /nix/var/nix/daemon-socket-host/socket /nix/var/nix/daemon-socket/socket
+log_success "Daemon socket symlinked"
 
 # Find nix-env in host store (faster than find)
 log_info "Finding nix in host store..."

@@ -30,8 +30,8 @@ directories:
   path: internal/manifests/bosh-deployment
 - contents:
   - git:
-      commitTitle: Update vendorHash in flake.nix
-      sha: 1038e23c452c7f8b4e9db190f321f2470016783c
+      commitTitle: 'Merge pull request #38 from rkoster/fix/nixery-container-compatibility...'
+      sha: 245767218d085099b99fb3aa4fadb0579e703a55
     path: .
   path: .github/scripts/deskrun
 kind: LockConfig
