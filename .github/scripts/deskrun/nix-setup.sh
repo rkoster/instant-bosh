@@ -197,7 +197,14 @@ log_success "Host store mounted"
 log_info "Mounting daemon socket..."
 log_info "DEBUG: Checking socket file before mount..."
 ls -la /nix/var/nix/daemon-socket-host/ || log_warn "Cannot list daemon-socket-host directory"
+
+# Create parent directory for mount point
+mkdir -p /nix/var/nix
+# Remove any existing daemon-socket directory to ensure clean mount
+rm -rf /nix/var/nix/daemon-socket
+# Create empty directory for mount point
 mkdir -p /nix/var/nix/daemon-socket
+
 mount --bind /nix/var/nix/daemon-socket-host /nix/var/nix/daemon-socket
 log_success "Daemon socket mounted"
 log_info "DEBUG: Checking socket file after mount..."
