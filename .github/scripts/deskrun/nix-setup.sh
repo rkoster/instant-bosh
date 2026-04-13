@@ -195,9 +195,13 @@ log_success "Host store mounted"
 
 # Mount daemon socket
 log_info "Mounting daemon socket..."
+log_info "DEBUG: Checking socket file before mount..."
+ls -la /nix/var/nix/daemon-socket-host/ || log_warn "Cannot list daemon-socket-host directory"
 mkdir -p /nix/var/nix/daemon-socket
 mount --bind /nix/var/nix/daemon-socket-host /nix/var/nix/daemon-socket
 log_success "Daemon socket mounted"
+log_info "DEBUG: Checking socket file after mount..."
+ls -la /nix/var/nix/daemon-socket/ || log_warn "Cannot list daemon-socket directory after mount"
 
 # Find nix-env in host store (faster than find)
 log_info "Finding nix in host store..."
@@ -236,10 +240,16 @@ log_success "Environment variables configured"
 
 # Test nix is working
 log_info "Testing nix connection..."
+log_info "DEBUG: Socket path: $NIX_DAEMON_SOCKET_PATH"
+log_info "DEBUG: Socket exists: $(test -S /nix/var/nix/daemon-socket/socket && echo 'yes' || echo 'no')"
+log_info "DEBUG: Socket permissions: $(ls -l /nix/var/nix/daemon-socket/socket 2>&1 || echo 'not found')"
 if nix-env --version >/dev/null 2>&1; then
     log_success "Nix is working: $(nix-env --version)"
 else
-    fail "Nix test failed - nix-env not working"
+    log_error "Nix test failed - nix-env not working"
+    log_error "DEBUG: Attempting nix-env with verbose output:"
+    nix-env --version 2>&1 || true
+    fail "Nix daemon connection failed"
 fi
 
 log_success "Phase 2 complete - nix configured and tested"
