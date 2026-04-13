@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 # install-devbox.sh - Devbox Installation
 # Purpose: Install devbox via nix profile
+# Note: Changed from bash to sh for busybox compatibility
 
 set -e
 

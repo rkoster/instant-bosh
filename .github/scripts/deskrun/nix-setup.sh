@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 # nix-setup.sh - Core Nix Bootstrap
 # Purpose: Bootstrap nix/devbox environment using host's nix store (deskrun pattern)
+# Note: Changed from bash to sh for busybox compatibility
 
 set -e
 
@@ -109,19 +110,22 @@ fi
 
 # Create symlinks for essential commands
 log_info "Creating busybox symlinks..."
-for cmd in sh bash mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
+for cmd in sh mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
     ln -sf busybox "$BOOTSTRAP_DIR/$cmd"
 done
 
 # Install to /bin so it works after /nix/store is mounted
-# This includes sh and bash so GitHub Actions can execute scripts
+# Note: We only symlink 'sh', not 'bash', because busybox doesn't have full bash support
+# Scripts with #!/bin/bash will need to be changed to #!/bin/sh or #!/bin/ash
 log_info "Installing busybox to /bin..."
 cp "$BOOTSTRAP_DIR/busybox" /bin/busybox
 chmod +x /bin/busybox
-for cmd in sh bash mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
+for cmd in sh mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
     ln -sf busybox "/bin/$cmd"
 done
-log_success "Busybox installed to /bin (including sh and bash)"
+# Also create ash symlink (busybox sh is actually ash)
+ln -sf busybox "/bin/ash"
+log_success "Busybox installed to /bin (sh, ash, and coreutils)"
 
 # Copy SSL CA bundle
 log_info "Copying SSL certificates..."
