@@ -51,6 +51,8 @@ else
 fi
 log_info "DEBUG: Current working directory: $(pwd)"
 log_info "DEBUG: Available commands: $(ls /bin 2>/dev/null | wc -l) in /bin, $(ls /usr/bin 2>/dev/null | wc -l) in /usr/bin"
+log_info "DEBUG: Commands in /bin:"
+ls /bin 2>/dev/null | head -20 || echo "Cannot list /bin"
 log_info "DEBUG: ====================================="
 
 # Create bootstrap directory
@@ -98,6 +100,16 @@ ls -lh "$BOOTSTRAP_DIR/busybox"
 log_info "DEBUG: Testing busybox execution..."
 if "$BOOTSTRAP_DIR/busybox" --help >/dev/null 2>&1; then
     log_success "DEBUG: Busybox executes successfully"
+    # Check what interpreter/libs it needs
+    if command -v ldd >/dev/null 2>&1; then
+        log_info "DEBUG: Busybox library dependencies:"
+        ldd "$BOOTSTRAP_DIR/busybox" 2>&1 | head -10
+    fi
+    # Check for interpreter
+    if command -v readelf >/dev/null 2>&1; then
+        log_info "DEBUG: Busybox interpreter:"
+        readelf -l "$BOOTSTRAP_DIR/busybox" 2>&1 | grep interpreter || log_info "DEBUG: No interpreter section found"
+    fi
 else
     log_error "DEBUG: Busybox execution failed! Exit code: $?"
     log_error "DEBUG: This indicates an architecture mismatch"
