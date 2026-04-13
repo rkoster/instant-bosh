@@ -109,18 +109,19 @@ fi
 
 # Create symlinks for essential commands
 log_info "Creating busybox symlinks..."
-for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq sh; do
+for cmd in sh bash mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
     ln -sf busybox "$BOOTSTRAP_DIR/$cmd"
 done
 
 # Install to /bin so it works after /nix/store is mounted
+# This includes sh and bash so GitHub Actions can execute scripts
 log_info "Installing busybox to /bin..."
 cp "$BOOTSTRAP_DIR/busybox" /bin/busybox
 chmod +x /bin/busybox
-for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq sh; do
+for cmd in sh bash mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
     ln -sf busybox "/bin/$cmd"
 done
-log_success "Busybox installed to /bin"
+log_success "Busybox installed to /bin (including sh and bash)"
 
 # Copy SSL CA bundle
 log_info "Copying SSL certificates..."
