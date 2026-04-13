@@ -37,21 +37,75 @@ fail() {
 # ============================================================================
 log_info "Phase 0: Preparing bootstrap environment..."
 
+# Debug: Show container environment info
+log_info "DEBUG: ===== Container Environment Info ====="
+log_info "DEBUG: Architecture: $(uname -m)"
+log_info "DEBUG: Kernel: $(uname -r)"
+log_info "DEBUG: OS Info:"
+if [ -f /etc/os-release ]; then
+    cat /etc/os-release | head -3
+elif [ -f /etc/alpine-release ]; then
+    echo "Alpine: $(cat /etc/alpine-release)"
+else
+    echo "Unknown OS"
+fi
+log_info "DEBUG: Current working directory: $(pwd)"
+log_info "DEBUG: Available commands: $(ls /bin 2>/dev/null | wc -l) in /bin, $(ls /usr/bin 2>/dev/null | wc -l) in /usr/bin"
+log_info "DEBUG: ====================================="
+
 # Create bootstrap directory
 BOOTSTRAP_DIR="/tmp/bootstrap/bin"
 mkdir -p "$BOOTSTRAP_DIR"
 
 # Find and copy busybox from Nixery's /nix/store
 log_info "Finding busybox in /nix/store..."
+
+# Debug: Show system architecture and available busybox packages
+log_info "DEBUG: System architecture: $(uname -m)"
+log_info "DEBUG: Available busybox packages in /nix/store:"
+ls -d /nix/store/*-busybox-* 2>/dev/null | head -5 || log_warn "No busybox packages found"
+
 BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
 if [ -z "$BUSYBOX_PATH" ]; then
     fail "busybox not found in /nix/store - ensure using Nixery image with busybox"
+fi
+
+log_info "Found busybox at: $BUSYBOX_PATH"
+
+# Debug: Check if busybox is a symlink and what it points to
+log_info "DEBUG: Busybox file info:"
+ls -lh "$BUSYBOX_PATH"
+
+# Debug: Try to get file type/architecture information
+if command -v file >/dev/null 2>&1; then
+    log_info "DEBUG: Busybox architecture: $(file "$BUSYBOX_PATH")"
+elif command -v readelf >/dev/null 2>&1; then
+    log_info "DEBUG: Busybox ELF info: $(readelf -h "$BUSYBOX_PATH" 2>/dev/null | grep -E 'Class|Machine' || echo 'readelf failed')"
+else
+    log_warn "DEBUG: Neither 'file' nor 'readelf' available to check busybox architecture"
 fi
 
 log_info "Copying busybox to $BOOTSTRAP_DIR..."
 # Use -L to follow symlinks and copy the actual binary
 cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
 chmod +x "$BOOTSTRAP_DIR/busybox"
+
+# Debug: Verify the copied binary
+log_info "DEBUG: Copied busybox info:"
+ls -lh "$BOOTSTRAP_DIR/busybox"
+
+# Debug: Try to execute busybox to check for immediate errors
+log_info "DEBUG: Testing busybox execution..."
+if "$BOOTSTRAP_DIR/busybox" --help >/dev/null 2>&1; then
+    log_success "DEBUG: Busybox executes successfully"
+else
+    log_error "DEBUG: Busybox execution failed! Exit code: $?"
+    log_error "DEBUG: This indicates an architecture mismatch"
+    # Try to get more info with ldd if available
+    if command -v ldd >/dev/null 2>&1; then
+        log_info "DEBUG: Busybox dependencies: $(ldd "$BOOTSTRAP_DIR/busybox" 2>&1)"
+    fi
+fi
 
 # Create symlinks for essential commands
 log_info "Creating busybox symlinks..."
@@ -138,6 +192,19 @@ log_success "Host store mounted"
 
 # Mount daemon socket
 log_info "Mounting daemon socket..."
+
+# Debug: Verify PATH and available commands before mkdir
+log_info "DEBUG: Current PATH: $PATH"
+log_info "DEBUG: Which mkdir: $(command -v mkdir || echo 'mkdir not found in PATH')"
+log_info "DEBUG: Testing mkdir from bootstrap..."
+if command -v mkdir >/dev/null 2>&1; then
+    log_success "DEBUG: mkdir command is available"
+else
+    log_error "DEBUG: mkdir command NOT found in PATH!"
+fi
+
+# Debug: Try to execute mkdir directly
+log_info "DEBUG: Attempting to create /nix/var/nix/daemon-socket..."
 mkdir -p /nix/var/nix/daemon-socket
 mount --bind /nix/var/nix/daemon-socket-host /nix/var/nix/daemon-socket
 log_success "Daemon socket mounted"
