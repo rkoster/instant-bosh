@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # install-docker.sh - Docker CLI Installation
 # Purpose: Install docker CLI via nix profile for use with host Docker daemon
 
