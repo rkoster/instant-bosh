@@ -26,6 +26,18 @@
         #!/bin/bash
         set -e
         
+        # On macOS Apple Silicon, mount binfmt_misc for multi-arch support
+        # This is required for running x86_64 containers on ARM64 hosts
+        if [ -d /proc/sys/fs/binfmt_misc ] && [ "$(uname -s)" = "Linux" ]; then
+          # Check if running on macOS (Docker Desktop) by looking for characteristic files
+          if grep -q "Mac" /proc/version 2>/dev/null || [ -f /.dockerenv ]; then
+            # Check if binfmt_misc is not already mounted
+            if ! mountpoint -q /proc/sys/fs/binfmt_misc 2>/dev/null; then
+              mount -t binfmt_misc binfmt_misc /proc/sys/fs/binfmt_misc || true
+            fi
+          fi
+        fi
+        
         # Fix Docker socket permissions so vcap user can access it
         # The director worker processes run as the vcap user and need access to
         # the Docker socket for CPI operations.
