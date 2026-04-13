@@ -33,7 +33,7 @@ fail() {
 }
 
 # ============================================================================
-# Phase 0: Copy Busybox and SSL Certificates Before Mounting
+# Phase 0: Get Static Busybox (Alpine-based, works after /nix/store mount)
 # ============================================================================
 log_info "Phase 0: Preparing bootstrap environment..."
 
@@ -59,81 +59,65 @@ log_info "DEBUG: ====================================="
 BOOTSTRAP_DIR="/tmp/bootstrap/bin"
 mkdir -p "$BOOTSTRAP_DIR"
 
-# Find and copy busybox from Nixery's /nix/store
-log_info "Finding busybox in /nix/store..."
-
-# Debug: Show system architecture and available busybox packages
-log_info "DEBUG: System architecture: $(uname -m)"
-log_info "DEBUG: Available busybox packages in /nix/store:"
-ls -d /nix/store/*-busybox-* 2>/dev/null | head -5 || log_warn "No busybox packages found"
-
-BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
-if [ -z "$BUSYBOX_PATH" ]; then
-    fail "busybox not found in /nix/store - ensure using Nixery image with busybox"
-fi
-
-log_info "Found busybox at: $BUSYBOX_PATH"
-
-# Debug: Check if busybox is a symlink and what it points to
-log_info "DEBUG: Busybox file info:"
-ls -lh "$BUSYBOX_PATH"
-
-# Debug: Try to get file type/architecture information
-if command -v file >/dev/null 2>&1; then
-    log_info "DEBUG: Busybox architecture: $(file "$BUSYBOX_PATH")"
-elif command -v readelf >/dev/null 2>&1; then
-    log_info "DEBUG: Busybox ELF info: $(readelf -h "$BUSYBOX_PATH" 2>/dev/null | grep -E 'Class|Machine' || echo 'readelf failed')"
+# Download static busybox from Alpine (doesn't depend on /nix/store)
+log_info "Downloading static busybox from Alpine..."
+BUSYBOX_URL="https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox"
+if command -v curl >/dev/null 2>&1; then
+    curl -L -o "$BOOTSTRAP_DIR/busybox" "$BUSYBOX_URL" || {
+        log_warn "Failed to download busybox, falling back to Nix version"
+        # Fallback to Nix busybox
+        BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
+        if [ -n "$BUSYBOX_PATH" ]; then
+            cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
+        else
+            fail "No busybox available"
+        fi
+    }
+elif command -v wget >/dev/null 2>&1; then
+    wget -O "$BOOTSTRAP_DIR/busybox" "$BUSYBOX_URL" || {
+        log_warn "Failed to download busybox, falling back to Nix version"
+        # Fallback to Nix busybox
+        BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
+        if [ -n "$BUSYBOX_PATH" ]; then
+            cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
+        else
+            fail "No busybox available"
+        fi
+    }
 else
-    log_warn "DEBUG: Neither 'file' nor 'readelf' available to check busybox architecture"
+    log_info "No curl/wget, using Nix busybox"
+    BUSYBOX_PATH=$(ls -d /nix/store/*-busybox-*/bin/busybox 2>/dev/null | head -n 1)
+    if [ -n "$BUSYBOX_PATH" ]; then
+        cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
+    else
+        fail "No busybox available"
+    fi
 fi
 
-log_info "Copying busybox to $BOOTSTRAP_DIR..."
-# Use -L to follow symlinks and copy the actual binary
-cp -L "$BUSYBOX_PATH" "$BOOTSTRAP_DIR/busybox"
 chmod +x "$BOOTSTRAP_DIR/busybox"
 
-# Debug: Verify the copied binary
-log_info "DEBUG: Copied busybox info:"
+log_info "DEBUG: Busybox info:"
 ls -lh "$BOOTSTRAP_DIR/busybox"
 
-# Debug: Try to execute busybox to check for immediate errors
+# Test busybox
 log_info "DEBUG: Testing busybox execution..."
 if "$BOOTSTRAP_DIR/busybox" --help >/dev/null 2>&1; then
     log_success "DEBUG: Busybox executes successfully"
-    # Check what interpreter/libs it needs
-    if command -v ldd >/dev/null 2>&1; then
-        log_info "DEBUG: Busybox library dependencies:"
-        ldd "$BOOTSTRAP_DIR/busybox" 2>&1 | head -10
-    fi
-    # Check for interpreter
-    if command -v readelf >/dev/null 2>&1; then
-        log_info "DEBUG: Busybox interpreter:"
-        readelf -l "$BOOTSTRAP_DIR/busybox" 2>&1 | grep interpreter || log_info "DEBUG: No interpreter section found"
-    fi
 else
-    log_error "DEBUG: Busybox execution failed! Exit code: $?"
-    log_error "DEBUG: This indicates an architecture mismatch"
-    # Try to get more info with ldd if available
-    if command -v ldd >/dev/null 2>&1; then
-        log_info "DEBUG: Busybox dependencies: $(ldd "$BOOTSTRAP_DIR/busybox" 2>&1)"
-    fi
+    log_error "DEBUG: Busybox execution failed!"
 fi
 
 # Create symlinks for essential commands
 log_info "Creating busybox symlinks..."
-for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
+for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq sh; do
     ln -sf busybox "$BOOTSTRAP_DIR/$cmd"
 done
 
-# Install busybox to /bin for persistence across GitHub Actions steps
-# This is CRITICAL because after we bind-mount /nix/store-host to /nix/store,
-# the original busybox from Nixery will be inaccessible. We need a copy in /bin.
+# Install to /bin so it works after /nix/store is mounted
 log_info "Installing busybox to /bin..."
 cp "$BOOTSTRAP_DIR/busybox" /bin/busybox
 chmod +x /bin/busybox
-
-# Create symlinks in /bin (not just /tmp/bootstrap/bin)
-for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq; do
+for cmd in mount mkdir ls find cat grep head tail dirname basename wc tr cut sort uniq sh; do
     ln -sf busybox "/bin/$cmd"
 done
 log_success "Busybox installed to /bin"
@@ -206,19 +190,6 @@ log_success "Host store mounted"
 
 # Mount daemon socket
 log_info "Mounting daemon socket..."
-
-# Debug: Verify PATH and available commands before mkdir
-log_info "DEBUG: Current PATH: $PATH"
-log_info "DEBUG: Which mkdir: $(command -v mkdir || echo 'mkdir not found in PATH')"
-log_info "DEBUG: Testing mkdir from bootstrap..."
-if command -v mkdir >/dev/null 2>&1; then
-    log_success "DEBUG: mkdir command is available"
-else
-    log_error "DEBUG: mkdir command NOT found in PATH!"
-fi
-
-# Debug: Try to execute mkdir directly
-log_info "DEBUG: Attempting to create /nix/var/nix/daemon-socket..."
 mkdir -p /nix/var/nix/daemon-socket
 mount --bind /nix/var/nix/daemon-socket-host /nix/var/nix/daemon-socket
 log_success "Daemon socket mounted"
