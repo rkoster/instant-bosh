@@ -997,3 +997,89 @@ func deleteDeploymentCredentials(ui UI, deploymentName string, variableNames []s
 	ui.PrintLinef("Credentials deleted: %d, not found: %d, failed: %d", deleted, notFound, failed)
 	return nil
 }
+
+// CFCatsConfigAction generates and outputs CATs (CF Acceptance Tests) configuration to stdout
+func CFCatsConfigAction(ui UI) error {
+	// Get config-server client
+	client, err := configserver.NewClientFromEnv()
+	if err != nil {
+		return err
+	}
+
+	// Get system domain from the deployment
+	systemDomain, err := getCFSystemDomain()
+	if err != nil {
+		return fmt.Errorf("failed to get CF system domain: %w\nIs CF deployed? Run 'ibosh cf deploy' first.", err)
+	}
+
+	// Get admin password from config-server
+	// Config-server credentials are stored as /<director-name>/<deployment-name>/<variable-name>
+	// Director name is "instant-bosh"
+	adminCred, err := client.Get("/instant-bosh/cf/cf_admin_password")
+	if err != nil {
+		// Try alternate credential name
+		adminCred, err = client.Get("/instant-bosh/cf/uaa_admin_client_secret")
+		if err != nil {
+			return fmt.Errorf("failed to get CF admin credentials from config-server: %w", err)
+		}
+	}
+
+	adminPassword, ok := adminCred.Value.(string)
+	if !ok {
+		return fmt.Errorf("unexpected credential type for admin password")
+	}
+
+	// Build cats-config based on the example config structure
+	catsConfig := map[string]interface{}{
+		"api":                                fmt.Sprintf("api.%s", systemDomain),
+		"apps_domain":                        systemDomain,
+		"admin_user":                         "admin",
+		"admin_password":                     adminPassword,
+		"credhub_mode":                       "assisted",
+		"credhub_client":                     "",
+		"credhub_secret":                     "",
+		"artifacts_directory":                "logs",
+		"skip_ssl_validation":                true,
+		"timeout_scale":                      1,
+		"use_http":                           true,
+		"include_app_syslog_tcp":             true,
+		"include_apps":                       true,
+		"comma_delim_asgs_enabled":           false,
+		"dynamic_asgs_enabled":               true,
+		"readiness_health_check_enabled":     true,
+		"include_container_networking":       true,
+		"include_detect":                     true,
+		"include_docker":                     true,
+		"include_internet_dependent":         true,
+		"include_isolation_segments":         false,
+		"include_private_docker_registry":    false,
+		"include_route_services":             true,
+		"include_routing":                    true,
+		"include_http2_routing":              true,
+		"include_tcp_routing":                true,
+		"include_routing_isolation_segments": false,
+		"include_security_groups":            true,
+		"include_service_discovery":          false,
+		"include_services":                   true,
+		"include_service_instance_sharing":   true,
+		"include_ssh":                        true,
+		"include_sso":                        true,
+		"include_tasks":                      true,
+		"include_user_provided_services":     true,
+		"include_v3":                         true,
+		"include_zipkin":                     true,
+		"include_volume_services":            false,
+		"stacks":                             []string{"cflinuxfs4"},
+	}
+
+	// Marshal to JSON with indentation
+	output, err := json.MarshalIndent(catsConfig, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal cats-config: %w", err)
+	}
+
+	// Output to stdout
+	fmt.Println(string(output))
+
+	return nil
+}
