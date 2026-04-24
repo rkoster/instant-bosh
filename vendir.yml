@@ -13,6 +13,12 @@ directories:
     - docker/unix-sock.yml
     - jumpbox-user.yml
     - misc/config-server.yml
+    - bosh-lite.yml
+    - warden/cpi.yml
+    - warden/cloud-config.yml
+    - uaa.yml
+    - credhub.yml
+    - misc/bosh-dev.yml
   - path: uaa-lite-release
     git:
       url: https://github.com/rkoster/uaa-lite-release
@@ -41,6 +47,14 @@ directories:
       ref: origin/master
     includePaths:
     - runtime-configs/dns.yml
+    - bosh.yml
+    - bosh-lite.yml
+    - warden/cpi.yml
+    - warden/cloud-config.yml
+    - jumpbox-user.yml
+    - uaa.yml
+    - credhub.yml
+    - misc/bosh-dev.yml
 - path: .github/scripts/deskrun
   contents:
   - path: .

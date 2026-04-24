@@ -119,6 +119,7 @@ USAGE:
 COMMANDS:
    docker   Docker backend commands
    incus    Incus backend commands
+   bosh     BOSH director deployment commands
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -161,6 +162,22 @@ ibosh incus print-env        # Print BOSH CLI environment variables
 - `--project`: Incus project name (env: `IBOSH_INCUS_PROJECT`, default: `default`)
 - `--image`: Use a custom image
 
+### BOSH Director Deployment Commands
+
+```bash
+ibosh bosh deploy [--cpi warden] [--director-ip <ip>] [--dry-run]  # Deploy BOSH director
+ibosh bosh delete [--cpi warden] [--force]                          # Delete BOSH director deployment
+```
+
+**Deploy Options:**
+- `--cpi`: CPI type (only `warden` supported, default: `warden`)
+- `--director-ip`: Static IP for director (auto-selected from cloud-config if not specified)
+- `--dry-run`: Show interpolated manifest without deploying
+
+**Delete Options:**
+- `--cpi`: CPI type (only `warden` supported, default: `warden`)
+- `--force`: Force deletion without confirmation
+
 ### Deploying Workloads
 
 After starting instant-bosh with `ibosh docker start` (or `ibosh incus start`) and setting the environment with `eval "$(ibosh docker print-env)"` (or `eval "$(ibosh incus print-env)"`), you can deploy BOSH releases:
@@ -175,6 +192,53 @@ bosh -d zookeeper ssh zookeeper/0
 # List instances
 bosh -d zookeeper instances
 ```
+
+### Deploying a BOSH Director (for BOSH Development)
+
+For BOSH director development workflows, you can deploy a BOSH director as a BOSH deployment on your instant-bosh instance. This enables rapid iteration with dev releases:
+
+**Requirements:**
+- Incus backend (required for full VM support with warden CPI)
+- Stemcell uploaded via `ibosh incus upload-stemcell ubuntu-noble latest`
+
+```bash
+# Start instant-bosh with Incus backend
+ibosh incus start
+eval "$(ibosh incus print-env)"
+
+# Upload a stemcell (required)
+ibosh incus upload-stemcell ubuntu-noble latest
+
+# Deploy a warden BOSH director
+ibosh bosh deploy
+
+# The director will be deployed as 'bosh-warden' with:
+# - Director IP: auto-selected from 10.244.0.0/24
+# - Warden cloud-config automatically applied
+# - Credentials stored in config-server at /instant-bosh/bosh-warden/*
+
+# Target the deployed warden director
+bosh alias-env bosh-warden -e <director-ip> \
+  --ca-cert <(bosh int <(credhub get -n /instant-bosh/bosh-warden/director_ssl -k ca) --path /ca)
+export BOSH_CLIENT=admin
+export BOSH_CLIENT_SECRET=$(credhub get -n /instant-bosh/bosh-warden/admin_password -q)
+bosh -e bosh-warden env
+
+# Upload a dev release to the warden director
+bosh -e bosh-warden upload-release /path/to/dev-release.tgz
+
+# Update the warden director with changes
+ibosh bosh deploy --cpi warden
+
+# Delete the warden director
+ibosh bosh delete
+```
+
+**Options:**
+- `--cpi warden`: Specify CPI type (only warden supported currently)
+- `--director-ip <ip>`: Specify static IP (auto-selected if not provided)
+- `--dry-run`: Show interpolated manifest without deploying
+- `--force`: Force deletion without confirmation
 
 ## Architecture
 

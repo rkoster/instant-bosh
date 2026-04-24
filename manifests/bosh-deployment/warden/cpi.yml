@@ -1,0 +1,45 @@
+- name: cpi
+  path: /releases/name=bosh-warden-cpi?
+  type: replace
+  value:
+    name: bosh-warden-cpi
+    sha1: 8dd52cd99182ed12f1e346cf49862a8947962b5a
+    url: https://bosh.io/d/github.com/cloudfoundry/bosh-warden-cpi-release?v=45.1.1
+    version: 45.1.1
+- name: stemcell
+  path: /resource_pools/name=vms/stemcell?
+  type: replace
+  value:
+    sha1: 9edf2b8689a0ec107df395f242f1b07b83078546
+    url: https://storage.googleapis.com/bosh-core-stemcells/1.305/bosh-stemcell-1.305-warden-boshlite-ubuntu-noble.tgz
+- path: /resource_pools/name=vms/cloud_properties?
+  type: replace
+  value:
+    ports:
+    - host: 22
+    - host: 6868
+    - host: 25555
+    - host: 4222
+    - host: 25250
+    - host: 8443
+    - host: 8080
+- path: /cloud_provider/template?
+  type: replace
+  value:
+    name: warden_cpi
+    release: bosh-warden-cpi
+- path: /cloud_provider/properties/warden_cpi?
+  type: replace
+  value:
+    actions:
+      expand_stemcell_tarball: false
+    agent:
+      blobstore:
+        options:
+          blobstore_path: /var/vcap/micro_bosh/data/cache
+        provider: local
+      mbus: https://mbus:((mbus_bootstrap_password))@0.0.0.0:6868
+    start_containers_with_systemd: true
+    warden:
+      connect_address: ((garden_host)):7777
+      connect_network: tcp

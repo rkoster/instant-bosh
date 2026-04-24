@@ -32,6 +32,8 @@ func PrintEnvAction(ui UI, logger boshlog.Logger, cpiInstance cpi.CPI, configPro
 	ui.PrintLinef("export BOSH_CA_CERT='%s'", config.CACert)
 	if config.AllProxy != "" {
 		ui.PrintLinef("export BOSH_ALL_PROXY=%s", config.AllProxy)
+	} else {
+		ui.PrintLinef("unset BOSH_ALL_PROXY 2>/dev/null; true")
 	}
 
 	// Config-server environment variables for ibosh creds commands

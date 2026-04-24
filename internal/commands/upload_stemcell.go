@@ -3,6 +3,8 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/exec"
 
 	boshdir "github.com/cloudfoundry/bosh-cli/v7/director"
 	boshui "github.com/cloudfoundry/bosh-cli/v7/ui"
@@ -10,7 +12,6 @@ import (
 	"github.com/rkoster/instant-bosh/internal/boshio"
 	"github.com/rkoster/instant-bosh/internal/director"
 	"github.com/rkoster/instant-bosh/internal/docker"
-	"github.com/rkoster/instant-bosh/internal/incus"
 	"github.com/rkoster/instant-bosh/internal/stemcell"
 )
 
@@ -183,112 +184,51 @@ func uploadStemcellIfNeeded(
 	return true, nil
 }
 
-// UploadIncusStemcellAction uploads a stemcell from bosh.io for Incus CPI
-// The Incus CPI uses OpenStack stemcells from bosh.io
-func UploadIncusStemcellAction(
-	ui boshui.UI,
-	logger boshlog.Logger,
-	incusRemote, incusProject string,
-	osName, version string,
-) error {
-	return UploadIncusStemcellActionWithFactories(
-		ui,
-		logger,
-		&incus.DefaultClientFactory{},
-		&director.DefaultConfigProvider{},
-		&director.DefaultDirectorFactory{},
-		incusRemote,
-		incusProject,
-		osName,
-		version,
-	)
-}
+// UploadBoshIOStemcellAction resolves a stemcell from bosh.io and uploads it
+// to the currently targeted BOSH director by shelling out to `bosh upload-stemcell`.
+// cpiName is the CPI type (e.g., "incus", "warden").
+func UploadBoshIOStemcellAction(ui UI, cpiName, osName, version string) error {
+	if err := checkBOSHEnv(); err != nil {
+		return err
+	}
 
-// UploadIncusStemcellActionWithFactories is the testable version with dependency injection
-func UploadIncusStemcellActionWithFactories(
-	ui UI,
-	logger boshlog.Logger,
-	clientFactory incus.ClientFactory,
-	configProvider director.ConfigProvider,
-	directorFactory director.DirectorFactory,
-	incusRemote, incusProject string,
-	osName, version string,
-) error {
+	infraMap := map[string]string{
+		"incus":  "openstack-kvm",
+		"warden": "warden-boshlite",
+	}
+	infra, ok := infraMap[cpiName]
+	if !ok {
+		return fmt.Errorf("unsupported CPI type for bosh.io stemcells: %s", cpiName)
+	}
+
 	ctx := context.Background()
-
-	// Create Incus client
-	incusClient, err := clientFactory.NewClient(logger, incusRemote, incusProject, "", "", "")
-	if err != nil {
-		return fmt.Errorf("failed to create incus client: %w", err)
-	}
-	defer incusClient.Close()
-
-	// Check if instant-bosh is running
-	running, err := incusClient.IsContainerRunning(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check if instant-bosh is running: %w", err)
-	}
-	if !running {
-		return fmt.Errorf("instant-bosh is not running. Please start it with 'ibosh incus start'")
-	}
 
 	ui.PrintLinef("Resolving stemcell from bosh.io:")
 	ui.PrintLinef("  OS:      %s", osName)
 	ui.PrintLinef("  Version: %s", version)
+	ui.PrintLinef("  CPI:     %s", cpiName)
 	ui.PrintLinef("")
 
-	// Resolve stemcell info from bosh.io
-	// This tries without -go_agent suffix first (Noble+), then falls back to with suffix (Jammy and older)
 	boshioClient := boshio.NewClient()
-	info, err := boshioClient.ResolveOpenStackStemcell(ctx, osName, version)
+	info, err := boshioClient.ResolveStemcellByInfra(ctx, infra, osName, version)
 	if err != nil {
 		return fmt.Errorf("failed to resolve stemcell from bosh.io: %w", err)
 	}
 
 	ui.PrintLinef("Found stemcell:")
+	ui.PrintLinef("  Name:    %s", info.Name)
 	ui.PrintLinef("  Version: %s", info.Version)
 	ui.PrintLinef("  Size:    %d MB", info.Size/(1024*1024))
 	ui.PrintLinef("  URL:     %s", info.URL)
 	ui.PrintLinef("")
 
-	// Get director configuration
-	dirConfig, err := configProvider.GetDirectorConfig(ctx, incusClient, incus.ContainerName)
-	if err != nil {
-		return fmt.Errorf("failed to get director config: %w", err)
+	args := []string{"upload-stemcell", info.URL, "--sha1", info.SHA1, "-n"}
+	cmd := exec.Command("bosh", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("bosh upload-stemcell failed: %w", err)
 	}
-	defer dirConfig.Cleanup()
-
-	// Create director client
-	directorClient, err := directorFactory.NewDirector(dirConfig, logger)
-	if err != nil {
-		return fmt.Errorf("failed to create director client: %w", err)
-	}
-
-	// Check if stemcell already exists
-	existingStemcells, err := directorClient.Stemcells()
-	if err != nil {
-		return fmt.Errorf("failed to list stemcells: %w", err)
-	}
-
-	for _, s := range existingStemcells {
-		// For Incus, stemcell name is like "bosh-openstack-kvm-ubuntu-jammy-go_agent"
-		// and we need to check if OS matches
-		if s.OSName() == osName && s.Version().String() == info.Version {
-			ui.PrintLinef("Stemcell %s version %s already uploaded", osName, info.Version)
-			return nil
-		}
-	}
-
-	// Upload stemcell via URL - the director will download it
-	ui.PrintLinef("Uploading stemcell to BOSH director (director will download from bosh.io)...")
-	ui.PrintLinef("This may take several minutes for the first upload (~500MB)...")
-	ui.PrintLinef("")
-
-	if err := directorClient.UploadStemcellURL(info.URL, info.SHA1, false); err != nil {
-		return fmt.Errorf("failed to upload stemcell: %w", err)
-	}
-
-	ui.PrintLinef("Successfully uploaded: %s version %s", info.Name, info.Version)
 
 	return nil
 }

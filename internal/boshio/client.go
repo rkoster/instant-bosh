@@ -162,20 +162,35 @@ func (c *Client) resolveStemcellWithName(ctx context.Context, stemcellName, vers
 	return nil, fmt.Errorf("no download URL found for stemcell %q version %q", stemcellName, selected.Version)
 }
 
-// ResolveOpenStackStemcell resolves an OpenStack stemcell by OS name from bosh.io
+// ResolveStemcellByInfra resolves a stemcell by infrastructure and OS name from bosh.io.
 // It tries without the -go_agent suffix first (for newer stemcells like Noble),
-// and falls back to with the suffix (for older stemcells like Jammy)
-func (c *Client) ResolveOpenStackStemcell(ctx context.Context, osName, version string) (*StemcellInfo, error) {
-	// Try without -go_agent suffix first (Noble and newer)
-	stemcellName := fmt.Sprintf("bosh-openstack-kvm-%s", osName)
+// and falls back to with the suffix (for older stemcells like Jammy).
+// infrastructure is the bosh.io stemcell infrastructure prefix, e.g.:
+//   - "warden-boshlite" for warden CPI
+//   - "openstack-kvm" for openstack/incus CPI
+func (c *Client) ResolveStemcellByInfra(ctx context.Context, infrastructure, osName, version string) (*StemcellInfo, error) {
+	stemcellName := fmt.Sprintf("bosh-%s-%s", infrastructure, osName)
 	info, err := c.resolveStemcellWithName(ctx, stemcellName, version)
 	if err == nil {
 		return info, nil
 	}
 
-	// Fall back to with -go_agent suffix (Jammy and older)
-	stemcellNameWithAgent := fmt.Sprintf("bosh-openstack-kvm-%s-go_agent", osName)
+	stemcellNameWithAgent := fmt.Sprintf("bosh-%s-%s-go_agent", infrastructure, osName)
 	return c.resolveStemcellWithName(ctx, stemcellNameWithAgent, version)
+}
+
+// ResolveWardenStemcell resolves a Warden (bosh-lite) stemcell by OS name from bosh.io
+// It tries without the -go_agent suffix first (for newer stemcells like Noble),
+// and falls back to with the suffix (for older stemcells like Jammy)
+func (c *Client) ResolveWardenStemcell(ctx context.Context, osName, version string) (*StemcellInfo, error) {
+	return c.ResolveStemcellByInfra(ctx, "warden-boshlite", osName, version)
+}
+
+// ResolveOpenStackStemcell resolves an OpenStack stemcell by OS name from bosh.io
+// It tries without the -go_agent suffix first (for newer stemcells like Noble),
+// and falls back to with the suffix (for older stemcells like Jammy)
+func (c *Client) ResolveOpenStackStemcell(ctx context.Context, osName, version string) (*StemcellInfo, error) {
+	return c.ResolveStemcellByInfra(ctx, "openstack-kvm", osName, version)
 }
 
 // OpenStackStemcellName converts an OS name to the OpenStack stemcell name

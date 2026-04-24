@@ -527,19 +527,6 @@ The command will:
   1. Query bosh.io API to resolve the stemcell URL
   2. Tell the BOSH director to download and upload the stemcell
   3. Show progress (stemcells are ~500MB, so this may take a few minutes)`,
-						Flags: []cli.Flag{
-							&cli.StringFlag{
-								Name:    "remote",
-								Usage:   "Incus remote name (uses default remote from 'incus remote list' if not specified)",
-								EnvVars: []string{"IBOSH_INCUS_REMOTE"},
-							},
-							&cli.StringFlag{
-								Name:    "project",
-								Usage:   "Incus project name",
-								Value:   "ibosh",
-								EnvVars: []string{"IBOSH_INCUS_PROJECT"},
-							},
-						},
 						Action: func(c *cli.Context) error {
 							if c.NArg() < 1 {
 								return cli.Exit("Error: OS name required (e.g., ubuntu-jammy)", 1)
@@ -549,15 +536,8 @@ The command will:
 							if c.NArg() >= 2 {
 								version = c.Args().Get(1)
 							}
-							ui, logger := initUIAndLogger(c)
-							return commands.UploadIncusStemcellAction(
-								ui,
-								logger,
-								c.String("remote"),
-								c.String("project"),
-								osName,
-								version,
-							)
+							ui, _ := initUIAndLogger(c)
+							return commands.UploadBoshIOStemcellAction(ui, "incus", osName, version)
 						},
 					},
 				},
@@ -767,6 +747,121 @@ Examples:
 						Action: func(c *cli.Context) error {
 							ui, _ := initUIAndLogger(c)
 							return commands.CFCatsConfigAction(ui)
+						},
+					},
+				},
+			},
+			// BOSH deployment commands
+			{
+				Name:  "bosh",
+				Usage: "Deploy and manage BOSH directors as BOSH deployments",
+				Description: `Deploy BOSH directors as BOSH deployments (using 'bosh deploy').
+
+This is primarily for BOSH director development workflows, enabling rapid iteration
+with dev releases.
+
+Requirements:
+  - BOSH environment must be configured first
+  - Only works with Incus backend (warden CPI requires full VMs)
+  - Stemcell must be uploaded: ibosh incus upload-stemcell ubuntu-noble latest
+
+Examples:
+  ibosh bosh deploy                           # Deploy BOSH director (auto-selects IP)
+  ibosh bosh deploy --director-ip 10.244.0.34 # Deploy with specific IP
+  ibosh bosh delete                           # Delete BOSH director deployment`,
+				Subcommands: []*cli.Command{
+					{
+						Name:  "deploy",
+						Usage: "Deploy BOSH director as a BOSH deployment",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "cpi",
+								Usage: "CPI type (only 'warden' is supported)",
+								Value: "warden",
+							},
+							&cli.StringFlag{
+								Name:  "director-ip",
+								Usage: "Static IP for director (auto-selected from cloud-config if not specified)",
+							},
+							&cli.BoolFlag{
+								Name:  "dry-run",
+								Usage: "Show what would be deployed without deploying",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.BOSHDeployAction(
+								ui,
+								c.String("cpi"),
+								c.String("director-ip"),
+								c.Bool("dry-run"),
+							)
+						},
+					},
+					{
+						Name:  "delete",
+						Usage: "Delete BOSH director deployment",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "cpi",
+								Usage: "CPI type (only 'warden' is supported)",
+								Value: "warden",
+							},
+							&cli.BoolFlag{
+								Name:    "force",
+								Aliases: []string{"f"},
+								Usage:   "Skip confirmation prompt",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.BOSHDeleteAction(
+								ui,
+								c.String("cpi"),
+								c.Bool("force"),
+							)
+						},
+					},
+					{
+						Name:  "print-env",
+						Usage: "Print environment variables for targeting the deployed BOSH director",
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:  "cpi",
+								Usage: "CPI type (only 'warden' is supported)",
+								Value: "warden",
+							},
+						},
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.BOSHPrintEnvAction(ui, c.String("cpi"))
+						},
+					},
+					{
+						Name:      "upload-stemcell",
+						Usage:     "Upload a stemcell from bosh.io to the deployed BOSH director",
+						ArgsUsage: "<os> [version]",
+						Description: `Upload a stemcell to the deployed BOSH warden director from bosh.io.
+
+Arguments:
+  os       - The OS name (e.g., ubuntu-jammy, ubuntu-noble)
+  version  - The stemcell version (default: latest)
+
+Examples:
+  ibosh bosh upload-stemcell ubuntu-noble          # Upload latest ubuntu-noble
+  ibosh bosh upload-stemcell ubuntu-noble 1.542    # Upload specific version
+  ibosh bosh upload-stemcell ubuntu-jammy latest   # Upload latest ubuntu-jammy`,
+						Action: func(c *cli.Context) error {
+							if c.NArg() < 1 {
+								return cli.Exit("Error: OS name required (e.g., ubuntu-noble)", 1)
+							}
+							osName := c.Args().First()
+							version := "latest"
+							if c.NArg() >= 2 {
+								version = c.Args().Get(1)
+							}
+							ui, _ := initUIAndLogger(c)
+							return commands.UploadBoshIOStemcellAction(ui, "warden", osName, version)
 						},
 					},
 				},
