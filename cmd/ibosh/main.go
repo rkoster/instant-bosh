@@ -745,6 +745,30 @@ Examples:
 							return commands.CFManifestAction(ui, opts)
 						},
 					},
+					{
+						Name:  "cats-config",
+						Usage: "Generate CATs (CF Acceptance Tests) configuration",
+						Description: `Generate and output CATs configuration to stdout.
+
+This command queries the deployed CF environment and generates a JSON configuration
+file suitable for running cf-acceptance-tests (CATs).
+
+The configuration includes:
+  - API endpoint and apps domain derived from the deployed CF
+  - Admin credentials retrieved from config-server
+  - Test suite settings based on instant-bosh CF deployment capabilities
+
+Requires BOSH environment to be configured first:
+  eval "$(ibosh docker print-env)"   # or ibosh incus print-env
+
+Examples:
+  ibosh cf cats-config                    # Output to stdout
+  ibosh cf cats-config > cats-config.json # Save to file`,
+						Action: func(c *cli.Context) error {
+							ui, _ := initUIAndLogger(c)
+							return commands.CFCatsConfigAction(ui)
+						},
+					},
 				},
 			},
 			// Deprecated commands with helpful error messages
