@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Ops files: uaa.yml passess additional properties'
-      sha: 020443a2eaa7035d539bacea4ef4631243aaa706
+      commitTitle: Bumping syslog to version 12.3.19
+      sha: 736932ad5bb7d33bacf0f2a59812774e85839861
       tags:
-      - last-xenial-4741-g020443a2
+      - last-xenial-4760-g736932ad
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'Ops files: uaa.yml passess additional properties'
-      sha: 020443a2eaa7035d539bacea4ef4631243aaa706
+      commitTitle: Bumping syslog to version 12.3.19
+      sha: 736932ad5bb7d33bacf0f2a59812774e85839861
       tags:
-      - last-xenial-4741-g020443a2
+      - last-xenial-4760-g736932ad
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
