@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.19
-      sha: 736932ad5bb7d33bacf0f2a59812774e85839861
+      commitTitle: Bumping syslog to version 12.3.20
+      sha: f2b28ef632f89990d1aeca382125b4db1806496e
       tags:
-      - last-xenial-4760-g736932ad
+      - last-xenial-4761-gf2b28ef6
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.19
-      sha: 736932ad5bb7d33bacf0f2a59812774e85839861
+      commitTitle: Bumping syslog to version 12.3.20
+      sha: f2b28ef632f89990d1aeca382125b4db1806496e
       tags:
-      - last-xenial-4760-g736932ad
+      - last-xenial-4761-gf2b28ef6
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
