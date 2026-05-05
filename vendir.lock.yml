@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.20
-      sha: f2b28ef632f89990d1aeca382125b4db1806496e
+      commitTitle: bosh-monitor and bosh-nats-sync use director address...
+      sha: 3b145bd4f098c6bc3f7d970f55ff8e71bd2cecf0
       tags:
-      - last-xenial-4761-gf2b28ef6
+      - last-xenial-4762-g3b145bd4
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v55.5.0
-      sha: d2b5f212eeab5f0adbd853521652ec92c87b7f9c
+      commitTitle: Update cf-deployment manifest version to v56.0.0
+      sha: 22efc3f9c323bdae0fb6a990941a52fe6d437442
       tags:
-      - v55.5.0
+      - v56.0.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.20
-      sha: f2b28ef632f89990d1aeca382125b4db1806496e
+      commitTitle: bosh-monitor and bosh-nats-sync use director address...
+      sha: 3b145bd4f098c6bc3f7d970f55ff8e71bd2cecf0
       tags:
-      - last-xenial-4761-gf2b28ef6
+      - last-xenial-4762-g3b145bd4
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
