@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: bosh-monitor and bosh-nats-sync use director address...
-      sha: 3b145bd4f098c6bc3f7d970f55ff8e71bd2cecf0
+      commitTitle: Bumping backup-and-restore-sdk to version 1.19.55
+      sha: 510fbab6f75e6793ce7c5058c6ca7a2eb4cca2e0
       tags:
-      - last-xenial-4762-g3b145bd4
+      - last-xenial-4764-g510fbab6
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v56.0.0
-      sha: 22efc3f9c323bdae0fb6a990941a52fe6d437442
+      commitTitle: Update cf-deployment manifest version to v56.1.0
+      sha: e310d0abe0da8a1967e9d5ab7dc92fa15ddf84cd
       tags:
-      - v56.0.0
+      - v56.1.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: bosh-monitor and bosh-nats-sync use director address...
-      sha: 3b145bd4f098c6bc3f7d970f55ff8e71bd2cecf0
+      commitTitle: Bumping backup-and-restore-sdk to version 1.19.55
+      sha: 510fbab6f75e6793ce7c5058c6ca7a2eb4cca2e0
       tags:
-      - last-xenial-4762-g3b145bd4
+      - last-xenial-4764-g510fbab6
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
