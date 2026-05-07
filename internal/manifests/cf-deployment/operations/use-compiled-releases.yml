@@ -62,12 +62,12 @@
   path: /releases/name=cf-smoke-tests
   value:
     name: cf-smoke-tests
-    sha1: 92aa14819ff4ee7953037a8882f62604b6329a75
+    sha1: sha256:1734843d902e6df38d5dd2b838cde00dd15d49a15bb1412e5b14276fec7a62d8
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cf-smoke-tests-42.0.258-ubuntu-noble-1.333-20260427-092452-016473276.tgz
-    version: 42.0.258
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cf-smoke-tests-42.0.259-ubuntu-noble-1.333-20260505-160749-785341716.tgz
+    version: 42.0.259
 - type: replace
   path: /releases/name=cflinuxfs4
   value:
@@ -122,22 +122,22 @@
   path: /releases/name=go-buildpack
   value:
     name: go-buildpack
-    sha1: sha256:df1be5ebc0ef80d1e80c3fc5ce42beb10a67c0d01cb2c2702edc1dad7716e798
+    sha1: sha256:db95b1b681c76aac7d522e3936ef3cc612c94c7f3dd1968c67dcf3baca6d66ee
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/go-buildpack-1.10.45-ubuntu-noble-1.333-20260504-143415-459634531.tgz
-    version: 1.10.45
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/go-buildpack-1.10.46-ubuntu-noble-1.333-20260506-071850-458639193.tgz
+    version: 1.10.46
 - type: replace
   path: /releases/name=java-buildpack
   value:
     name: java-buildpack
-    sha1: e9b11cbc595ddd0f6d467d0acd342b60d2fd5e00
+    sha1: sha256:99756353b798c044280d0ae76a92c053be4269df2a5751dd9c93bf0f969c4c3e
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/java-buildpack-5.0.1-ubuntu-noble-1.333-20260427-092338-963533096.tgz
-    version: 5.0.1
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/java-buildpack-5.0.2-ubuntu-noble-1.333-20260505-083908-397194211.tgz
+    version: 5.0.2
 - type: replace
   path: /releases/name=log-cache
   value:
@@ -152,12 +152,12 @@
   path: /releases/name=loggregator
   value:
     name: loggregator
-    sha1: sha256:669907099d97cb5e18f00b50b98aae16a6601ff85844848ec310de2bfa100d18
+    sha1: sha256:14f5fd4df284a0a0ef8d51b68fefd76b8a5da9b79653dc49063db80c7ececb9c
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/loggregator-107.0.27-ubuntu-noble-1.333-20260502-204927-915438281.tgz
-    version: 107.0.27
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/loggregator-107.0.29-ubuntu-noble-1.333-20260506-053807-309374226.tgz
+    version: 107.0.29
 - type: replace
   path: /releases/name=loggregator-agent
   value:
@@ -192,22 +192,22 @@
   path: /releases/name=nodejs-buildpack
   value:
     name: nodejs-buildpack
-    sha1: sha256:a73d2f71d0f8290b92eea7c4cf2f60f59968addbfebe793409b33cf8c483a3c9
+    sha1: sha256:b32fa10564ffc39930acc5be617d46c81fc12498df883b4736a885eaad9bdd74
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/nodejs-buildpack-1.9.0-ubuntu-noble-1.333-20260504-143626-361943475.tgz
-    version: 1.9.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/nodejs-buildpack-1.9.1-ubuntu-noble-1.333-20260506-071648-255543198.tgz
+    version: 1.9.1
 - type: replace
   path: /releases/name=php-buildpack
   value:
     name: php-buildpack
-    sha1: f0f8fea754dea0bd79948c04fbde36bc47f2e175
+    sha1: sha256:bf13608ee32c16200e5a392ffa2c8c34782f6c9244bbaa599573f35a62e27a45
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/php-buildpack-5.0.3-ubuntu-noble-1.333-20260427-092356-259319249.tgz
-    version: 5.0.3
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/php-buildpack-5.0.4-ubuntu-noble-1.333-20260505-083211-40953348.tgz
+    version: 5.0.4
 - type: replace
   path: /releases/name=pxc
   value:
