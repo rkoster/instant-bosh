@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 78.14.0
-      sha: 6bf418d02d03a5eebedb8599e3bd43b0b8598f16
+      commitTitle: Bumping bosh-docker-cpi to version 0.2.11
+      sha: 54212ffd78f9dec3d5f091a2ee5e3c198c35e1dc
       tags:
-      - last-xenial-4768-g6bf418d0
+      - last-xenial-4772-g54212ffd
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v56.2.0
-      sha: 989c60629c1cd8f9fcf58f9eed4900484ff89183
+      commitTitle: Update cf-deployment manifest version to v56.3.0
+      sha: a9421b6057ff5c1373c779810aef9763c0e70066
       tags:
-      - v56.2.0
+      - v56.3.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 78.14.0
-      sha: 6bf418d02d03a5eebedb8599e3bd43b0b8598f16
+      commitTitle: Bumping bosh-docker-cpi to version 0.2.11
+      sha: 54212ffd78f9dec3d5f091a2ee5e3c198c35e1dc
       tags:
-      - last-xenial-4768-g6bf418d0
+      - last-xenial-4772-g54212ffd
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
