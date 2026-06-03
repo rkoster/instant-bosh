@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.22
-      sha: 8344c2e544bc373268d0603da06070f3c21a8c64
+      commitTitle: Bumping backup-and-restore-sdk to version 1.19.59
+      sha: 0a89fcaab7ef1252183fe0390c5d6be7799f8e3e
       tags:
-      - last-xenial-4873-g8344c2e5
+      - last-xenial-4880-g0a89fcaa
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.22
-      sha: 8344c2e544bc373268d0603da06070f3c21a8c64
+      commitTitle: Bumping backup-and-restore-sdk to version 1.19.59
+      sha: 0a89fcaab7ef1252183fe0390c5d6be7799f8e3e
       tags:
-      - last-xenial-4873-g8344c2e5
+      - last-xenial-4880-g0a89fcaa
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
