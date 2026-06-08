@@ -1,0 +1,7 @@
+---
+# Set the number of workers for dynamic disk operations in the BOSH director
+# Increasing this can speed up deployments with many disk operations
+
+- type: replace
+  path: /instance_groups/name=bosh/properties/director/dynamic_disks_workers?
+  value: 1

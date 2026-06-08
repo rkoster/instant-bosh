@@ -8,6 +8,7 @@ BOB_OPS = \
 	--ops-file ops/stemcell.yml \
 	--ops-file ops/docker-localhost.yml \
 	--ops-file ops/fast-nats-sync.yml \
+	--ops-file ops/dynamic-disks-workers.yml \
 	--ops-file ops/pre-start-setup.yml \
 	--ops-file ops/disable-short-lived-nats-credentials.yml \
 	--ops-file manifests/bosh-deployment/jumpbox-user.yml \
