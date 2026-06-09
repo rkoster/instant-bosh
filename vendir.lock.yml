@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-google-cpi to version 50.1.4
-      sha: 3a1062a097fb438a0a90888793267a6bdc4c3080
+      commitTitle: Bumping backup-and-restore-sdk to version 1.19.59
+      sha: e258ed72502896f78d5b8833bb1cbd42ed58401a
       tags:
-      - last-xenial-4883-g3a1062a0
+      - last-xenial-4914-ge258ed72
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v57.0.0
-      sha: a917f911db29a320d6c8ea594c4705503a866ea1
+      commitTitle: Update cf-deployment manifest version to v57.2.0
+      sha: 1975f22a42e3f8627a2ed1ad746812f31cda7855
       tags:
-      - v57.0.0
+      - v57.2.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-google-cpi to version 50.1.4
-      sha: 3a1062a097fb438a0a90888793267a6bdc4c3080
+      commitTitle: Bumping backup-and-restore-sdk to version 1.19.59
+      sha: e258ed72502896f78d5b8833bb1cbd42ed58401a
       tags:
-      - last-xenial-4883-g3a1062a0
+      - last-xenial-4914-ge258ed72
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
