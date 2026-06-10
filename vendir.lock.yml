@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping backup-and-restore-sdk to version 1.19.59
-      sha: e258ed72502896f78d5b8833bb1cbd42ed58401a
+      commitTitle: Bumping bosh-dns to version 1.39.24
+      sha: cb638c4ce77e2940763c254e3ebfe3f6ced2b6d3
       tags:
-      - last-xenial-4914-ge258ed72
+      - last-xenial-4918-gcb638c4c
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping backup-and-restore-sdk to version 1.19.59
-      sha: e258ed72502896f78d5b8833bb1cbd42ed58401a
+      commitTitle: Bumping bosh-dns to version 1.39.24
+      sha: cb638c4ce77e2940763c254e3ebfe3f6ced2b6d3
       tags:
-      - last-xenial-4914-ge258ed72
+      - last-xenial-4918-gcb638c4c
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
