@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Merge pull request #511 from cloudfoundry/docker-cpi-ci-fixes...'
-      sha: 129a89d35b145367f534086ccb8ab93b82099e9b
+      commitTitle: Bumping syslog to version 12.3.24
+      sha: 8ebbbf56782fe210143d6d74da8f87947b584237
       tags:
-      - last-xenial-4924-g129a89d3
+      - last-xenial-4928-g8ebbbf56
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'Merge pull request #511 from cloudfoundry/docker-cpi-ci-fixes...'
-      sha: 129a89d35b145367f534086ccb8ab93b82099e9b
+      commitTitle: Bumping syslog to version 12.3.24
+      sha: 8ebbbf56782fe210143d6d74da8f87947b584237
       tags:
-      - last-xenial-4924-g129a89d3
+      - last-xenial-4928-g8ebbbf56
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
