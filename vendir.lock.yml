@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping os-conf to version 23.0.1
-      sha: ed2b54377d045ddcd7835acc01d8ae8d5c9bf81e
+      commitTitle: Bumping bosh to version 282.1.17
+      sha: fce8f2f46c7a9c48106d41216b8933f9cfe22826
       tags:
-      - last-xenial-4974-ged2b5437
+      - last-xenial-4978-gfce8f2f4
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping os-conf to version 23.0.1
-      sha: ed2b54377d045ddcd7835acc01d8ae8d5c9bf81e
+      commitTitle: Bumping bosh to version 282.1.17
+      sha: fce8f2f46c7a9c48106d41216b8933f9cfe22826
       tags:
-      - last-xenial-4974-ged2b5437
+      - last-xenial-4978-gfce8f2f4
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
