@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 79.3.0
-      sha: 7eb0d4931783eec92d68a7d2a36dc636e29be5a0
+      commitTitle: Bumping bosh-warden-cpi to version 45.2.0
+      sha: 81723f322a4f1f22632489d0c7ff864aee9ad8df
       tags:
-      - last-xenial-4983-g7eb0d493
+      - last-xenial-4988-g81723f32
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 79.3.0
-      sha: 7eb0d4931783eec92d68a7d2a36dc636e29be5a0
+      commitTitle: Bumping bosh-warden-cpi to version 45.2.0
+      sha: 81723f322a4f1f22632489d0c7ff864aee9ad8df
       tags:
-      - last-xenial-4983-g7eb0d493
+      - last-xenial-4988-g81723f32
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
