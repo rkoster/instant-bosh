@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-aws-cpi to version 107.3.1
-      sha: 6094057e63f5a6cad924c707f1a130e8a99fba90
+      commitTitle: Bumping bpm to version 1.4.34
+      sha: 3812298bb8f466638806d5f4a12b886a27fd7541
       tags:
-      - last-xenial-4999-g6094057e
+      - last-xenial-5011-g3812298b
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-aws-cpi to version 107.3.1
-      sha: 6094057e63f5a6cad924c707f1a130e8a99fba90
+      commitTitle: Bumping bpm to version 1.4.34
+      sha: 3812298bb8f466638806d5f4a12b886a27fd7541
       tags:
-      - last-xenial-4999-g6094057e
+      - last-xenial-5011-g3812298b
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
