@@ -3,16 +3,16 @@
   type: replace
   value:
     name: garden-runc
-    sha1: 70b56a7f9babb6afa2560fa2168c6f90bebbb5d3
-    url: https://s3.amazonaws.com/bosh-compiled-release-tarballs/garden-runc-1.92.0-ubuntu-noble-1.460.tgz
+    sha1: 21190d12453ecfe126b378f0dd56881b9da82863
+    url: https://s3.amazonaws.com/bosh-compiled-release-tarballs/garden-runc-1.92.0-ubuntu-noble-1.484.tgz
     version: 1.92.0
 - path: /releases/-
   release: bosh-warden-cpi
   type: replace
   value:
     name: bosh-warden-cpi
-    sha1: cf5fde5478a23e7ed2a1804ddc9267b81a2a9c07
-    url: https://s3.amazonaws.com/bosh-compiled-release-tarballs/bosh-warden-cpi-45.2.3-ubuntu-noble-1.460.tgz
+    sha1: bd052c1a9045bbccd4dcaa2f4afdd1ae113b32e3
+    url: https://s3.amazonaws.com/bosh-compiled-release-tarballs/bosh-warden-cpi-45.2.3-ubuntu-noble-1.484.tgz
     version: 45.2.3
 - path: /instance_groups/name=bosh/jobs/-
   type: replace
