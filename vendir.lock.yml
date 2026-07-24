@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-vsphere-cpi to version 98.0.7
-      sha: 062713a2a511d26fcd8b2c91fdb764a54039f991
+      commitTitle: Bumping credhub to version 2.15.15
+      sha: e16e7a7667ab22534aa9ed8460991abd39abd17a
       tags:
-      - last-xenial-5088-g062713a2
+      - last-xenial-5090-ge16e7a76
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v58.3.0
-      sha: e6cbf2175397d3737b80f988a1326e0558daed0c
+      commitTitle: Update cf-deployment manifest version to v58.4.0
+      sha: d473c0b76d970debd8d1c4ed1723693adce21223
       tags:
-      - v58.3.0
+      - v58.4.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-vsphere-cpi to version 98.0.7
-      sha: 062713a2a511d26fcd8b2c91fdb764a54039f991
+      commitTitle: Bumping credhub to version 2.15.15
+      sha: e16e7a7667ab22534aa9ed8460991abd39abd17a
       tags:
-      - last-xenial-5088-g062713a2
+      - last-xenial-5090-ge16e7a76
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
