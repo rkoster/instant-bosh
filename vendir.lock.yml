@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping credhub to version 2.15.15
-      sha: e16e7a7667ab22534aa9ed8460991abd39abd17a
+      commitTitle: Bumping bosh to version 283.1.2
+      sha: ae78e4ac428ff0b27b6e7edfcef9b38a457fece2
       tags:
-      - last-xenial-5090-ge16e7a76
+      - last-xenial-5092-gae78e4ac
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping credhub to version 2.15.15
-      sha: e16e7a7667ab22534aa9ed8460991abd39abd17a
+      commitTitle: Bumping bosh to version 283.1.2
+      sha: ae78e4ac428ff0b27b6e7edfcef9b38a457fece2
       tags:
-      - last-xenial-5090-ge16e7a76
+      - last-xenial-5092-gae78e4ac
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
