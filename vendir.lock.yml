@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh to version 283.1.2
-      sha: ae78e4ac428ff0b27b6e7edfcef9b38a457fece2
+      commitTitle: Bumping CPI bosh-aws-cpi to version 107.3.2
+      sha: 283b23f76bba9018581b6d5523f74c219114e557
       tags:
-      - last-xenial-5092-gae78e4ac
+      - last-xenial-5096-g283b23f7
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v58.4.0
-      sha: d473c0b76d970debd8d1c4ed1723693adce21223
+      commitTitle: Update cf-deployment manifest version to v59.0.0
+      sha: 73d6c5fba57cbd393d724807d6f7e511d9afdba8
       tags:
-      - v58.4.0
+      - v59.0.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping bosh to version 283.1.2
-      sha: ae78e4ac428ff0b27b6e7edfcef9b38a457fece2
+      commitTitle: Bumping CPI bosh-aws-cpi to version 107.3.2
+      sha: 283b23f76bba9018581b6d5523f74c219114e557
       tags:
-      - last-xenial-5092-gae78e4ac
+      - last-xenial-5096-g283b23f7
     path: .
   path: internal/manifests/bosh-deployment
 - contents:

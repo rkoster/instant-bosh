@@ -1,6 +1,6 @@
 ---
 name: cf
-manifest_version: v58.4.0
+manifest_version: v59.0.0
 update:
   canaries: 1
   canary_watch_time: 30000-1200000
@@ -843,8 +843,8 @@ instance_groups:
       cloud_controller: {as: cloud_controller, shared: true}
     properties:
       name: cf-deployment
-      build: v58.4.0 # AUTO-POPULATED; DO NOT EDIT
-      version: 58 # AUTO-POPULATED; DO NOT EDIT
+      build: v59.0.0 # AUTO-POPULATED; DO NOT EDIT
+      version: 59 # AUTO-POPULATED; DO NOT EDIT
       router:
         route_services_secret: "((router_route_services_secret))"
       system_domain: "((system_domain))"
@@ -2899,21 +2899,21 @@ releases:
   version: 42.0.267
   sha1: sha256:f9f80f35b0c7cf9dfbc4552ebacd9f1c1cdf097e50e8467c6ed0706eff18504e
 - name: cflinuxfs4
-  url: https://bosh.io/d/github.com/cloudfoundry/cflinuxfs4-release?v=1.323.0
-  version: 1.323.0
-  sha1: sha256:61c81ee8cd43022fb502dfd10e5ea7e788128abe16bb95099cf44b31a7f29b73
+  url: https://bosh.io/d/github.com/cloudfoundry/cflinuxfs4-release?v=1.324.0
+  version: 1.324.0
+  sha1: sha256:d9a945e963c513e0424d926729e3ce7be3e5d10a0a0268150a20f88df7fa47a9
 - name: cflinuxfs5
-  url: https://bosh.io/d/github.com/cloudfoundry/cflinuxfs5-release?v=0.43.0
-  version: 0.43.0
-  sha1: sha256:d93b986839d9fe28ddef0c5ab01c9e2e6de3c5dfd39707325963dd64e7454c1c
+  url: https://bosh.io/d/github.com/cloudfoundry/cflinuxfs5-release?v=0.44.0
+  version: 0.44.0
+  sha1: sha256:38f5a51aa76dfdec503bdea5865e549aaae14c53d30e597d5a61d2c5088d1f2c
 - name: credhub
-  url: https://bosh.io/d/github.com/pivotal-cf/credhub-release?v=2.15.14
-  version: 2.15.14
-  sha1: sha256:810b81cfc1b7d1cc6ea5c5f412d1a72e2c004aaae82c94daf0a8ef69ce5f1657
+  url: https://bosh.io/d/github.com/pivotal-cf/credhub-release?v=2.15.15
+  version: 2.15.15
+  sha1: sha256:fd14195ff36405a4e86edb69796cd768d45bbdd66ca21676e0789b408929c28a
 - name: diego
-  url: https://bosh.io/d/github.com/cloudfoundry/diego-release?v=2.142.0
-  version: 2.142.0
-  sha1: sha256:dc26f7db31d4d35c3ac59daf1c8d4787f5c64af740ef5516f5afe502cf952396
+  url: https://bosh.io/d/github.com/cloudfoundry/diego-release?v=2.143.0
+  version: 2.143.0
+  sha1: sha256:5bfc33a92f5d37a559ece43ab120a68dc1c941d6df552d324ec68855c4d9aa68
 - name: dotnet-core-buildpack
   url: https://bosh.io/d/github.com/cloudfoundry/dotnet-core-buildpack-release?v=2.4.51
   version: 2.4.51
@@ -2983,9 +2983,9 @@ releases:
   version: 1.11.58
   sha1: sha256:b203372d046cb492983f56f8c82b29f91020123beec5d6784184f54c12c69e08
 - name: uaa
-  url: https://bosh.io/d/github.com/cloudfoundry/uaa-release?v=79.4.0
-  version: 79.4.0
-  sha1: sha256:1abc063bdde44fb453e203465df3487b72a58fd226492c6b48b7c58287381cda
+  url: https://bosh.io/d/github.com/cloudfoundry/uaa-release?v=79.5.0
+  version: 79.5.0
+  sha1: sha256:a2d505c6aa118a0d17c7e0253e7599603c5a44c2db54de57cb89905a252ae2c4
 - name: loggregator-agent
   url: https://bosh.io/d/github.com/cloudfoundry/loggregator-agent-release?v=8.3.24
   version: 8.3.24

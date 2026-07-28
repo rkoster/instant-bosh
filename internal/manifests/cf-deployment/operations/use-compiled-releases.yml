@@ -72,32 +72,32 @@
   path: /releases/name=cflinuxfs4
   value:
     name: cflinuxfs4
-    sha1: sha256:3df17489b0ace3c48365697704339b2c892eb17fddbe5d385ccaf2e7a1c7b5cd
+    sha1: sha256:571946f474ffc5b72bd6a7b57b8531a168eff0f15868bdf70ac89014b79e796c
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs4-1.323.0-ubuntu-noble-1.333-20260717-161709-939407783.tgz
-    version: 1.323.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs4-1.324.0-ubuntu-noble-1.333-20260725-170313-2843013.tgz
+    version: 1.324.0
 - type: replace
   path: /releases/name=credhub
   value:
     name: credhub
-    sha1: sha256:0eeb5660fcc158e1e0fe3f52b2e556690cafa7ef5b6837d3f4f88eb03ef62865
+    sha1: sha256:1699c7632d64b93233a50ef12a4340b7f3535ebb80091361c34f56bdb60a415d
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/credhub-2.15.14-ubuntu-noble-1.333-20260717-192330-738290988.tgz
-    version: 2.15.14
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/credhub-2.15.15-ubuntu-noble-1.333-20260723-224321-571176912.tgz
+    version: 2.15.15
 - type: replace
   path: /releases/name=diego
   value:
     name: diego
-    sha1: sha256:49b531945a16a129f376651c6b1d96f58698b674918a07dac3839bd2b32bb572
+    sha1: sha256:5b7bb6400b5dc4a9e12e340bb8f16569376add0fef03e7d2a77f658812312cb9
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/diego-2.142.0-ubuntu-noble-1.333-20260715-164051-952697907.tgz
-    version: 2.142.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/diego-2.143.0-ubuntu-noble-1.333-20260723-165516-083926187.tgz
+    version: 2.143.0
 - type: replace
   path: /releases/name=dotnet-core-buildpack
   value:
@@ -292,19 +292,19 @@
   path: /releases/name=uaa
   value:
     name: uaa
-    sha1: sha256:5409bf72c7d894dbdcc904dc28469bf94f3af96df9db011ef4e154e73dc78c0a
+    sha1: sha256:3d1eca5a8140d337da576d9890fbea7693001e1c7c0a0b3007e8799f682e8317
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/uaa-79.4.0-ubuntu-noble-1.333-20260710-220815-519456283.tgz
-    version: 79.4.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/uaa-79.5.0-ubuntu-noble-1.333-20260724-163723-805009518.tgz
+    version: 79.5.0
 - type: replace
   path: /releases/name=cflinuxfs5
   value:
     name: cflinuxfs5
-    sha1: sha256:350ad115956ca32616a9831801a306a1ad70c9070422f2fef0cc3c7c0ab5924c
+    sha1: sha256:1f87a5d96d277297f49d7c8db7ad0edd947900b655f221e3bd1c17628e08df13
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs5-0.43.0-ubuntu-noble-1.333-20260722-194225-613815866.tgz
-    version: 0.43.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs5-0.44.0-ubuntu-noble-1.333-20260723-195349-922268958.tgz
+    version: 0.44.0
