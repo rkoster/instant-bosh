@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.27
-      sha: d8686740a61e1608c837745959478bbb1d2e7ec5
+      commitTitle: Rename and parameterize CI jobs ahead of Resolute stemcells...
+      sha: 8beec25c7750fb7f66e74675d20fb64aa850b9dc
       tags:
-      - last-xenial-5113-gd8686740
+      - last-xenial-5131-g8beec25c
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.27
-      sha: d8686740a61e1608c837745959478bbb1d2e7ec5
+      commitTitle: Rename and parameterize CI jobs ahead of Resolute stemcells...
+      sha: 8beec25c7750fb7f66e74675d20fb64aa850b9dc
       tags:
-      - last-xenial-5113-gd8686740
+      - last-xenial-5131-g8beec25c
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
