@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Rename and parameterize CI jobs ahead of Resolute stemcells...
-      sha: 8beec25c7750fb7f66e74675d20fb64aa850b9dc
+      commitTitle: Bumping bosh to version 283.1.3
+      sha: 7d889744c082c7d71e3db777222fc07456a147f3
       tags:
-      - last-xenial-5131-g8beec25c
+      - last-xenial-5139-g7d889744
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Rename and parameterize CI jobs ahead of Resolute stemcells...
-      sha: 8beec25c7750fb7f66e74675d20fb64aa850b9dc
+      commitTitle: Bumping bosh to version 283.1.3
+      sha: 7d889744c082c7d71e3db777222fc07456a147f3
       tags:
-      - last-xenial-5131-g8beec25c
+      - last-xenial-5139-g7d889744
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
