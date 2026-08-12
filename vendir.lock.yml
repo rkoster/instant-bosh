@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'feat: run credhub in BPM...'
-      sha: 9a377cf8113e05213efe3b760473789a9f527ba9
+      commitTitle: 'ci: fix cpi container images...'
+      sha: 94f5057e500fbd285804af9b3033c3b30640eee0
       tags:
-      - last-xenial-5160-g9a377cf8
+      - last-xenial-5164-g94f5057e
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'feat: run credhub in BPM...'
-      sha: 9a377cf8113e05213efe3b760473789a9f527ba9
+      commitTitle: 'ci: fix cpi container images...'
+      sha: 94f5057e500fbd285804af9b3033c3b30640eee0
       tags:
-      - last-xenial-5160-g9a377cf8
+      - last-xenial-5164-g94f5057e
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
