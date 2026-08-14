@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'ci: fix cpi container images...'
-      sha: 94f5057e500fbd285804af9b3033c3b30640eee0
+      commitTitle: Bumping bosh to version 283.1.4
+      sha: 3f276eb0224e749b5ae5dfea229e5c55dfa987c9
       tags:
-      - last-xenial-5164-g94f5057e
+      - last-xenial-5167-g3f276eb0
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'ci: fix cpi container images...'
-      sha: 94f5057e500fbd285804af9b3033c3b30640eee0
+      commitTitle: Bumping bosh to version 283.1.4
+      sha: 3f276eb0224e749b5ae5dfea229e5c55dfa987c9
       tags:
-      - last-xenial-5164-g94f5057e
+      - last-xenial-5167-g3f276eb0
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
