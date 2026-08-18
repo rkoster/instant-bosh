@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-vsphere-cpi to version 98.0.8
-      sha: a27293e1c0c77881eab6bae1093295f1d5d5f692
+      commitTitle: Bumping syslog to version 12.3.28
+      sha: b41f492c64347c8d63e3de963b4e52d2f4ea7247
       tags:
-      - last-xenial-5172-ga27293e1
+      - last-xenial-5187-gb41f492c
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping CPI bosh-vsphere-cpi to version 98.0.8
-      sha: a27293e1c0c77881eab6bae1093295f1d5d5f692
+      commitTitle: Bumping syslog to version 12.3.28
+      sha: b41f492c64347c8d63e3de963b4e52d2f4ea7247
       tags:
-      - last-xenial-5172-ga27293e1
+      - last-xenial-5187-gb41f492c
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
