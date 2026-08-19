@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.28
-      sha: b41f492c64347c8d63e3de963b4e52d2f4ea7247
+      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.1364
+      sha: 946130f9403f94070d4826871f6e7547e5ba19a6
       tags:
-      - last-xenial-5187-gb41f492c
+      - last-xenial-5205-g946130f9
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.28
-      sha: b41f492c64347c8d63e3de963b4e52d2f4ea7247
+      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.1364
+      sha: 946130f9403f94070d4826871f6e7547e5ba19a6
       tags:
-      - last-xenial-5187-gb41f492c
+      - last-xenial-5205-g946130f9
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
