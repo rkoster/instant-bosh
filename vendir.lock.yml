@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.1364
-      sha: 946130f9403f94070d4826871f6e7547e5ba19a6
+      commitTitle: Bumping backup-and-restore-sdk to version 1.20.2
+      sha: 1a016e0f622100def878f38f7caf6d59355896d4
       tags:
-      - last-xenial-5205-g946130f9
+      - last-xenial-5220-g1a016e0f
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v60.0.0
-      sha: dd7314add65fc61ff1a5036ed5afeb43064e6698
+      commitTitle: Update cf-deployment manifest version to v60.1.0
+      sha: a31d0067ca86b3abe4c06b37167ae317b93b482c
       tags:
-      - v60.0.0
+      - v60.1.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping Stemcell gcp-ubuntu-jammy-stemcell to version 1.1364
-      sha: 946130f9403f94070d4826871f6e7547e5ba19a6
+      commitTitle: Bumping backup-and-restore-sdk to version 1.20.2
+      sha: 1a016e0f622100def878f38f7caf6d59355896d4
       tags:
-      - last-xenial-5205-g946130f9
+      - last-xenial-5220-g1a016e0f
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
