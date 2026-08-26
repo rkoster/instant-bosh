@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 79.6.0
-      sha: c3b2109fe48267c599704eaa9aa62a0735a95707
+      commitTitle: 'Workflow: disallow PR''s to master'
+      sha: 7c396eb1104b8e79e9ebdf59cd76ecb6f740d9e9
       tags:
-      - last-xenial-5232-gc3b2109f
+      - last-xenial-5238-g7c396eb1
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 79.6.0
-      sha: c3b2109fe48267c599704eaa9aa62a0735a95707
+      commitTitle: 'Workflow: disallow PR''s to master'
+      sha: 7c396eb1104b8e79e9ebdf59cd76ecb6f740d9e9
       tags:
-      - last-xenial-5232-gc3b2109f
+      - last-xenial-5238-g7c396eb1
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
