@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Workflow: disallow PR''s to master'
-      sha: 7c396eb1104b8e79e9ebdf59cd76ecb6f740d9e9
+      commitTitle: Bumping bosh to version 283.1.6
+      sha: c5201e639030ef31e78a355312a6dfc5f32dd7a1
       tags:
-      - last-xenial-5238-g7c396eb1
+      - last-xenial-5256-gc5201e63
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v60.1.0
-      sha: a31d0067ca86b3abe4c06b37167ae317b93b482c
+      commitTitle: Update cf-deployment manifest version to v60.2.0
+      sha: 496b0ff28bbaa034066999ceccf47f432f363ebb
       tags:
-      - v60.1.0
+      - v60.2.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'Workflow: disallow PR''s to master'
-      sha: 7c396eb1104b8e79e9ebdf59cd76ecb6f740d9e9
+      commitTitle: Bumping bosh to version 283.1.6
+      sha: c5201e639030ef31e78a355312a6dfc5f32dd7a1
       tags:
-      - last-xenial-5238-g7c396eb1
+      - last-xenial-5256-gc5201e63
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
