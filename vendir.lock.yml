@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping os-conf to version 23.0.3
-      sha: bc8d4c32f4c5cf8f7b0d824961c3957fe959c63a
+      commitTitle: Avoid breaking consumers of the Azure managed disks ops file
+      sha: 4c287c2620ad3a03a6fd8de70fded1e8e981dff4
       tags:
-      - last-xenial-5263-gbc8d4c32
+      - last-xenial-5296-g4c287c26
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v60.2.0
-      sha: 496b0ff28bbaa034066999ceccf47f432f363ebb
+      commitTitle: Update cf-deployment manifest version to v60.3.0
+      sha: e967bef8ee1bfcb8f5af0e5edf006751e4e35747
       tags:
-      - v60.2.0
+      - v60.3.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping os-conf to version 23.0.3
-      sha: bc8d4c32f4c5cf8f7b0d824961c3957fe959c63a
+      commitTitle: Avoid breaking consumers of the Azure managed disks ops file
+      sha: 4c287c2620ad3a03a6fd8de70fded1e8e981dff4
       tags:
-      - last-xenial-5263-gbc8d4c32
+      - last-xenial-5296-g4c287c26
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
