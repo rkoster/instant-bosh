@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.29
-      sha: 4f7054feaf706229f8b8a92acbf48dbf53587129
+      commitTitle: 'Merge pull request #531 from metskem/UPDATE_S3_HOSTS...'
+      sha: a6d25efa54483c96de56c846a5f1214ef0f45f80
       tags:
-      - last-xenial-5345-g4f7054fe
+      - last-xenial-5347-ga6d25efa
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping syslog to version 12.3.29
-      sha: 4f7054feaf706229f8b8a92acbf48dbf53587129
+      commitTitle: 'Merge pull request #531 from metskem/UPDATE_S3_HOSTS...'
+      sha: a6d25efa54483c96de56c846a5f1214ef0f45f80
       tags:
-      - last-xenial-5345-g4f7054fe
+      - last-xenial-5347-ga6d25efa
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
