@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Merge pull request #534 from cloudfoundry/add-generic-tags-ops...'
-      sha: c0422bbd417062db7e9507a4e418df7cc0ed9acb
+      commitTitle: Bumping credhub to version 2.15.24
+      sha: a19a3b4769885fca12486d9222e81baa6318838d
       tags:
-      - last-xenial-5459-gc0422bbd
+      - last-xenial-5470-ga19a3b47
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'Merge pull request #534 from cloudfoundry/add-generic-tags-ops...'
-      sha: c0422bbd417062db7e9507a4e418df7cc0ed9acb
+      commitTitle: Bumping credhub to version 2.15.24
+      sha: a19a3b4769885fca12486d9222e81baa6318838d
       tags:
-      - last-xenial-5459-gc0422bbd
+      - last-xenial-5470-ga19a3b47
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
