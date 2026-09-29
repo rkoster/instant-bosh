@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 79.8.0
-      sha: ef15655c5fef51fbfac329ed45f5806002d75b7f
+      commitTitle: Bumping backup-and-restore-sdk to version 1.20.5
+      sha: bab5d136763e7ab4a0322a160055d333be008e09
       tags:
-      - last-xenial-5473-gef15655c
+      - last-xenial-5476-gbab5d136
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping uaa to version 79.8.0
-      sha: ef15655c5fef51fbfac329ed45f5806002d75b7f
+      commitTitle: Bumping backup-and-restore-sdk to version 1.20.5
+      sha: bab5d136763e7ab4a0322a160055d333be008e09
       tags:
-      - last-xenial-5473-gef15655c
+      - last-xenial-5476-gbab5d136
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
