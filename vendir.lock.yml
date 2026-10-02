@@ -3,9 +3,9 @@ directories:
 - contents:
   - git:
       commitTitle: Bumping backup-and-restore-sdk to version 1.20.5
-      sha: a5172cebf3f9857e7ef288f40f445555aa5c6924
+      sha: 0fa639991bd346ce0f120fd8420b12ebc107c746
       tags:
-      - last-xenial-5507-ga5172ceb
+      - last-xenial-5528-g0fa63999
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v60.7.0
-      sha: e6cae3d266de0b6d1dcb2ba5aa632d0e982f94aa
+      commitTitle: Update cf-deployment manifest version to v60.8.0
+      sha: 699d2dfcf0b56197cd226f40af55a00024e3be91
       tags:
-      - v60.7.0
+      - v60.8.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
       commitTitle: Bumping backup-and-restore-sdk to version 1.20.5
-      sha: a5172cebf3f9857e7ef288f40f445555aa5c6924
+      sha: 0fa639991bd346ce0f120fd8420b12ebc107c746
       tags:
-      - last-xenial-5507-ga5172ceb
+      - last-xenial-5528-g0fa63999
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
