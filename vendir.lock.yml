@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping backup-and-restore-sdk to version 1.20.5
-      sha: 0fa639991bd346ce0f120fd8420b12ebc107c746
+      commitTitle: Bumping credhub to version 2.15.25
+      sha: 9a78978708471e819490551e67e65321def301d2
       tags:
-      - last-xenial-5528-g0fa63999
+      - last-xenial-5531-g9a789787
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping backup-and-restore-sdk to version 1.20.5
-      sha: 0fa639991bd346ce0f120fd8420b12ebc107c746
+      commitTitle: Bumping credhub to version 2.15.25
+      sha: 9a78978708471e819490551e67e65321def301d2
       tags:
-      - last-xenial-5528-g0fa63999
+      - last-xenial-5531-g9a789787
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
