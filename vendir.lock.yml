@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh to version 283.1.13
-      sha: 8d86e4338e65068bd66bd68bfa2f8aabd0fae582
+      commitTitle: Bumping garden-runc to version 1.102.0
+      sha: d40d0be17b5d69f9387e91992328e01b7d6b9fe7
       tags:
-      - last-xenial-5561-g8d86e433
+      - last-xenial-5601-gd40d0be1
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v60.9.0
-      sha: 983fd5d2b3e1497c9dcec8b82216a7664fc96fd1
+      commitTitle: Update cf-deployment manifest version to v60.10.0
+      sha: 6087d6187ff113882a0a3dd4cda3455cbef4d1e2
       tags:
-      - v60.9.0
+      - v60.10.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping bosh to version 283.1.13
-      sha: 8d86e4338e65068bd66bd68bfa2f8aabd0fae582
+      commitTitle: Bumping garden-runc to version 1.102.0
+      sha: d40d0be17b5d69f9387e91992328e01b7d6b9fe7
       tags:
-      - last-xenial-5561-g8d86e433
+      - last-xenial-5601-gd40d0be1
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
