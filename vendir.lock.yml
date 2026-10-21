@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: Bumping bosh-dns to version 1.39.33
-      sha: 287459ca32d98d7f554b331284a660bf2d315488
+      commitTitle: Bumping bosh-dns to version 1.39.34
+      sha: 812c444412284401cafdc2b679fc8ee1e0e62945
       tags:
-      - last-xenial-5625-g287459ca
+      - last-xenial-5647-g812c4444
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -22,10 +22,10 @@ directories:
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: Bumping bosh-dns to version 1.39.33
-      sha: 287459ca32d98d7f554b331284a660bf2d315488
+      commitTitle: Bumping bosh-dns to version 1.39.34
+      sha: 812c444412284401cafdc2b679fc8ee1e0e62945
       tags:
-      - last-xenial-5625-g287459ca
+      - last-xenial-5647-g812c4444
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
