@@ -184,8 +184,9 @@ func ResolveCFConfig(ui UI, routerIP, systemDomain string) (*CFManifestConfig, e
 }
 
 // PrepareCFManifestFiles creates a temporary directory with all CF manifest and ops files.
+// Docker-specific ops are included only when cpiType is Docker.
 // The caller must call Cleanup() on the returned struct when done.
-func PrepareCFManifestFiles() (*CFManifestFiles, error) {
+func PrepareCFManifestFiles(cpiType cpi.CPIType) (*CFManifestFiles, error) {
 	// Create temporary directory for manifest files
 	tmpDir, err := os.MkdirTemp("", "cf-manifest-*")
 	if err != nil {
@@ -232,6 +233,15 @@ func PrepareCFManifestFiles() (*CFManifestFiles, error) {
 		"fix-colocation-port-conflicts.yml",
 		"use-gorouter-static-ip.yml",
 		"skip-rep-drain.yml",
+	}
+	if cpiType == cpi.CPITypeDocker {
+		content, err := manifests.CFOpsFile("disable-kernel-parameters.yml")
+		if err != nil {
+			result.Cleanup()
+			return nil, fmt.Errorf("failed to read Docker kernel parameters ops file: %w", err)
+		}
+		opsFiles = append(opsFiles, content)
+		opsFilePaths = append(opsFilePaths, "disable-kernel-parameters.yml")
 	}
 
 	// Start with DNS ops file (applied first)
@@ -286,7 +296,14 @@ func CFManifestAction(ui UI, opts CFManifestOptions) error {
 	}
 
 	// Prepare manifest files
-	files, err := PrepareCFManifestFiles()
+	cpiType := cpi.CPITypeUnknown
+	if hasBOSHEnv {
+		cpiType, err = cpi.DetectCPIType(ctx)
+		if err != nil {
+			return fmt.Errorf("detecting CPI type: %w", err)
+		}
+	}
+	files, err := PrepareCFManifestFiles(cpiType)
 	if err != nil {
 		return err
 	}
@@ -364,7 +381,11 @@ func CFDeployAction(ui UI, opts CFDeployOptions) error {
 	ui.PrintLinef("")
 
 	// Use shared manifest preparation
-	files, err := PrepareCFManifestFiles()
+	cpiType, err := cpi.DetectCPIType(ctx)
+	if err != nil {
+		return fmt.Errorf("detecting CPI type: %w", err)
+	}
+	files, err := PrepareCFManifestFiles(cpiType)
 	if err != nil {
 		return err
 	}

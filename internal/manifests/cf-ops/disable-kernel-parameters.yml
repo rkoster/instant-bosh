@@ -1,0 +1,19 @@
+---
+# Docker CPI instances share the host kernel and cannot tune all /proc/sys
+# parameters. Match the kernel tuning overrides in cf-deployment's bosh-lite.yml.
+# Apply before instance group consolidation.
+- type: replace
+  path: /instance_groups/name=diego-cell/jobs/name=rep/properties/set_kernel_parameters?
+  value: false
+
+- type: replace
+  path: /instance_groups/name=diego-api/jobs/name=bbs/properties/set_kernel_parameters?
+  value: false
+
+- type: replace
+  path: /instance_groups/name=api/jobs/name=file_server/properties/set_kernel_parameters?
+  value: false
+
+- type: replace
+  path: /instance_groups/name=diego-api/jobs/name=locket/properties/set_kernel_parameters?
+  value: false
