@@ -32,6 +32,9 @@ jobs:
         run: |
           devbox run -- ginkgo -r --race --randomize-all --cover --coverprofile=coverage.out
 
+      - name: Test director bootstrap
+        run: devbox run -- go test ./ops
+
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()

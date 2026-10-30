@@ -4,6 +4,7 @@
 # This ops file adds a pre-start-script job that:
 # 1. Fixes Docker socket permissions so vcap user can access it for CPI operations
 # 2. Starts SSH daemon for container access (since systemd is not running)
+# 3. Orders PostgreSQL bootstrap and director worker startup
 
 # Add os-conf release if not already present
 - path: /releases/name=os-conf?
@@ -25,7 +26,88 @@
       script: |-
         #!/bin/bash
         set -e
-        
+
+        # BEGIN instant-bosh database bootstrap
+        setup_database_bootstrap() {
+          local root="${INSTANT_BOSH_VCAP_ROOT:-/var/vcap}"
+          local create_db="$root/jobs/postgres/bin/create-database"
+          local director="$root/jobs/director/bin/director"
+          local worker="$root/jobs/director/bin/worker"
+          local scheduler="$root/jobs/director/bin/scheduler"
+          local ready="$root/store/director/.instant-bosh-migrations-ready"
+          local db_ready="$root/store/director/.instant-bosh-database-ready"
+          local wait_script="$root/jobs/director/bin/instant-bosh-wait-for-migrations"
+          local script
+
+          # initdb creates the vcap superuser, not postgres. Waiting for the
+          # application role here delays the very script that creates it.
+          if ! grep -Fq 'oid2name -H ${HOST} -U ${USER} -d postgres -q' "$create_db" &&
+             ! grep -Fq 'oid2name -H ${HOST} -U vcap -d postgres -q' "$create_db"; then
+            echo 'Unexpected postgres create-database readiness check' >&2
+            return 1
+          fi
+          if ! grep -Fq 'exec /var/vcap/packages/director/bin/bosh-director \' "$director"; then
+            echo 'Unexpected director startup script' >&2
+            return 1
+          fi
+          for script in "$worker" "$scheduler"; do
+            if [ "$(head -n 1 "$script")" != '#!/bin/bash' ]; then
+              echo "Unexpected director process script: $script" >&2
+              return 1
+            fi
+          done
+
+          mkdir -p "$root/store/director"
+          rm -f "$ready" "$db_ready"
+          sed -i 's/oid2name -H ${HOST} -U ${USER} -d postgres -q/oid2name -H ${HOST} -U vcap -d postgres -q/' "$create_db"
+
+          if ! grep -Fq '# instant-bosh database readiness' "$create_db"; then
+            cat >> "$create_db" <<'SCRIPT'
+
+        # instant-bosh database readiness
+        for DBNAME in "${DBNAMES[@]}"; do
+          if ! PGPASSWORD="$PASSWORD" "$PACKAGE_DIR/bin/psql" -h "$HOST" -p "$PORT" -U "$USER" -d "$DBNAME" -c 'SELECT 1' >/dev/null; then
+            echo "Database $DBNAME is not ready for $USER" >&2
+            exit 1
+          fi
+        done
+        touch /var/vcap/store/director/.instant-bosh-database-ready
+        SCRIPT
+          fi
+
+          # The director runs migrations before exec. Workers must wait for
+          # that to succeed: bob starts all BPM processes concurrently and
+          # does not restart workers that exit during initial DB bootstrap.
+          if ! grep -Fq 'touch /var/vcap/store/director/.instant-bosh-migrations-ready' "$director"; then
+            sed -i '/^exec \/var\/vcap\/packages\/director\/bin\/bosh-director \\/i touch /var/vcap/store/director/.instant-bosh-migrations-ready' "$director"
+          fi
+          if ! grep -Fq 'instant-bosh-wait-for-database' "$director"; then
+            sed -i '1a source /var/vcap/jobs/director/bin/instant-bosh-wait-for-database' "$director"
+          fi
+          cat > "$root/jobs/director/bin/instant-bosh-wait-for-database" <<'SCRIPT'
+        #!/bin/bash
+        if ! timeout 300 bash -c 'until [ -f /var/vcap/store/director/.instant-bosh-database-ready ]; do sleep 1; done'; then
+          echo 'Timed out waiting for director database bootstrap' >&2
+          exit 1
+        fi
+        SCRIPT
+          cat > "$wait_script" <<'SCRIPT'
+        #!/bin/bash
+        if ! timeout 300 bash -c 'until [ -f /var/vcap/store/director/.instant-bosh-migrations-ready ]; do sleep 1; done'; then
+          echo 'Timed out waiting for director database migrations' >&2
+          exit 1
+        fi
+        SCRIPT
+          chmod 755 "$wait_script"
+          for script in "$worker" "$scheduler"; do
+            if ! grep -Fxq 'source /var/vcap/jobs/director/bin/instant-bosh-wait-for-migrations' "$script"; then
+              sed -i '1a source /var/vcap/jobs/director/bin/instant-bosh-wait-for-migrations' "$script"
+            fi
+          done
+        }
+        setup_database_bootstrap
+        # END instant-bosh database bootstrap
+
         # On macOS Apple Silicon, mount binfmt_misc for multi-arch support
         # This is required for running x86_64 containers on ARM64 hosts
         if [ -d /proc/sys/fs/binfmt_misc ] && [ "$(uname -s)" = "Linux" ]; then
@@ -58,4 +140,3 @@
         
         # Start sshd (runs as daemon by default)
         /usr/sbin/sshd
-
