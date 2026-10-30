@@ -31,6 +31,7 @@
         setup_database_bootstrap() {
           local root="${INSTANT_BOSH_VCAP_ROOT:-/var/vcap}"
           local create_db="$root/jobs/postgres/bin/create-database"
+          local postgres_bpm="$root/jobs/postgres/config/bpm.yml"
           local director="$root/jobs/director/bin/director"
           local worker="$root/jobs/director/bin/worker"
           local scheduler="$root/jobs/director/bin/scheduler"
@@ -57,6 +58,16 @@
             fi
           done
 
+          # BPM isolates each job's store. Mount the director's store into
+          # Postgres so its readiness marker is visible to the director.
+          if ! grep -Fxq '  additional_volumes:' "$postgres_bpm"; then
+            echo 'Unexpected postgres BPM volume configuration' >&2
+            return 1
+          fi
+          if ! grep -Fq 'path: "/var/vcap/store/director"' "$postgres_bpm"; then
+            sed -i '/^  additional_volumes:$/a\  - path: "/var/vcap/store/director"\n    writable: true' "$postgres_bpm"
+          fi
+
           mkdir -p "$root/store/director"
           rm -f "$ready" "$db_ready"
           sed -i 's/oid2name -H ${HOST} -U ${USER} -d postgres -q/oid2name -H ${HOST} -U vcap -d postgres -q/' "$create_db"
@@ -71,6 +82,7 @@
             exit 1
           fi
         done
+        mkdir -p /var/vcap/store/director
         touch /var/vcap/store/director/.instant-bosh-database-ready
         SCRIPT
           fi

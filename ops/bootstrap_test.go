@@ -57,6 +57,7 @@ func TestDirectorDatabaseBootstrap(t *testing.T) {
 		return string(data)
 	}
 	createDB := write("jobs/postgres/bin/create-database", "#!/bin/bash\nif oid2name -H ${HOST} -U ${USER} -d postgres -q; then :; fi\n")
+	postgresBPM := write("jobs/postgres/config/bpm.yml", "processes:\n- name: postgres\n  additional_volumes:\n  - path: \"/var/vcap/store/postgres-15\"\n    writable: true\n")
 	director := write("jobs/director/bin/director", "#!/bin/bash\nset -e\n${MIGRATION:-true}\nexec /var/vcap/packages/director/bin/bosh-director \\\n  -c ignored\n")
 	worker := write("jobs/director/bin/worker", "#!/bin/bash\necho worker-started\n")
 	scheduler := write("jobs/director/bin/scheduler", "#!/bin/bash\necho scheduler-started\n")
@@ -67,6 +68,7 @@ func TestDirectorDatabaseBootstrap(t *testing.T) {
 	// the deployed script; all process execution stays inside the test directory.
 	setup = strings.ReplaceAll(setup, "/var/vcap/store/director/.instant-bosh-migrations-ready", ready)
 	setup = strings.ReplaceAll(setup, "/var/vcap/store/director/.instant-bosh-database-ready", dbReady)
+	setup = strings.ReplaceAll(setup, "mkdir -p /var/vcap/store/director", "mkdir -p "+filepath.Dir(dbReady))
 	setup = strings.ReplaceAll(setup, "/var/vcap/jobs/director/bin/instant-bosh-wait-for-migrations", filepath.Join(root, "jobs/director/bin/instant-bosh-wait-for-migrations"))
 	setup = strings.ReplaceAll(setup, "/var/vcap/jobs/director/bin/instant-bosh-wait-for-database", filepath.Join(root, "jobs/director/bin/instant-bosh-wait-for-database"))
 	setup = strings.ReplaceAll(setup, "timeout 300", "timeout 4")
@@ -101,6 +103,20 @@ func TestDirectorDatabaseBootstrap(t *testing.T) {
 	if strings.Count(read(createDB), "# instant-bosh database readiness") != 1 {
 		t.Fatal("repeated setup duplicated the database readiness check")
 	}
+	var bpm struct {
+		Processes []struct {
+			Volumes []struct {
+				Path     string `yaml:"path"`
+				Writable bool   `yaml:"writable"`
+			} `yaml:"additional_volumes"`
+		} `yaml:"processes"`
+	}
+	if err := yaml.Unmarshal([]byte(read(postgresBPM)), &bpm); err != nil {
+		t.Fatal(err)
+	}
+	if len(bpm.Processes) != 1 || len(bpm.Processes[0].Volumes) != 2 || bpm.Processes[0].Volumes[0].Path != "/var/vcap/store/director" || !bpm.Processes[0].Volumes[0].Writable {
+		t.Fatal("postgres BPM must mount the shared director store once and writable")
+	}
 	// Verify the real appended check signals only after every database accepts
 	// connections as the application role.
 	write("package/bin/psql", "#!/usr/bin/env bash\nexit \"${PSQL_STATUS:-0}\"\n")
@@ -117,8 +133,14 @@ func TestDirectorDatabaseBootstrap(t *testing.T) {
 	if _, err := os.Stat(dbReady); !os.IsNotExist(err) {
 		t.Fatal("failed database check signaled readiness")
 	}
+	if err := os.RemoveAll(filepath.Dir(dbReady)); err != nil {
+		t.Fatal(err)
+	}
 	if err := runReadiness("0"); err != nil {
 		t.Fatalf("database readiness failed: %v", err)
+	}
+	if _, err := os.Stat(dbReady); err != nil {
+		t.Fatalf("database readiness marker was not created: %v", err)
 	}
 
 	// Simulate failure and success of the real director migration command.
