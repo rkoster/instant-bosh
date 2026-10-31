@@ -2,10 +2,10 @@ apiVersion: vendir.k14s.io/v1alpha1
 directories:
 - contents:
   - git:
-      commitTitle: 'Merge pull request #536 from cloudfoundry/fix-bosh-io-release-url-check...'
-      sha: 90c08ea691eb0efa67e05c0e2ae667472f74bb7e
+      commitTitle: Bumping backup-and-restore-sdk to version 1.20.8
+      sha: 67ea9a03e4226d179f4648b7535e40de2f620eea
       tags:
-      - last-xenial-5731-g90c08ea6
+      - last-xenial-5750-g67ea9a03
     path: bosh-deployment
   - git:
       commitTitle: Use final release v1 from bosh.io
@@ -14,18 +14,18 @@ directories:
   path: manifests
 - contents:
   - git:
-      commitTitle: Update cf-deployment manifest version to v61.0.0
-      sha: ac00e41c2b8291553fdeaa5af207b46bed4166ec
+      commitTitle: Update cf-deployment manifest version to v61.1.0
+      sha: afa697068393b6250b4629ad1de42de3843eda4a
       tags:
-      - v61.0.0
+      - v61.1.0
     path: .
   path: internal/manifests/cf-deployment
 - contents:
   - git:
-      commitTitle: 'Merge pull request #536 from cloudfoundry/fix-bosh-io-release-url-check...'
-      sha: 90c08ea691eb0efa67e05c0e2ae667472f74bb7e
+      commitTitle: Bumping backup-and-restore-sdk to version 1.20.8
+      sha: 67ea9a03e4226d179f4648b7535e40de2f620eea
       tags:
-      - last-xenial-5731-g90c08ea6
+      - last-xenial-5750-g67ea9a03
     path: .
   path: internal/manifests/bosh-deployment
 - contents:
