@@ -10,10 +10,15 @@ on:
       - 'ops/**'
       - 'manifests/**'
       - 'devbox.lock'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+      - 'go.sum'
       - 'vendor/**'
       - 'Makefile'
       - 'LICENSE'
       - '.github/workflows/build-and-publish.yml'
+      - '.github/scripts/image-smoke-test.sh'
   workflow_run:
     workflows: ["Auto Bump Dependencies"]
     types:
@@ -31,7 +36,7 @@ jobs:
     # Only run if triggered by push/workflow_dispatch, or if triggered by workflow_run and it was successful
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: write
@@ -85,6 +90,14 @@ jobs:
         timeout-minutes: 30
         run: |
           make build
+
+      - name: Smoke test director and Docker CPI
+        timeout-minutes: 25
+        run: |
+          go build -o "$RUNNER_TEMP/ibosh" ./cmd/ibosh
+          GOBIN="$RUNNER_TEMP" go install github.com/cloudfoundry/bosh-cli/v7@v7.9.13
+          mv "$RUNNER_TEMP/bosh-cli" "$RUNNER_TEMP/bosh"
+          bash .github/scripts/image-smoke-test.sh
 
       - name: Tag and push image
         run: |

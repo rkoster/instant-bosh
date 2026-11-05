@@ -4,6 +4,7 @@
 BOB_OPS = \
 	--ops-file manifests/bosh-deployment/docker/cpi.yml \
 	--ops-file manifests/bosh-deployment/docker/unix-sock.yml \
+	--ops-file ops/docker-cpi-socket.yml \
 	--ops-file ops/lxd-cpi-release.yml \
 	--ops-file ops/stemcell.yml \
 	--ops-file ops/docker-localhost.yml \

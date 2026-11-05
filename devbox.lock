@@ -1,6 +1,44 @@
 {
   "lockfile_version": "1",
   "packages": {
+    "bosh-cli@latest": {
+      "last_modified": "2026-10-02T22:55:44Z",
+      "resolved": "github:NixOS/nixpkgs/55ba7f49ef2962b42cbd126522b7df5f95037679#bosh-cli",
+      "source": "devbox-search",
+      "version": "7.10.8",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/2q36hsv2vznl32p5zhz8rbz1li3zi90h-bosh-cli-7.10.8",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/2q36hsv2vznl32p5zhz8rbz1li3zi90h-bosh-cli-7.10.8"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/si54m1klb4mp7q3162d3ddywx0904adw-bosh-cli-7.10.8",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/si54m1klb4mp7q3162d3ddywx0904adw-bosh-cli-7.10.8"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/4kwwykxqr2g0inp162wml5rsckh18cr8-bosh-cli-7.10.8",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/4kwwykxqr2g0inp162wml5rsckh18cr8-bosh-cli-7.10.8"
+        }
+      }
+    },
     "docker@latest": {
       "last_modified": "2025-12-29T16:45:58Z",
       "resolved": "github:NixOS/nixpkgs/346dd96ad74dc4457a9db9de4f4f57dab2e5731d#docker",

@@ -5,7 +5,8 @@
     "go@latest",
     "ginkgo@latest",
     "docker@latest",
-    "git@latest"
+    "git@latest",
+    "bosh-cli@latest"
   ],
   "shell": {
     "init_hook": [
