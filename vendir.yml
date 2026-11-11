@@ -6,7 +6,7 @@ directories:
   - path: bosh-deployment
     git:
       url: https://github.com/cloudfoundry/bosh-deployment/
-      ref: origin/master
+      ref: origin/main
     includePaths:
     - bosh.yml
     - docker/cpi.yml
@@ -44,7 +44,7 @@ directories:
   - path: .
     git:
       url: https://github.com/cloudfoundry/bosh-deployment/
-      ref: origin/master
+      ref: origin/main
     includePaths:
     - runtime-configs/dns.yml
     - bosh.yml
