@@ -92,32 +92,32 @@
   path: /releases/name=diego
   value:
     name: diego
-    sha1: sha256:c3949d6adeb2c724c06e711e5e0a45055a1f2e397ceff2a7cf95863c3e5f33e1
+    sha1: sha256:1c3b1da3159a68e50b07168e252a4821cf5cf89c9b0795cb5aaf4f8cac006c4a
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/diego-2.151.0-ubuntu-noble-1.333-20260924-173116-01498607.tgz
-    version: 2.151.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/diego-2.152.0-ubuntu-noble-1.333-20261102-225610-763721749.tgz
+    version: 2.152.0
 - type: replace
   path: /releases/name=dotnet-core-buildpack
   value:
     name: dotnet-core-buildpack
-    sha1: sha256:763c728571ee3fa3b497ed9145ea099a3bfaa9c3b6eae984f8b32c21f73bdefb
+    sha1: sha256:956c58b425c2cdbfb72021a0430b6579de27e7653d8be2e46108e0e7c36eb534
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/dotnet-core-buildpack-2.4.53-ubuntu-noble-1.333-20261026-120113-142672462.tgz
-    version: 2.4.53
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/dotnet-core-buildpack-2.4.54-ubuntu-noble-1.333-20261102-095533-762521122.tgz
+    version: 2.4.54
 - type: replace
   path: /releases/name=garden-runc
   value:
     name: garden-runc
-    sha1: sha256:b19fe11cb699af3c418cbdfed8de865651581d9faa2d00773fb9a70738cc9704
+    sha1: sha256:fa1e733d4c8c89cdf6ad6b57a655c009ac0e8f6d18a195b27759251c4cc6424c
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/garden-runc-1.104.0-ubuntu-noble-1.333-20261023-091214-231754621.tgz
-    version: 1.104.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/garden-runc-1.105.0-ubuntu-noble-1.333-20261102-230003-345079256.tgz
+    version: 1.105.0
 - type: replace
   path: /releases/name=go-buildpack
   value:
@@ -252,12 +252,12 @@
   path: /releases/name=ruby-buildpack
   value:
     name: ruby-buildpack
-    sha1: sha256:f7fb44deb45f5d171c36fea912a1687eabc1d7b1dc7f2dd46e719c6d8c457d5e
+    sha1: sha256:68bc94d9c40b002ea0a3546e42a78202cb6520654aa4fb3bd8a4c95852b1e033
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/ruby-buildpack-1.11.3-ubuntu-noble-1.333-20261026-115339-71588531.tgz
-    version: 1.11.3
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/ruby-buildpack-1.11.4-ubuntu-noble-1.333-20261102-095904-270045153.tgz
+    version: 1.11.4
 - type: replace
   path: /releases/name=silk
   value:
@@ -272,12 +272,12 @@
   path: /releases/name=staticfile-buildpack
   value:
     name: staticfile-buildpack
-    sha1: sha256:b7b30d7cb59748d12ce13968b22ce73814bda57b598663992d9ebfe25fd8d6f7
+    sha1: sha256:623cd986339b798abcc7a85b61647ceeacc6268ef085591af7dcf1695ca2ec0b
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/staticfile-buildpack-1.6.40-ubuntu-noble-1.333-20261012-155128-464837644.tgz
-    version: 1.6.40
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/staticfile-buildpack-1.6.41-ubuntu-noble-1.333-20261102-102038-659378326.tgz
+    version: 1.6.41
 - type: replace
   path: /releases/name=statsd-injector
   value:
@@ -302,9 +302,9 @@
   path: /releases/name=cflinuxfs5
   value:
     name: cflinuxfs5
-    sha1: sha256:da69b373c222b6a44c369d8aba38c87d1bf75a3d15825af7a7295fd82b2fd525
+    sha1: sha256:3e4a6e77b12a7233e647c98d3173f4d789ccf1772e0f04c56d40f27c18029a3e
     stemcell:
       os: ubuntu-noble
       version: "1.333"
-    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs5-0.65.0-ubuntu-noble-1.333-20261031-140628-709963577.tgz
-    version: 0.65.0
+    url: https://storage.googleapis.com/cf-deployment-compiled-releases/cflinuxfs5-0.66.0-ubuntu-noble-1.333-20261103-184146-342257058.tgz
+    version: 0.66.0
